@@ -21,13 +21,21 @@ set(
     exp_control_treatment_tune
 )
 
+set(
+    EXAMPLE_LIBS
+    Eigen3::Eigen
+)
+
+if (KEVLAR_HAS_PTHREAD)
+    list(APPEND EXAMPLE_LIBS Threads::Threads)
+endif()
+
 foreach(example ${EXAMPLES})
     add_executable(${example}
         ${CMAKE_CURRENT_SOURCE_DIR}/${example}.cpp)
     target_link_libraries(${example}
         ${PROJECT_NAME}
-        Threads::Threads
-        Eigen3::Eigen)
+        ${EXAMPLE_LIBS})
     if (KEVLAR_HAS_PTHREAD)
         target_compile_definitions(${example} PRIVATE
             ${KEVLAR_HAS_PTHREAD_MACRO})

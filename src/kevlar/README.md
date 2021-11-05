@@ -13,6 +13,8 @@ and configurable simulations for popular models used in clinical trials.
 - [GoogleTest](https://github.com/google/googletest) (_dev only_)
 
 ## Build
+
+First, install Eigen. Download the latest release and follow the directions in the `INSTALL` file.
  
 Simply run `./clean-build.sh [debug/release]` (choose one of `debug` or `release`).
 This will create a `build` directory containing either `debug` or `release` sub-directory.
@@ -20,11 +22,12 @@ For testing purposes, it is recommended to build with `debug`.
 For all other purposes, it is recommended to build with `release`.
 
 One can also pass CMake options, e.g. `./clean-build.sh [debug/release] [CMake options...]`.
-For example, if one wishes to run the tests
-and GoogleTest is installed locally in `/path/to/googletest`,
-then you must pass `-DGTest_DIR=/path/to/googletest/install/lib/cmake/GTest` where 
-`/path/to/googletest/install` is the installation path to GoogleTest.
-If one wishes to build without tests, pass `-DKEVLAR_ENABLE_TEST=OFF`.
+* Running the tests: if one wishes to run the tests and GoogleTest is installed
+  locally in `/path/to/googletest`, then you must pass
+  `-DGTest_DIR=/path/to/googletest/install/lib/cmake/GTest` where
+  `/path/to/googletest/install` is the installation path to GoogleTest.
+* If one wishes to build without tests, pass `-DKEVLAR_ENABLE_TEST=OFF`.
+* To build without PThreads (probably because you're on a Mac) add `-DKEVLAR_HAS_PTHREAD=OFF`
 
 To run tests, do the following:
 ```

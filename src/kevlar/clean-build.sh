@@ -18,15 +18,16 @@ mkdir -p release
 
 # if debug mode
 if [ "$mode" = "debug" ]; then
+    rm -rf debug/*
     cd debug
 # if release mode
 elif [ "$mode" = "release" ]; then
+    rm -rf release/*
     cd release
 else
     echo "Usage: ./clean-build.sh <debug/release> [cmake options]" 1>&2
     exit 1
 fi
 
-rm -rf *
 cmake ../../ "$@"
 cmake --build . -- -j12
