@@ -27,20 +27,12 @@ body {
     padding: 8px
 }
 
-.slider {
-    flex-grow: 1;
-    padding-left: 20px;
-    padding-right: 20px;
-    margin: inherit;
-}
-
 .left {
     width: 300px;
     display: flex;
     align-items: left;
     justify-content: space-evenly;
     flex-direction: column;
-    padding: 20px;
 }
 
 .right {
@@ -51,6 +43,8 @@ body {
     height: 100%;
     display: flex;
     flex-direction: row;
+    padding-left: 50px;
+    padding-right: 50px;
 }
 
 
