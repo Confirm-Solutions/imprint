@@ -4,7 +4,7 @@
 
 #include <iostream>
 
-long numOfHeapAllocations = 0;
+static long numOfHeapAllocations = 0;
 namespace std {
 void *traced_malloc(size_t t) {
     ++numOfHeapAllocations;

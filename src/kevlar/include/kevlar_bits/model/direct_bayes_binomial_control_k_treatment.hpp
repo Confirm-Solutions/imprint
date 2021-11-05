@@ -25,7 +25,7 @@ class DirectBayesBinomialControlkTreatment {
     static mat_t fast_invert(mat_t S, const vec_t &d) {
         for (int k = 0; k < d.size(); ++k) {
             auto offset = (d[k] / (1 + d[k] * S(k, k))) * (S.col(k) * S.row(k));
-            S = S - offset;
+            S -= offset;
         }
         return S;
     }
@@ -36,25 +36,21 @@ class DirectBayesBinomialControlkTreatment {
         const bool use_fast_inverse = false) {
         const int d = sample_I.size();
         mat_t S_0 = vec_t::Constant(d, sigma_sq).asDiagonal();
-        S_0 = S_0.array() + mu_sig_sq;
+        S_0.array() += mu_sig_sq;
 
-        // V_0 = solve(S_0) //but because this is a known case of the form
+        // V_0 = solve(S_0)
+        // but because this is a known case of the form
         // aI + bJ, we can use the explicit inverse formula, given by : 1 /
         // a I - J *(b / (a(a + db))) Note, by the way, that it's probably
         // possible to use significant precomputation here
         mat_t V_0 = vec_t::Constant(d, 1 / sigma_sq).asDiagonal();
         V_0.array() -= (mu_sig_sq / sigma_sq) / (sigma_sq + d * mu_sig_sq);
-        // print(V_0.eval());
         mat_t Sigma_posterior;
         if (use_fast_inverse) {
             Sigma_posterior = fast_invert(S_0, sample_I);
         } else {
-            // print(V_0.eval());
-            // NB: .eval() is necessary for correctness
             mat_t precision_posterior = sample_I.asDiagonal();
             precision_posterior += V_0;
-            // print(V_0.eval());
-            // Sigma_posterior = precision_posterior.inverse();
             Sigma_posterior =
                 precision_posterior.llt().solve(mat_t::Identity(d, d));
         }
@@ -91,7 +87,7 @@ class DirectBayesBinomialControlkTreatment {
         vec_t quadrature_points = pair.row(0);
         vec_t quadrature_weights = pair.row(1);
         quadrature_points =
-            ((quadrature_points.array() + 1) * (b - a) / 2 + a).exp();
+            ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
         // sum(wts) = b-a so it averages to 1 over space
         quadrature_weights = quadrature_weights * ((b - a) / 2);
         // TODO: remove second alloc here
@@ -117,7 +113,7 @@ class DirectBayesBinomialControlkTreatment {
 
         mat_t exceed_probs(4, n_points);
 
-        // TODO: don't fix this
+        // TODO: make this user-specified
         const vec_t mu_0 = vec_t::Constant(d, 0);
 
         for (int i = 0; i < n_points; ++i) {

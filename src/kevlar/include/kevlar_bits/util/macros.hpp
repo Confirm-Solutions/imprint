@@ -33,10 +33,6 @@
 #endif
 #endif
 
-template <class T>
-void print_dims(const T &m) {
-    std::cout << '(' << m.rows() << ' ' << m.cols() << ')' << '\n';
-}
 #ifndef print
 #define print(t) (std::cout << __LINE__ << ": " << #t << '\n' << t << "\n\n")
 #endif

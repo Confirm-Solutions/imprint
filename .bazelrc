@@ -1,4 +1,4 @@
-build --action_env=BAZEL_CXXOPTS="-std=c++17:-march=skylake:-Wall" --action_env=CC=clang
+build --action_env=BAZEL_CXXOPTS="-std=c++17:-Wall" --action_env=CC=clang
 
 build:asan --strip=never
 build:asan --copt -fsanitize=address

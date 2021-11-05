@@ -1,6 +1,5 @@
 #include <benchmark/benchmark.h>
-
-#include "kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp"
+#include <kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp>
 
 namespace kevlar {
 namespace {

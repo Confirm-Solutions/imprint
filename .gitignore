@@ -44,13 +44,16 @@ vignettes/*.pdf
 build/
 /.vs
 /kevlar/CMakeSettings.json
+CMakeCache.txt
+CMakeFiles/
+kevlarConfig.cmake
+kevlarConfigVersion.cmake
+DartConfiguration.tcl
 
 *_out
 *.png
 /python/dist/
 .spyproject/
-
-.vscode/
 
 bazel
 bazel-bazel-test

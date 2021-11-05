@@ -1,8 +1,8 @@
 #include <iostream>
 #define EIGEN_INITIALIZE_MATRICES_BY_NAN
 
-#include "gtest/gtest.h"
-#include "kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp"
+#include <gtest/gtest.h>
+#include <kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp>
 
 namespace kevlar {
 namespace {
@@ -29,14 +29,12 @@ TEST(DirectBayes, TestConditionalExceedProbGivenSigma) {
     want << 2.300336159211112, -1.5088377933958017, 3.55492998559061,
         4.220022558081819;
     EXPECT_TRUE(got.isApprox(want, tol));
-    print(got);
     got = DirectBayesBinomialControlkTreatment::
         conditional_exceed_prob_given_sigma(
             1.01445965e-8, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
             Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
             Eigen::Vector4d{-0.40546511, -0.40546511, -0.40546511, -0.40546511},
             Eigen::Vector4d{0, 0, 0, 0});
-    print(got);
     want << 4.39227936, 4.39227836, 4.39227966, 4.39227978;
     EXPECT_TRUE(got.isApprox(want, tol));
 };
@@ -45,7 +43,7 @@ TEST(DirectBayes, TestGetFalseRejections) {
     const auto [quadrature_points, weighted_density_logspace] =
         DirectBayesBinomialControlkTreatment::get_quadrature(
             alpha_prior, beta_prior, n_points, n_arm_size);
-    const auto phat = Eigen::Vector4d{28, 14, 33, 36}.array() / 50;
+    const vec_t phat = Eigen::Vector4d{28, 14, 33, 36}.array() / 50;
     const auto got = DirectBayesBinomialControlkTreatment::get_false_rejections(
         phat, quadrature_points, weighted_density_logspace, thresholds,
         n_arm_size, mu_sig_sq);
