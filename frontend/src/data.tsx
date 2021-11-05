@@ -25,13 +25,13 @@ export const getTestMatrices: () => Promise<MatrixData> = memoize(async function
     let br = fetch('./B-55f3294ffc7ed8152742b504bc0001bdb0d0a0d8.csv')
     let pr = fetch('./P-55f3294ffc7ed8152742b504bc0001bdb0d0a0d8.csv')
     await Promise.all([br, pr])
-    function parseCSV(text: string) {
-        return text.trim().split('\n').map(l => l.split(',').map(s => parseFloat(s.trim())))
-    }
-    let bmat = parseCSV(await (await br).text())
-    let pmat = parseCSV(await (await pr).text())
-    return { bmat: bmat, pmat: pmat }
+    let data: MatrixData = { bmat: parseCSV(await (await br).text()), pmat: parseCSV(await (await pr).text()) }
+    return data
 })
+
+export function parseCSV(text: string) {
+    return text.trim().split('\n').map(l => l.split(',').map(s => parseFloat(s.trim())))
+}
 
 
 function getGeometry(data: MatrixData, type: PlotType, layer_index: number): SurfaceCoordinates3D | ScatterCoordinates3D {
