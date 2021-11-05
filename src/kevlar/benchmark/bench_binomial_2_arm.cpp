@@ -4,33 +4,16 @@
 
 namespace kevlar {
 
-struct binomial_fixture : benchmark::Fixture
-{
-};
+struct binomial_fixture : benchmark::Fixture {};
 
-
-BENCHMARK_DEFINE_F(binomial_fixture,
-                   binomial)(benchmark::State& state)
-{ 
+BENCHMARK_DEFINE_F(binomial_fixture, binomial)(benchmark::State& state) {
     Eigen::MatrixXd p(16, 2);
-    p <<
-    0.4378235, 0.4378235, 
-    0.5621765, 0.4378235,
-    0.6791787, 0.4378235,
-    0.7772999, 0.4378235,
-    0.4378235, 0.5621765,
-    0.5621765, 0.5621765,
-    0.6791787, 0.5621765,
-    0.7772999, 0.5621765,
-    0.4378235, 0.6791787,
-    0.5621765, 0.6791787,
-    0.6791787, 0.6791787,
-    0.7772999, 0.6791787,
-    0.4378235, 0.7772999,
-    0.5621765, 0.7772999,
-    0.6791787, 0.7772999,
-    0.7772999, 0.7772999
-        ;
+    p << 0.4378235, 0.4378235, 0.5621765, 0.4378235, 0.6791787, 0.4378235,
+        0.7772999, 0.4378235, 0.4378235, 0.5621765, 0.5621765, 0.5621765,
+        0.6791787, 0.5621765, 0.7772999, 0.5621765, 0.4378235, 0.6791787,
+        0.5621765, 0.6791787, 0.6791787, 0.6791787, 0.7772999, 0.6791787,
+        0.4378235, 0.7772999, 0.5621765, 0.7772999, 0.6791787, 0.7772999,
+        0.7772999, 0.7772999;
 
     auto J = p.rows();
     auto d = p.cols();
@@ -53,14 +36,11 @@ BENCHMARK_DEFINE_F(binomial_fixture,
         state.ResumeTiming();
 
         thompson.sample(p, beta, alpha_prior, beta_prior, max_patients,
-                        n_action_arms, successes,
-                        alpha_posterior, beta_posterior);
+                        n_action_arms, successes, alpha_posterior,
+                        beta_posterior);
     }
-
 }
 
-BENCHMARK_REGISTER_F(binomial_fixture,
-                     binomial)
-    ;
+BENCHMARK_REGISTER_F(binomial_fixture, binomial);
 
-} // namespace kevlar
+}  // namespace kevlar

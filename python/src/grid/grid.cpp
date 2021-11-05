@@ -1,4 +1,4 @@
-#include <pybind11/eigen.h> // must enable for automatic conversion of Eigen
+#include <pybind11/eigen.h>  // must enable for automatic conversion of Eigen
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 #include <pybind11/functional.h>
@@ -19,8 +19,7 @@
 namespace kevlar {
 namespace grid {
 
-void add_to_module(pybind11::module_& m)
-{
+void add_to_module(pybind11::module_& m) {
     using tile_t = Tile<py_double_t>;
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
     using gridder_t = Gridder;
@@ -37,5 +36,5 @@ void add_to_module(pybind11::module_& m)
     add_adagrid_internal<adagrid_t, ub_t, gr_t, py_double_t>(m);
 }
 
-} // namespace grid
-} // namespace kevlar
+}  // namespace grid
+}  // namespace kevlar

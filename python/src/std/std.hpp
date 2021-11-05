@@ -6,5 +6,5 @@ namespace std {
 
 void add_to_module(pybind11::module_&);
 
-} // namespace std
-} // namespace kevlar
+}  // namespace std
+}  // namespace kevlar

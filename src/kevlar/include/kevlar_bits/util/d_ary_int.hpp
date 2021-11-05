@@ -4,19 +4,15 @@
 
 namespace kevlar {
 
-struct dAryInt
-{
+struct dAryInt {
     // @param   d   base d
     // @param   k   number of bits
-    dAryInt(size_t d, size_t k)
-        : d_(d), bits_(k), n_unique_(ipow(d_,k))
-    {
+    dAryInt(size_t d, size_t k) : d_(d), bits_(k), n_unique_(ipow(d_, k)) {
         bits_.setZero();
     }
 
-    dAryInt& operator++()
-    {
-        for (int i = bits_.size()-1; i >= 0; --i) {
+    dAryInt& operator++() {
+        for (int i = bits_.size() - 1; i >= 0; --i) {
             auto& b = bits_(i);
             ++b;
             if (b < d_) break;
@@ -35,10 +31,10 @@ struct dAryInt
      */
     auto n_unique() const { return n_unique_; }
 
-private:
+   private:
     size_t d_;
     Eigen::Matrix<unsigned int, Eigen::Dynamic, 1> bits_;
     size_t n_unique_;
 };
 
-} // namespace kevlar
+}  // namespace kevlar

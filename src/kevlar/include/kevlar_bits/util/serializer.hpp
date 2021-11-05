@@ -5,38 +5,32 @@
 
 namespace kevlar {
 
-struct Serializer
-{
+struct Serializer {
     Serializer(const char* fname)
-        : f_(fname, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc)
-    {}
+        : f_(fname, std::ios_base::out | std::ios_base::binary |
+                        std::ios_base::trunc) {}
 
     std::ofstream& get() { return f_; }
 
-private:
+   private:
     std::ofstream f_;
 };
 
-struct UnSerializer
-{
+struct UnSerializer {
     UnSerializer(const char* fname)
-        : f_(fname, std::ios_base::in | std::ios_base::binary)
-    {}
+        : f_(fname, std::ios_base::in | std::ios_base::binary) {}
 
     std::ifstream& get() { return f_; }
 
-private:
+   private:
     std::ifstream f_;
 };
 
 // Arithmetic type
 template <class ValueType>
-inline std::enable_if_t<
-    std::is_arithmetic_v<std::decay_t<ValueType>>, Serializer&>
-operator<<(
-        Serializer& s, 
-        ValueType v)
-{
+inline std::enable_if_t<std::is_arithmetic_v<std::decay_t<ValueType>>,
+                        Serializer&>
+operator<<(Serializer& s, ValueType v) {
     auto& f = s.get();
     f.write(reinterpret_cast<char*>(&v), sizeof(ValueType));
     f.flush();
@@ -44,12 +38,9 @@ operator<<(
 }
 
 template <class ValueType>
-inline std::enable_if_t<
-    std::is_arithmetic_v<std::decay_t<ValueType>>, UnSerializer&>
-operator>>(
-        UnSerializer& us, 
-        ValueType& v)
-{
+inline std::enable_if_t<std::is_arithmetic_v<std::decay_t<ValueType>>,
+                        UnSerializer&>
+operator>>(UnSerializer& us, ValueType& v) {
     auto& f = us.get();
     f.read(reinterpret_cast<char*>(&v), sizeof(ValueType));
     return us;
@@ -58,25 +49,22 @@ operator>>(
 // Eigen matrices (TODO: NOT PORTABLE RIGHT NOW DUE TO ENDIANNESS)
 template <class ValueType, int R, int C, int O, int MR, int MC>
 inline Serializer& operator<<(
-        Serializer& s, 
-        const Eigen::Matrix<ValueType, R, C, O, MR, MC>& m)
-{
+    Serializer& s, const Eigen::Matrix<ValueType, R, C, O, MR, MC>& m) {
     using value_t = ValueType;
     uint32_t r = m.rows();
     uint32_t c = m.cols();
     auto& f = s.get();
     f.write(reinterpret_cast<char*>(&r), sizeof(uint32_t));
     f.write(reinterpret_cast<char*>(&c), sizeof(uint32_t));
-    f.write(reinterpret_cast<const char*>(m.data()), sizeof(value_t) * m.size());
+    f.write(reinterpret_cast<const char*>(m.data()),
+            sizeof(value_t) * m.size());
     f.flush();
     return s;
 }
 
 template <class ValueType, int R, int C, int O, int MR, int MC>
-inline UnSerializer& operator>>(
-        UnSerializer& us,
-        Eigen::Matrix<ValueType, R, C, O, MR, MC>& m)
-{
+inline UnSerializer& operator>>(UnSerializer& us,
+                                Eigen::Matrix<ValueType, R, C, O, MR, MC>& m) {
     using value_t = ValueType;
     uint32_t r = 0;
     uint32_t c = 0;
@@ -88,4 +76,4 @@ inline UnSerializer& operator>>(
     return us;
 }
 
-} // namespace kevlar
+}  // namespace kevlar

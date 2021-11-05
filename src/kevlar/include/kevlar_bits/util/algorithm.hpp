@@ -8,8 +8,7 @@ namespace kevlar {
  * Assumed that m is column-wise matrix.
  */
 template <class MatType>
-inline void sort_cols(MatType&& m) 
-{
+inline void sort_cols(MatType&& m) {
     auto r = m.rows();
     for (int i = 0; i < m.cols(); ++i) {
         auto m_i = m.col(i);
@@ -23,8 +22,7 @@ inline void sort_cols(MatType&& m)
  * Uses a custom comparator.
  */
 template <class MatType, class Comp>
-inline void sort_cols(MatType&& m, Comp comp) 
-{
+inline void sort_cols(MatType&& m, Comp comp) {
     auto r = m.rows();
     for (int i = 0; i < m.cols(); ++i) {
         auto m_i = m.col(i);
@@ -36,24 +34,19 @@ inline void sort_cols(MatType&& m, Comp comp)
  * Stores counts of x < elements of p into counts.
  *
  * @param   x       matrix with each column sorted.
- * @param   p       vector of sorted thresholds to check against each column of x.
+ * @param   p       vector of sorted thresholds to check against each column of
+ * x.
  * @param   counts  matrix of size (p.size(), x.cols()) where (i,j) entry is
  *                  the number of values of x[,j] < p[i].
  */
-template <class XType
-        , class PType
-        , class DestType>
-inline void cum_count(
-        const XType& x, 
-        const PType& p,
-        DestType&& counts) 
-{
+template <class XType, class PType, class DestType>
+inline void cum_count(const XType& x, const PType& p, DestType&& counts) {
     for (int i = 0; i < x.cols(); ++i) {
         auto x_i = x.col(i);
         auto counts_i = counts.col(i);
-        
+
         auto begin = x_i.data();
-        auto end = begin + x_i.size(); 
+        auto end = begin + x_i.size();
         size_t prev_count = 0;
         int j = 0;
         while (j < p.size()) {
@@ -76,4 +69,4 @@ inline void cum_count(
     }
 }
 
-} // namespace kevlar
+}  // namespace kevlar

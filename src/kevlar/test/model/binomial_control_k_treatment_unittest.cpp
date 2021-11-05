@@ -15,34 +15,26 @@ namespace kevlar {
  * the tile is oriented w.r.t. the hyperplane if and only if
  * the center is in the positive orientation.
  */
-struct MockHyperPlane
-    : HyperPlane<double>
-{
+struct MockHyperPlane : HyperPlane<double> {
     using base_t = HyperPlane<double>;
     using base_t::base_t;
 };
 
 template <class TileType>
-inline bool
-is_oriented(const TileType& tile,
-            const MockHyperPlane& hp,
-            orient_type& ori)
-{
+inline bool is_oriented(const TileType& tile, const MockHyperPlane& hp,
+                        orient_type& ori) {
     const auto& center = tile.center();
     ori = hp.find_orient(center);
     if (ori <= orient_type::non_neg) {
         ori = orient_type::non_neg;
     } else {
         ori = orient_type::non_pos;
-    }     
+    }
     return true;
 }
 
-struct bckt_fixture
-    : base_fixture
-{
-    void SetUp() override 
-    {
+struct bckt_fixture : base_fixture {
+    void SetUp() override {
         // legacy setup
         // MUST BE EVENLY SPACED TO BE COMPATIBLE WITH
         // MockHyperPlane and legacy version
@@ -51,29 +43,29 @@ struct bckt_fixture
 
         prob_1d.array() = sigmoid(theta_1d.array());
         prob_endpt_1d.resize(2, theta_1d.size());
-        prob_endpt_1d.row(0).array() = sigmoid(theta_1d.array()-radius);
-        prob_endpt_1d.row(1).array() = sigmoid(theta_1d.array()+radius);
+        prob_endpt_1d.row(0).array() = sigmoid(theta_1d.array() - radius);
+        prob_endpt_1d.row(1).array() = sigmoid(theta_1d.array() + radius);
 
         for (size_t i = 1; i < n_arms; ++i) {
             hypos.emplace_back([&, i](const dAryInt& bits) {
-                        return prob_1d[bits()[i]] <= prob_1d[bits()[0]];
-                    });
+                return prob_1d[bits()[i]] <= prob_1d[bits()[0]];
+            });
         }
 
         // new setup
-        
+
         colvec_type<value_t> normal(n_arms);
-        normal << 1, -1; // H_0: p[1] <= p[0]
+        normal << 1, -1;  // H_0: p[1] <= p[0]
         hps.emplace_back(normal, 0);
 
         // only thetas and radii need to be populated.
-        
+
         // populate theta as the cartesian product of theta_1d
         auto& thetas = grid_range.thetas();
         dAryInt bits(n_thetas, n_arms);
         for (size_t j = 0; j < grid_range.n_gridpts(); ++j) {
             for (size_t i = 0; i < n_arms; ++i) {
-                thetas(i,j) = theta_1d[bits()[i]];
+                thetas(i, j) = theta_1d[bits()[i]];
             }
             ++bits;
         }
@@ -90,7 +82,7 @@ struct bckt_fixture
         EXPECT_EQ(grid_range.n_tiles(3), 1);
     }
 
-protected:
+   protected:
     using value_t = double;
     using uint_t = uint32_t;
     using tile_t = Tile<value_t>;
@@ -100,7 +92,7 @@ protected:
     using bckt_t = BinomialControlkTreatment<value_t, uint_t, gr_t>;
 
     // common configuration
-    
+
     // configuration that may want to be parametrizations
     size_t n_arms = 2;
     size_t ph2_size = 50;
@@ -120,50 +112,45 @@ protected:
     std::vector<hp_t> hps;
     gr_t grid_range;
 
-    bckt_fixture()
-        : thresholds(1) 
-        , grid_range(n_arms, ipow(n_thetas, n_arms))
-    {
+    bckt_fixture() : thresholds(1), grid_range(n_arms, ipow(n_thetas, n_arms)) {
         thresholds[0] = threshold;
     }
 };
 
-TEST_F(bckt_fixture, ctor)
-{
+TEST_F(bckt_fixture, ctor) {
     bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
+                        hypos);
 }
 
-TEST_F(bckt_fixture, tr_cov_test)
-{
+TEST_F(bckt_fixture, tr_cov_test) {
     dAryInt bits(n_thetas, n_arms);
     bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
     b_new.set_grid_range(grid_range);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
+                        hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_cov_i = 
+        value_t b_new_tr_cov_i =
             b_new.cov_quad(i, Eigen::VectorXd::Ones(n_arms));
         EXPECT_DOUBLE_EQ(b_new_tr_cov_i, b_leg.tr_cov(bits));
     }
 }
 
-TEST_F(bckt_fixture, tr_max_cov_test)
-{
+TEST_F(bckt_fixture, tr_max_cov_test) {
     dAryInt bits(n_thetas, n_arms);
     bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
     b_new.set_grid_range(grid_range);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
+                        hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_max_cov_i = 
+        value_t b_new_tr_max_cov_i =
             b_new.max_cov_quad(i, Eigen::VectorXd::Ones(n_arms));
         EXPECT_DOUBLE_EQ(b_new_tr_max_cov_i, b_leg.tr_max_cov(bits));
     }
 }
 
-struct bckt_state_fixture
-    : bckt_fixture
-{
-protected:
+struct bckt_state_fixture : bckt_fixture {
+   protected:
     using state_t = bckt_t::StateType;
     using state_leg_t = bckt_legacy_t::StateType;
 
@@ -171,18 +158,17 @@ protected:
     std::mt19937 gen;
 
     template <class StateType>
-    void state_gen(StateType& s) 
-    {
+    void state_gen(StateType& s) {
         gen.seed(seed);
         s.gen_rng(gen);
         s.gen_suff_stat();
     }
 };
 
-TEST_F(bckt_state_fixture, test_rej)
-{
+TEST_F(bckt_state_fixture, test_rej) {
     bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
+                        hypos);
 
     b_new.set_grid_range(grid_range);
 
@@ -206,10 +192,10 @@ TEST_F(bckt_state_fixture, test_rej)
     expect_eq_vec(actual, expected);
 }
 
-TEST_F(bckt_state_fixture, grad_test)
-{
+TEST_F(bckt_state_fixture, grad_test) {
     bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
+                        hypos);
 
     b_new.set_grid_range(grid_range);
 
@@ -223,21 +209,22 @@ TEST_F(bckt_state_fixture, grad_test)
     mat_type<value_t> actual(grid_range.n_tiles(), n_arms);
     for (int j = 0; j < actual.rows(); ++j) {
         for (int k = 0; k < actual.cols(); ++k) {
-            actual(j,k) = s_new.grad(j,k);
+            actual(j, k) = s_new.grad(j, k);
         }
     }
 
     // get gradient estimates from legacy
     colvec_type<value_t> expected(grid_range.n_tiles() * n_arms);
-    Eigen::Map<mat_type<value_t> > expected_m(expected.data(), grid_range.n_tiles(), n_arms);
+    Eigen::Map<mat_type<value_t> > expected_m(expected.data(),
+                                              grid_range.n_tiles(), n_arms);
     for (size_t j = 0; j < n_arms; ++j) {
         dAryInt bits(n_thetas, n_arms);
         for (size_t i = 0; i < grid_range.n_tiles(); ++i, ++bits) {
-            expected_m(i,j) = s_leg.grad_lr(j, bits);
+            expected_m(i, j) = s_leg.grad_lr(j, bits);
         }
     }
 
     expect_eq_mat(actual, expected_m);
 }
 
-} // namespace kevlar
+}  // namespace kevlar

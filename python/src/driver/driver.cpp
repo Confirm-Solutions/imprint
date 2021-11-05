@@ -16,8 +16,7 @@ namespace driver {
 
 namespace py = pybind11;
 
-void add_to_module(py::module_& m)
-{
+void add_to_module(py::module_& m) {
     using gen_t = std::mt19937;
     using tile_t = Tile<py_double_t>;
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
@@ -27,5 +26,5 @@ void add_to_module(py::module_& m)
     add_fit<gen_t, model_t, gr_t, is_t>(m);
 }
 
-} // namespace driver
-} // namespace kevlar
+}  // namespace driver
+}  // namespace kevlar
