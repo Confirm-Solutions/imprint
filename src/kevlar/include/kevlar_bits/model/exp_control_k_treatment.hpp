@@ -244,7 +244,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     ExpControlkTreatment(
         size_t n_samples, value_t censor_time,
         const Eigen::Ref<const colvec_type<value_t>>& thresholds)
-        : base_t(2, 0, n_samples), censor_time_(censor_time) {
+        : base_t(2, 0, n_samples),
+          max_eta_hess_cov_(3 * std::sqrt(n_samples)),
+          censor_time_(censor_time) {
         set_thresholds(thresholds);
 
         // temporarily const-cast just to initialize the values
@@ -321,7 +323,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     }
 
     value_t max_eta_hess_cov(size_t) const override {
-        return 3 * std::sqrt(n_samples());
+        return max_eta_hess_cov_;
     }
 
     /*
@@ -353,6 +355,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     auto lmda_control(size_t j) const { return buff_(0, j); }
     auto hzrd_rate(size_t j) const { return buff_(1, j); }
 
+    const value_t max_eta_hess_cov_;  // caches max_eta_hess_cov() result
     const value_t censor_time_;
     colvec_type<value_t> thresholds_;
     uint_t n_gridpts_ = 0;

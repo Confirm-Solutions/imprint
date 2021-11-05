@@ -83,10 +83,6 @@ struct bckt_fixture : base_fixture {
         // create tile information
         grid_range.create_tiles(hps);
 
-        orient_type ori;
-        print(is_oriented(grid_range.tiles()[0], hps[0], ori));
-        print(static_cast<int>(ori));
-
         EXPECT_EQ(grid_range.n_tiles(0), 1);
         EXPECT_EQ(grid_range.n_tiles(1), 1);
         EXPECT_EQ(grid_range.n_tiles(2), 1);
