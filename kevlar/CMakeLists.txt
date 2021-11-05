@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.7)
 project("kevlar" VERSION 1.0.0
                  DESCRIPTION "A bed of simulation tools.")
 
-option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    OFF)
+option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    ON)
 option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      ON)
 option(KEVLAR_ENABLE_BENCHMARK    "Enable benchmarks to be built."    OFF)
 option(KEVLAR_ENABLE_COVERAGE     "Build glmnetpp with coverage"      OFF)
@@ -84,6 +84,17 @@ if (NOT CMAKE_BUILD_TYPE)
 endif()
 message(STATUS "Compiling in ${CMAKE_BUILD_TYPE} mode")
 
+# Find pthread
+unset(KEVLAR_HAS_PTHREAD)
+find_package(Threads REQUIRED)
+if (CMAKE_USE_PTHREADS_INIT)
+    set(KEVLAR_HAS_PTHREAD ON)
+endif()
+if (DEFINED KEVLAR_HAS_PTHREAD)
+    set(KEVLAR_HAS_PTHREAD_MACRO "-DKEVLAR_HAS_PTHREAD")
+endif()
+
+# Test subdirectory
 if (KEVLAR_ENABLE_TEST)
     # This will perform memcheck
     include(CTest)
@@ -96,11 +107,13 @@ if (KEVLAR_ENABLE_TEST)
     add_subdirectory(${PROJECT_SOURCE_DIR}/test ${PROJECT_BINARY_DIR}/test)
 endif()
 
+# Example subdirectory
 if (KEVLAR_ENABLE_EXAMPLE)
     # add example subdirectory
     add_subdirectory(${PROJECT_SOURCE_DIR}/example ${PROJECT_BINARY_DIR}/example)
 endif()
 
+# Benchmark subdirectory
 if (KEVLAR_ENABLE_BENCHMARK)
     find_package(benchmark REQUIRED
         HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../benchmark/build)
