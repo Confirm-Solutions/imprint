@@ -31,15 +31,14 @@ function App() {
     return s
   }
   const [checkboxStates, setCheckboxStates] = React.useState<boolean[]>(getDefaultState())
-  const fetchData = React.useCallback(
+  const fetchTestData = React.useCallback(
     async function () {
       setData(await getTestMatrices())
     }, []
   )
-
   React.useEffect(() => {
-    fetchData()
-  }, [plotType, checkboxStates, fetchData])
+    fetchTestData()
+  }, [fetchTestData])
 
   const checkboxes = checkboxStates.map((value, i) => {
     return <FormControlLabel
