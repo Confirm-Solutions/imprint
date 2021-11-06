@@ -57,8 +57,8 @@ constexpr inline auto qnorm(ValueType p)
     constexpr double d3 = 2.445134137142996;
     constexpr double d4 = 3.754408661907416;
 
-    constexpr double sqrt_2 = std::sqrt(2);
-    constexpr double sqrt_2_pi = std::sqrt(2*M_PI);
+    constexpr double sqrt_2 = 1.4142135623730951455;
+    constexpr double sqrt_2_pi = 2.5066282746310002416;
 
     // Define break-points.
     constexpr double p_low =  0.02425;
@@ -96,3 +96,5 @@ constexpr inline auto qnorm(ValueType p)
 }
 
 } // namespace kevlar
+
+#undef _USE_MATH_DEFINES

@@ -20,7 +20,11 @@ protected:
 
 TEST_F(serializer_fixture, serializer_ctor)
 {
-    Serializer s(fname);
+    // Brace is to make sure it destructs before TearDown.
+    // TearDown needs to remove the tmp file and these objects must release the resource first.
+    {
+        Serializer s(fname);
+    }
 }
 
 struct serializer_fixture_param
@@ -31,10 +35,8 @@ struct serializer_fixture_param
 protected:
     size_t n;
     Eigen::VectorXd x;
-    Serializer s;
 
     serializer_fixture_param()
-        : s(fname)
     {
         std::tie(n) = GetParam();
         x.setRandom(n);
@@ -51,24 +53,30 @@ protected:
 
 TEST_P(serializer_fixture_param, serializer_op_put_1)
 {
-    s << x; 
-    Eigen::VectorXd actual = read_file(n).col(0);
-    expect_double_eq_vec(actual, x);
+    {
+        Serializer s(fname);
+        s << x; 
+        Eigen::VectorXd actual = read_file(n).col(0);
+        expect_double_eq_vec(actual, x);
+    }
 }
 
 TEST_P(serializer_fixture_param, serializer_op_put_5)
 {
-    s << x; 
-    s << x; 
-    s << x; 
-    s << x; 
-    s << x; 
+    {
+        Serializer s(fname);
+        s << x; 
+        s << x; 
+        s << x; 
+        s << x; 
+        s << x; 
 
-    Eigen::VectorXd actual = read_file(5 * n);
-    Eigen::Map<Eigen::MatrixXd> actual_map(actual.data(), n, 5);
-    for (int i = 0; i < actual_map.cols(); ++i) {
-        auto actual_i = actual_map.col(i);
-        expect_double_eq_vec(actual_i, x);
+        Eigen::VectorXd actual = read_file(5 * n);
+        Eigen::Map<Eigen::MatrixXd> actual_map(actual.data(), n, 5);
+        for (int i = 0; i < actual_map.cols(); ++i) {
+            auto actual_i = actual_map.col(i);
+            expect_double_eq_vec(actual_i, x);
+        }
     }
 }
 

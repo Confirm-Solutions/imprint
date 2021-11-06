@@ -222,23 +222,24 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
             // compute grad upper bound
             double var = 0;
-            for (auto k : bits) {
-                var += p[k] * (1-p[k]);
-            }
+            std::for_each(bits.data(), bits.data() + bits.size(),
+                [&](auto k) { var += p[k] * (1-p[k]); });
+                
             var *= (static_cast<double>(outer_.n_samples_) / n_) * (1./alpha - 1.);
             auto grad_bd = grid_radius * std::sqrt(var);
 
             // compute hessian upper bound
             double hess_bd = 0;
-            for (auto k : bits) {
-                auto col_k = p_endpt.col(k);
-                auto lower = col_k[0] - 0.5; // shift away center
-                auto upper = col_k[1] - 0.5; // shift away center
-                // max of p(1-p) occurs for whichever p is closest to 0.5.
-                bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                auto max_endpt = col_k[max_at_upper]; 
-                hess_bd += max_endpt * (1. - max_endpt);
-            }
+            std::for_each(bits.data(), bits.data() + bits.size(),
+                [&](auto k) {
+                    auto col_k = p_endpt.col(k);
+                    auto lower = col_k[0] - 0.5; // shift away center
+                    auto upper = col_k[1] - 0.5; // shift away center
+                    // max of p(1-p) occurs for whichever p is closest to 0.5.
+                    bool max_at_upper = (std::abs(upper) < std::abs(lower));
+                    auto max_endpt = col_k[max_at_upper]; 
+                    hess_bd += max_endpt * (1. - max_endpt);
+                });
             hess_bd *= (outer_.n_samples_ * grid_radius * grid_radius) / 2;
 
             upper_bd_.col(i).array() += grad_bd + hess_bd;
