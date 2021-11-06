@@ -25,7 +25,7 @@ int main()
     Eigen::MatrixXd p_endpt = grid_t::make_endpts(p_size, lower, upper);
     p_endpt = p_endpt.unaryExpr([](auto x) { return 1./(1. + std::exp(-x)); });
 
-    Eigen::VectorXd thr_vec = grid_t::make_grid(100, 14., 15.2);
+    Eigen::VectorXd thr_vec = grid_t::make_grid(10, 14., 15.2);
     sort_cols(thr_vec, std::greater<double>());
 
     auto rng_gen_f = [=](auto& gen, auto& rng) {
