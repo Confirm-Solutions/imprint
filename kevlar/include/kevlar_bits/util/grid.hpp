@@ -37,7 +37,7 @@ struct Gridder<grid::Rectangular>
         using value_t = ValueType;
         using vec_t = Eigen::Matrix<value_t, Eigen::Dynamic, 1>;
         auto r = radius(n, lower, upper);
-        return (2. * vec_t::LinSpaced(n, 0, n-1).array() + 1.) * r + lower;
+        return ((2. * vec_t::LinSpaced(n, 0, n-1).array() + 1.) * r + lower).matrix();
     }
 
     template <class ValueType>

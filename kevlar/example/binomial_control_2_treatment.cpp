@@ -11,7 +11,7 @@ int main()
     size_t p_size = 64;
     double lower = -0.5;
     double upper = 1.5;
-    size_t n_sim = 100000;
+    size_t n_sim = 50000;
     double alpha = 0.05;
     double delta = 0.05;
     size_t grid_dim = 3;
@@ -25,8 +25,8 @@ int main()
     Eigen::MatrixXd p_endpt = grid_t::make_endpts(p_size, lower, upper);
     p_endpt = p_endpt.unaryExpr([](auto x) { return 1./(1. + std::exp(-x)); });
 
-    Eigen::VectorXd thr_vec(6);
-    thr_vec << 30, 20, 15, 14, 13.5, 13;
+    Eigen::VectorXd thr_vec = grid_t::make_grid(100, 14., 15.2);
+    sort_cols(thr_vec, std::greater<double>());
 
     auto rng_gen_f = [=](auto& gen, auto& rng) {
         std::uniform_real_distribution<double> unif(0., 1.);

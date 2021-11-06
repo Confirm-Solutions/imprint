@@ -5,11 +5,13 @@
 #include <random>
 #include <ctime>
 #include <algorithm>
+#include <optional>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/thread.hpp>
 #include <kevlar_bits/util/exceptions.hpp>
 #include <kevlar_bits/util/running_mean.hpp>
 #include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/progress_bar.hpp>
 
 namespace kevlar {
 
@@ -17,7 +19,8 @@ template <class RNGGenFType
         , class ModelType
         , class PVecType
         , class PEndptType
-        , class LmdaGridType>
+        , class LmdaGridType
+        , class PBType = pb_ostream>
 auto tune(
         size_t n_sim,
         double alpha,
@@ -30,7 +33,9 @@ auto tune(
         RNGGenFType rng_gen_f,
         ModelType&& model,
         size_t start_seed=time(0),
-        size_t p_batch_size=1024,
+        size_t p_batch_size=std::numeric_limits<size_t>::infinity(),
+        PBType pb = PBType(std::cout),
+        bool do_progress_bar = true,
         unsigned int n_thr=std::thread::hardware_concurrency()
         )
 {
@@ -40,6 +45,16 @@ auto tune(
 
     // compute the normal threshold for 1-delta/2
     auto thr_delta = qnorm(1.-delta/2.);
+
+    // if batch size was defaulted, adaptively compute it.
+    // Heuristic for guessing how much can fit in the cache:
+    // Performance seems pretty good according to this formula.
+    auto p_batch_size_propose = [](auto l) {
+        return 7430 * std::exp(-0.035717058454485931 * l);
+    };
+
+    bool p_batch_defaulted = 
+        (p_batch_size == std::numeric_limits<size_t>::infinity());
 
     unsigned int max_thr = std::thread::hardware_concurrency();
     n_thr = std::min(n_thr, max_thr);
@@ -85,8 +100,7 @@ auto tune(
     dAryInt p_idxer(p.size(), grid_dim);
     dAryInt p_idxer_prev(p.size(), grid_dim);
     size_t p_grid_size = ipow(p.size(), grid_dim);
-    size_t p_grid_partitions = p_grid_size / p_batch_size;
-    size_t p_batch_remaining = p_grid_size % p_batch_size;
+    size_t n_p_completed = 0;
     size_t max_lmda_size = lmda_grid.size();
 
     // construct each thread's upper bound objects.
@@ -148,14 +162,35 @@ auto tune(
             max_lmda_size = std::distance(begin, it); 
             if (max_lmda_size <= 0) throw min_lmda_reached_error();
         }
-
     };
 
-    // run the simulation on each partition of the p-grid
-    for (size_t part = 0; part < p_grid_partitions; ++part) {
-        run_partition(p_batch_size);
+    // initialize progress bar object (only used if do_progress_bar is true)
+    pb.set_n_total(p_grid_size);
+
+    if (do_progress_bar) pb.initialize();
+
+    try {
+        // run the simulation on each partition of the p-grid
+        while (n_p_completed < p_grid_size) {
+            size_t batch_size;
+            if (p_batch_defaulted) {
+                // get next proposed batch size
+                int proposal = p_batch_size_propose(max_lmda_size);
+                batch_size = std::max(proposal, 1);
+            } else {
+                batch_size = p_batch_size;
+            }
+            // take the min with remaining number of coordinates
+            batch_size = std::min(batch_size, p_grid_size - n_p_completed);
+            run_partition(batch_size);
+            n_p_completed += batch_size;
+            if (do_progress_bar) pb.update(batch_size);
+        }
+    } 
+    catch (const kevlar_error& e) {
+        if (do_progress_bar) pb.finish();
+        throw;
     }
-    if (p_batch_remaining) run_partition(p_batch_remaining);
 
     return lmda_grid[max_lmda_size-1];
 }
