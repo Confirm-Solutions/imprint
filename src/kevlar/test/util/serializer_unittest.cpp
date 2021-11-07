@@ -41,27 +41,58 @@ protected:
         std::tie(n) = GetParam();
         x.setRandom(n);
     }
-
-    Eigen::VectorXd read_file(size_t size)
-    {
-        Eigen::VectorXd x(size);
-        UnSerializer us(fname);         
-        us >> x;
-        return x;
-    }
 };
 
-TEST_P(serializer_fixture_param, serializer_op_put_1)
+TEST_P(serializer_fixture_param, serializer_op_double_put_1)
+{
+    {
+        double expected = 5.;
+        Serializer s(fname);
+        s << expected; 
+
+        UnSerializer us(fname);         
+        double actual;
+        us >> actual;
+
+        EXPECT_DOUBLE_EQ(actual, expected);
+    }
+}
+
+TEST_P(serializer_fixture_param, serializer_op_double_put_5)
+{
+    {
+        std::array<double, 5> expected = {1, 2, 3, 4, 5};
+        Serializer s(fname);
+        for (int i = 0; i < 5; ++i) {
+            s << expected[i];
+        }
+
+        UnSerializer us(fname);
+        
+        for (int i = 0; i < 5; ++i) {
+            double actual;
+            us >> actual;
+            EXPECT_DOUBLE_EQ(actual, expected[i]);
+        }
+    }
+}
+
+TEST_P(serializer_fixture_param, serializer_op_vector_put_1)
 {
     {
         Serializer s(fname);
         s << x; 
-        Eigen::VectorXd actual = read_file(n).col(0);
+
+        UnSerializer us(fname);         
+
+        Eigen::VectorXd actual(n);
+        us >> actual;
+
         expect_double_eq_vec(actual, x);
     }
 }
 
-TEST_P(serializer_fixture_param, serializer_op_put_5)
+TEST_P(serializer_fixture_param, serializer_op_vector_put_5)
 {
     {
         Serializer s(fname);
@@ -71,11 +102,11 @@ TEST_P(serializer_fixture_param, serializer_op_put_5)
         s << x; 
         s << x; 
 
-        Eigen::VectorXd actual = read_file(5 * n);
-        Eigen::Map<Eigen::MatrixXd> actual_map(actual.data(), n, 5);
-        for (int i = 0; i < actual_map.cols(); ++i) {
-            auto actual_i = actual_map.col(i);
-            expect_double_eq_vec(actual_i, x);
+        UnSerializer us(fname);         
+        for (int i = 0; i < 5; ++i) {
+            Eigen::VectorXd actual(n);
+            us >> actual;
+            expect_double_eq_vec(actual, x);
         }
     }
 }

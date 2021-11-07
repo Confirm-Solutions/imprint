@@ -1,0 +1,19 @@
+Package: kevlar
+Title: Testbed of Simulations for Clinical Trials
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "James",
+           family = "Yang",
+           role = c("aut", "cre"),
+           email = "jy2816@stanford.edu")
+Description: Kevlar implements highly efficient simulations for models used in clinical trial.
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+LinkingTo: 
+    Rcpp,
+    RcppEigen
+Imports: 
+    Rcpp

@@ -1,6 +1,5 @@
-#include <iostream>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/process/tune.hpp>
+#include <kevlar_bits/process/fit.hpp>
 #include <kevlar_bits/util/grid.hpp>
 
 int main()
@@ -25,9 +24,6 @@ int main()
     Eigen::MatrixXd p_endpt = grid_t::make_endpts(p_size, lower, upper);
     p_endpt = p_endpt.unaryExpr([](auto x) { return 1./(1. + std::exp(-x)); });
 
-    Eigen::VectorXd thr_vec = grid_t::make_grid(10, 14., 15.2);
-    sort_cols(thr_vec, std::greater<double>());
-
     auto rng_gen_f = [=](auto& gen, auto& rng) {
         std::uniform_real_distribution<double> unif(0., 1.);
         rng = Eigen::MatrixXd::NullaryExpr(n_samples, grid_dim, 
@@ -38,9 +34,8 @@ int main()
         model(grid_dim, ph2_size, n_samples);
 
     try {
-        auto thr = tune(n_sim, alpha, delta, grid_dim, grid_radius,
-             p_1d, p_endpt, thr_vec, rng_gen_f, model, 0);
-        std::cout << thr << std::endl;
+        fit(n_sim, alpha, delta, grid_dim, grid_radius,
+             p_1d, p_endpt, 13.552, rng_gen_f, model, "fit_out", 0);
     } 
     catch (const kevlar_error& e) {
         std::cerr << e.what() << std::endl;
