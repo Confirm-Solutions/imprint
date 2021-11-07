@@ -6,7 +6,7 @@ namespace kevlar {
 namespace details {
 
 template <class ValueType, class IntType>
-inline ValueType ipow_pos(ValueType base, IntType exp)
+constexpr inline ValueType ipow_pos(ValueType base, IntType exp)
 {
     if (exp == 1) return base;
     if (exp % 2 == 0) {
@@ -20,12 +20,27 @@ inline ValueType ipow_pos(ValueType base, IntType exp)
 } // namespace details 
 
 template <class ValueType, class IntType>
-inline auto ipow(ValueType base, IntType exp)
+constexpr inline auto ipow(ValueType base, IntType exp)
 {
     if (exp == 0) return ValueType(1);
     if (exp < 0) return ValueType(1) / ipow(base, -exp);
     return details::ipow_pos(base, exp);
 };
+
+// Compile-time log2 of integer.
+// Only meaningful when x is truly a power of 2.
+template <size_t x>
+struct Log2
+{  
+    static constexpr size_t value = Log2<x/2>::value + 1;
+};
+
+template<>
+struct Log2<1>
+{
+    static constexpr size_t value = 0;
+};
+
 
 // Inverse Normal CDF (Acklam's algorithm)
 // https://stackedboxes.org/2017/05/01/acklams-normal-quantile-function/

@@ -1,7 +1,7 @@
+#include <iostream>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/process/tune.hpp>
 #include <kevlar_bits/util/grid.hpp>
-#include <iostream>
 
 int main()
 {

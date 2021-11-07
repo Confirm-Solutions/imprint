@@ -211,4 +211,30 @@ ProgressBarOSWrapper(OStreamType&)
 // helper alias for progress bar that wraps an std::ostream
 using pb_ostream = ProgressBarOSWrapper<std::ostream>;
 
+// Dummy ostream used to suck in all inputs.
+// Constructing a ProgressBarOSWrapper with void_ostream will nullify all 
+// progress bar operations. 
+struct void_ostream {};
+
+template <>
+struct ProgressBarOSWrapper<void_ostream>
+{
+    ProgressBarOSWrapper() =default;
+    
+    // Just to keep same interface as primary definition.
+    template <class T>
+    ProgressBarOSWrapper(T&) {}
+
+    void reset() {}
+    void set_n_total(int) {}
+    void set_finish_char(char) {}
+    void set_remain_char(char) {}
+    void set_begin_char(char) {}
+    void set_end_char(char) {}
+    void set_show_time(bool) {}
+    void initialize() {}
+    void finish() {}
+    void update(size_t=1) {}
+};
+
 } // namespace kevlar

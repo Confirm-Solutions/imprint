@@ -89,10 +89,10 @@ TEST_P(bckt_upper_bound_fixture_rect, update_two_test)
     it.setZero();
     Eigen::VectorXd expected(thr_vec.size());
     auto z = test_stat(it, p);
-    expected.array() = (z > thr_vec.array()).template cast<double>() * 0.5;
+    expected.array() = (z > thr_vec.array()).template cast<double>();
     ++it;
     z = test_stat(it, p);
-    expected.array() += (z > thr_vec.array()).template cast<double>() * 0.5;
+    expected.array() += (z > thr_vec.array()).template cast<double>();
 
     expect_double_eq_vec(actual, expected);
 }

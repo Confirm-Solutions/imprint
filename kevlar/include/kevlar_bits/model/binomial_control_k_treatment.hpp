@@ -3,6 +3,7 @@
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/hardware.hpp>
 #include <Eigen/Core>
 #include <limits>
 #include <algorithm>
@@ -138,14 +139,6 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
         ++n_;
 
-        // compute new factor for running average
-        auto new_factor = static_cast<value_t>(1) / n_;
-        auto old_factor = static_cast<value_t>(1) - new_factor;
-
-        // re-weigh all running average quantities
-        upper_bd_ *= old_factor;
-        grad_buff_ *= old_factor;
-
         for (int j = 0; j < upper_bd_.cols(); ++j, ++p_idxer) {
             auto test_stat = test_stat_f(p_idxer);
 
@@ -157,7 +150,7 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
             // update rejection proportion only in the rows that reject
             auto rej_length = std::distance(it, end);
             auto upper_bd_j = upper_bd_.col(j);
-            upper_bd_j.tail(rej_length).array() += new_factor;
+            upper_bd_j.tail(rej_length).array() += 1;
 
             // update gradient for each dimension
             const auto slice_size = upper_bd_.size();
@@ -169,18 +162,18 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
                         upper_bd_.rows(),
                         upper_bd_.cols());
                 auto grad_k_j = grad_k_cache.col(j);
-                // add new_factor * (x_k - n p_k) for each threshold where we have rejection.
+                // add new_factor * (x_k / n - p_k) for each threshold where we have rejection.
                 grad_k_j.tail(rej_length).array() += 
-                    new_factor * 
-                    (suff_stat(p_idxer_bits[k], k) - outer_.n_samples_ * p[p_idxer_bits[k]]);
+                    static_cast<double>(suff_stat(p_idxer_bits[k], k)) / outer_.n_samples_ 
+                     - p[p_idxer_bits[k]];
             }
         }
     }
 
-    void pool(const UpperBound& other, double factor, size_t n)
+    void pool(const UpperBound& other, size_t n)
     {
-        upper_bd_ += factor * other.upper_bd_;
-        grad_buff_ += factor * other.grad_buff_;
+        upper_bd_ += other.upper_bd_;
+        grad_buff_ += other.grad_buff_;
         n_ += n;
     }
 
@@ -199,6 +192,10 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
                 double width, 
                 double grid_radius)
     {
+        // divide to get true averages
+        upper_bd_ /= n_;
+        grad_buff_ *= static_cast<double>(outer_.n_samples_) / n_;
+
         // add upper bound for constant term
         upper_bd_.array() +=
             width * 
@@ -256,6 +253,36 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
     auto& get() { return upper_bd_; }
     const auto& get() const { return upper_bd_; }
+
+    /*
+     * Computes a hint for what the batch size of parameters should be.
+     * Given the number of thresholds (thr_vec_size) to consider,
+     * we estimate this from a pre-fit GLM model with hard-coded constants.
+     */
+    auto p_batch_size_hint(size_t thr_vec_size) const 
+    {
+        // Heuristic for guessing how much can fit in the cache:
+        // Performance seems pretty good according to this formula.
+        size_t out = 7430 * std::exp(-0.035717058454485931 * thr_vec_size);
+        return out;
+    }
+
+    /*
+     * Serializes the necessary quantities to construct the upper bound.
+     */
+    template <class SerializerType
+            , class PType
+            , class PEndptType>
+    void serialize(SerializerType& s, 
+                   dAryInt& p_idxer,
+                   const PType& p,
+                   const PEndptType& p_endpt,
+                   double alpha,
+                   double width,
+                   double grid_radius) const
+    {
+        
+    }
 
 private:
     using mat_t = Eigen::MatrixXd;
