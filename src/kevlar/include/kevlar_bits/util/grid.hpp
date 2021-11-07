@@ -19,7 +19,7 @@ template <>
 struct Gridder<grid::Rectangular>
 {
     template <class ValueType>
-    static auto radius(
+    static ValueType radius(
             size_t n,
             ValueType lower,
             ValueType upper)

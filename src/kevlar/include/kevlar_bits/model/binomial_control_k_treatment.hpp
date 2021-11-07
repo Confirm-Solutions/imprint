@@ -185,7 +185,7 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
      *                      The first row must be element-wise less than the second row.
      */
     template <class PType, class PEndPtType>
-    void create(dAryInt p_idxer, 
+    void create(const dAryInt& p_idxer, 
                 const PType& p, 
                 const PEndPtType& p_endpt,
                 double alpha,
@@ -197,9 +197,7 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
         grad_buff_ *= static_cast<double>(outer_.n_samples_) / n_;
 
         // add upper bound for constant term
-        upper_bd_.array() +=
-            width * 
-            (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt();
+        upper_bd_ += upper_bd_constant(width);
 
         // add epsilon * ||grad term||_L^1
         const auto slice_size = upper_bd_.size();
@@ -213,34 +211,11 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
         }
 
         // add upper bound for gradient term and hessian term
-        for (Eigen::Index i = 0; i < upper_bd_.cols(); ++i, ++p_idxer) {
-
-            auto& bits = p_idxer();
-
-            // compute grad upper bound
-            double var = 0;
-            std::for_each(bits.data(), bits.data() + bits.size(),
-                [&](auto k) { var += p[k] * (1-p[k]); });
-                
-            var *= (static_cast<double>(outer_.n_samples_) / n_) * (1./alpha - 1.);
-            auto grad_bd = grid_radius * std::sqrt(var);
-
-            // compute hessian upper bound
-            double hess_bd = 0;
-            std::for_each(bits.data(), bits.data() + bits.size(),
-                [&](auto k) {
-                    auto col_k = p_endpt.col(k);
-                    auto lower = col_k[0] - 0.5; // shift away center
-                    auto upper = col_k[1] - 0.5; // shift away center
-                    // max of p(1-p) occurs for whichever p is closest to 0.5.
-                    bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                    auto max_endpt = col_k[max_at_upper]; 
-                    hess_bd += max_endpt * (1. - max_endpt);
-                });
-            hess_bd *= (outer_.n_samples_ * grid_radius * grid_radius) / 2;
-
-            upper_bd_.col(i).array() += grad_bd + hess_bd;
-        }
+        upper_bd_grad_hess(
+            p_idxer, p, p_endpt, alpha, grid_radius,
+            [&](Eigen::Index i, auto grad_bd, auto hess_bd) {
+                upper_bd_.col(i).array() += grad_bd + hess_bd;
+            });
 
     }
 
@@ -269,22 +244,179 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
     /*
      * Serializes the necessary quantities to construct the upper bound.
+     * Assumes that the object is in a state where update or pool has been called.
      */
     template <class SerializerType
             , class PType
             , class PEndptType>
     void serialize(SerializerType& s, 
-                   dAryInt& p_idxer,
+                   const dAryInt& p_idxer,
                    const PType& p,
                    const PEndptType& p_endpt,
                    double alpha,
                    double width,
-                   double grid_radius) const
+                   double grid_radius) 
     {
-        
+        if (!serialized_) {
+            uint32_t n_total = ipow(p.size(), outer_.n_arms_);
+            uint32_t n_arms = outer_.n_arms_;
+            s << n_total << n_arms;
+            serialized_ = true;
+        }
+
+        upper_bd_ /= n_;                
+        grad_buff_ *= static_cast<double>(outer_.n_samples_) / n_;
+
+        // serialize 1/N sum_{i=1}^N 1_{rej hyp i}
+        s << upper_bd_;
+
+        // replace the matrix with upper bound for constant term
+        upper_bd_.array() = upper_bd_constant(width);
+        s << upper_bd_;
+
+        // serialize gradient (for all components)
+        s << grad_buff_;
+
+        // add upper bound for gradient term and hessian term
+        upper_bd_grad_hess(
+                p_idxer, p, p_endpt, alpha, grid_radius,
+                [&](Eigen::Index, auto grad_bd, auto hess_bd) {
+                    s << grad_bd << hess_bd;
+                });
+    }
+
+    /*
+     * @param   c_vec       vector for constant monte carlo estimate (p).
+     * @param   c_bd_vec    vector for constant upper bound (p).
+     * @param   grad_mat    matrix for gradient monte carlo estimates for all arms (p x k).
+     * @param   grad_bd_vec vector for gradient upper bound (p).
+     * @param   hess_bd_vec vector for hessian upper bound (p).
+     */
+    template <class UnSerializerType
+            , class ConstantVecType
+            , class ConstantBdVecType
+            , class GradMatType
+            , class GradBdVecType
+            , class HessBdVecType>
+    static void unserialize(
+            UnSerializerType& us,
+            ConstantVecType& c_vec,
+            ConstantBdVecType& c_bd_vec,
+            GradMatType& grad_mat,
+            GradBdVecType& grad_bd_vec,
+            HessBdVecType& hess_bd_vec
+            ) 
+    {
+        uint32_t n_total, n_arms;
+        us >> n_total >> n_arms;
+
+        c_vec.resize(n_total);
+        c_bd_vec.resize(n_total);
+        grad_mat.resize(n_total, n_arms);
+        grad_bd_vec.resize(n_total);
+        hess_bd_vec.resize(n_total);
+
+        size_t offset = 0;
+
+        Eigen::MatrixXd cache;
+        Eigen::VectorXd buff;
+
+        while (us.get()) {
+
+            // read batch of constant matrix
+            us >> cache;
+            Eigen::Map<Eigen::MatrixXd> viewer(
+                    c_vec.data() + offset,
+                    cache.rows(),
+                    cache.cols()
+                    );
+            viewer = cache;
+
+            // read batch of constant upper bd matrix
+            us >> cache;
+            new (&viewer) Eigen::Map<Eigen::MatrixXd>(
+                    c_bd_vec.data() + offset,
+                    cache.rows(),
+                    cache.cols()
+                    );
+            viewer = cache;
+
+            // read batch of gradient vector
+            us >> buff;
+            new (&viewer) Eigen::Map<Eigen::VectorXd>(
+                    buff.data(),
+                    cache.size(),
+                    grad_mat.cols()
+                    );
+            grad_mat.block(offset, 0, cache.size(), grad_mat.cols())
+                = viewer;
+
+            // read batch of gradient/hessian bounds
+            Eigen::Map<Eigen::VectorXd> grad_bd_viewer(
+                    grad_bd_vec.data() + offset,
+                    cache.cols()
+                    );
+            Eigen::Map<Eigen::VectorXd> hess_bd_viewer(
+                    hess_bd_vec.data() + offset,
+                    cache.cols()
+                    );
+            for (int i = 0; i < cache.cols(); ++i) {
+                us >> grad_bd_viewer[i];
+                us >> hess_bd_viewer[i];
+            }
+
+            // update offset
+            offset += cache.size();
+        }
     }
 
 private:
+
+    auto upper_bd_constant(double width) const
+    {
+        return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
+    }
+
+    template <class PType
+            , class PEndptType
+            , class FType>
+    void upper_bd_grad_hess(
+            dAryInt p_idxer,
+            const PType& p,
+            const PEndptType& p_endpt,
+            double alpha,
+            double grid_radius,
+            FType f) const 
+    {
+        for (Eigen::Index i = 0; i < upper_bd_.cols(); ++i, ++p_idxer) {
+
+            auto& bits = p_idxer();
+
+            // compute grad upper bound
+            double var = 0;
+            std::for_each(bits.data(), bits.data() + bits.size(),
+                [&](auto k) { var += p[k] * (1.-p[k]); });
+                
+            var *= (static_cast<double>(outer_.n_samples_) / n_) * (1./alpha - 1.);
+            double grad_bd = grid_radius * std::sqrt(var);
+
+            // compute hessian upper bound
+            double hess_bd = 0;
+            std::for_each(bits.data(), bits.data() + bits.size(),
+                [&](auto k) {
+                    auto col_k = p_endpt.col(k);
+                    auto lower = col_k[0] - 0.5; // shift away center
+                    auto upper = col_k[1] - 0.5; // shift away center
+                    // max of p(1-p) occurs for whichever p is closest to 0.5.
+                    bool max_at_upper = (std::abs(upper) < std::abs(lower));
+                    auto max_endpt = col_k[max_at_upper]; 
+                    hess_bd += max_endpt * (1. - max_endpt);
+                });
+            hess_bd *= (outer_.n_samples_ * grid_radius * grid_radius) / 2.;
+            f(i, grad_bd, hess_bd);
+        }
+    }
+
     using mat_t = Eigen::MatrixXd;
 
     // This matrix will be used to store the final upper bound.
@@ -293,6 +425,7 @@ private:
     Eigen::VectorXd grad_buff_;
     const outer_t& outer_;
     size_t n_ = 0;  // number of updates
+    bool serialized_ = false;   // true iff serialize() has been called.
 };
 
 template <class UnifType
@@ -333,9 +466,9 @@ BinomialControlkTreatment<grid::Rectangular>::run(
     Eigen::Map<Eigen::VectorXi> control_counts(suff_stat.data(), d);
     Eigen::Map<Eigen::MatrixXi> ph2_counts(suff_stat.col(1).data(), d, k);
     Eigen::MatrixXi ph3_counts(d, k);
-    cum_count(ph2_unif, p, ph2_counts);
-    cum_count(ph3_unif, p, ph3_counts);
-    cum_count(control_unif, p, control_counts);
+    cum_count(ph2_unif, p_sorted, ph2_counts);
+    cum_count(ph3_unif, p_sorted, ph3_counts);
+    cum_count(control_unif, p_sorted, control_counts);
     suff_stat.block(0, 1, d, k) += ph3_counts;
 
     auto z_stat = [&](const auto& p_idxer) {

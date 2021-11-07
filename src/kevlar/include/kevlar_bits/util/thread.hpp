@@ -6,7 +6,7 @@
 
 namespace kevlar {
 
-int set_affinity(size_t cpu_id)
+inline int set_affinity(size_t cpu_id)
 {
 #if defined(KEVLAR_HAS_PTHREAD)
     cpu_set_t mask;

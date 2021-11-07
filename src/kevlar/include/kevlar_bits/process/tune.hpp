@@ -2,31 +2,28 @@
 #include <ctime>
 #include <limits>
 #include <iostream>
-#include <string_view>
 #include <kevlar_bits/process/driver.hpp>
 #include <kevlar_bits/util/progress_bar.hpp>
-#include <kevlar_bits/util/serializer.hpp>
-#include <Eigen/Core>
 
 namespace kevlar {
 
 template <class PVecType
         , class PEndptType
+        , class LmdaGridType
         , class RNGGenFType
         , class ModelType
         , class PBType = pb_ostream>
-auto fit(
+auto tune(
         size_t n_sim,
         double alpha,
         double delta,
         size_t grid_dim,
-        size_t grid_radius,
+        double grid_radius,
         const PVecType& p,
         const PEndptType& p_endpt,
-        double lmda,
+        const LmdaGridType& lmda_grid,
         RNGGenFType rng_gen_f,
         ModelType&& model,
-        const std::string_view& serialize_fname,
         size_t start_seed=time(0),
         size_t p_batch_size=std::numeric_limits<size_t>::infinity(),
         PBType&& pb = PBType(std::cout),
@@ -34,9 +31,7 @@ auto fit(
         unsigned int n_thr=std::thread::hardware_concurrency()
         )
 {
-    Eigen::Matrix<double, 1, 1> lmda_grid(lmda); 
-    Serializer s(serialize_fname.data());
-    auto process_upper_bd = [&](auto& upper_bd_full,
+    auto process_upper_bd = [](auto& upper_bd_full,
                                const auto& p_idxer_prev,
                                const auto& p,
                                const auto& p_endpt,
@@ -45,9 +40,20 @@ auto fit(
                                auto grid_radius,
                                auto& max_lmda_size) {
         // create the final upper bound
-        upper_bd_full.serialize(
-                s, p_idxer_prev, p, p_endpt,
+        upper_bd_full.create(
+                p_idxer_prev, p, p_endpt,
                 alpha, thr_delta, grid_radius);
+        auto& upper_bd_raw = upper_bd_full.get();
+        
+        // check the lmda threshold condition
+        for (int j = 0; j < upper_bd_raw.cols(); ++j) {
+            auto col_j = upper_bd_raw.col(j);
+            auto begin = col_j.data();
+            auto end = begin + max_lmda_size;
+            auto it = std::find_if(begin, end, [=](auto x) { return x > alpha; });
+            max_lmda_size = std::distance(begin, it); 
+            if (max_lmda_size <= 0) throw min_lmda_reached_error();
+        }
     };
     return driver(
             n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,

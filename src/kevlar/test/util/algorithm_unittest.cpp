@@ -51,6 +51,24 @@ TEST_P(algorithm_fixture, cum_count_test)
     expect_eq_mat(actual, expected);
 }
 
+TEST_P(algorithm_fixture, cum_count_map_test)
+{
+    Eigen::MatrixXi actual(thr.size(), x.cols());
+    Eigen::MatrixXi expected(thr.size(), x.cols());
+    for (int j = 0; j < expected.cols(); ++j) {
+        for (int i = 0; i < expected.rows(); ++i) {
+            expected(i,j) = (x.col(j).array() < thr(i)).count();
+        }
+    }
+
+    sort_cols(x);
+    Eigen::Map<Eigen::VectorXd> thr_map(thr.data(), thr.size());
+    Eigen::Map<Eigen::MatrixXi> actual_map(actual.data(), actual.rows(), actual.cols());
+    cum_count(x, thr_map, actual_map);
+
+    expect_eq_mat(actual, expected);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     AlgorithmSuite, algorithm_fixture,
 

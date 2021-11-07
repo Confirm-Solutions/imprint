@@ -11,6 +11,50 @@
 
 namespace kevlar {
 
+template <class PType
+        , class LmdaType
+        , class RngGenFType
+        , class ModelType
+        , class UpperBoundType>
+inline void thread_routine(
+    int thr_i, 
+    size_t n, 
+    size_t start_seed,
+    const dAryInt& begin, 
+    const PType& p,
+    size_t p_batch_size_thr, 
+    const LmdaType& lmda_grid,
+    RngGenFType rng_gen_f,
+    ModelType&& model,
+    UpperBoundType& upper_bd
+        )
+{
+    // set affinity to cpu thr_i
+    auto status = set_affinity(thr_i);
+    if (status) {
+        std::string msg = "Error calling pthread_setaffinity_np: ";
+        msg += std::to_string(status);
+        throw thread_error(msg);
+    }
+
+    // TODO: rng thing may need to be generalized to some class type
+    // similar to how it is for upper_bd_t.
+    Eigen::MatrixXd rng;
+    std::mt19937 gen(start_seed + thr_i);
+
+    // reset the upper bound object
+    upper_bd.reset(lmda_grid.size(), p_batch_size_thr);
+
+    // for each simulation, create necessary rng, run model, update upper-bound object.
+    for (size_t i = 0; i < n; ++i) {
+        rng_gen_f(gen, rng);
+        model.run(rng, begin, p_batch_size_thr, p, lmda_grid, upper_bd);
+    }
+
+    // at this point, upper_bd is in a state where it could technically
+    // compute the upper bound using the first n simulations.
+}
+
 template <class PVecType
         , class PEndptType
         , class LmdaGridType
@@ -18,12 +62,12 @@ template <class PVecType
         , class ModelType
         , class PBType
         , class ProcessUpperBdFType>
-auto driver(
+inline auto driver(
         size_t n_sim,
         double alpha,
         double delta,
         size_t grid_dim,
-        size_t grid_radius,
+        double grid_radius,
         const PVecType& p,
         const PEndptType& p_endpt,
         const LmdaGridType& lmda_grid,
@@ -53,40 +97,6 @@ auto driver(
     size_t n_sim_remain = n_sim % n_thr;
 
     std::vector<std::thread> pool(n_thr);
-    
-    // routine for each thread
-    auto f = [&](int thr_i, 
-                 size_t n, 
-                 const dAryInt& begin, 
-                 size_t p_batch_size_thr, 
-                 const auto& lmda_grid,
-                 upper_bd_t& upper_bd) 
-    {
-        // set affinity to cpu thr_i
-        auto status = set_affinity(thr_i);
-        if (status) {
-            std::string msg = "Error calling pthread_setaffinity_np: ";
-            msg += std::to_string(status);
-            throw thread_error(msg);
-        }
-
-        // TODO: rng thing may need to be generalized to some class type
-        // similar to how it is for upper_bd_t.
-        Eigen::MatrixXd rng;
-        std::mt19937 gen(start_seed + thr_i);
-
-        // reset the upper bound object
-        upper_bd.reset(lmda_grid.size(), p_batch_size_thr);
-
-        // for each simulation, create necessary rng, run model, update upper-bound object.
-        for (size_t i = 0; i < n; ++i) {
-            rng_gen_f(gen, rng);
-            model.run(rng, begin, p_batch_size_thr, p, lmda_grid, upper_bd);
-        }
-
-        // at this point, upper_bd is in a state where it could technically
-        // compute the upper bound using the first n simulations.
-    };
 
     dAryInt p_idxer(p.size(), grid_dim);
     dAryInt p_idxer_prev(p.size(), grid_dim);
@@ -110,18 +120,42 @@ auto driver(
 
         // run every thread
         auto lmda_subset = lmda_grid.head(max_lmda_size);
+        auto thr_routine_wrapper = 
+            [](int thr_i,
+               size_t n_sim_per_thr,
+               size_t start_seed,
+               const dAryInt& p_idxer,
+               const std::decay_t<PVecType>& p,
+               size_t p_batch_size_,
+               const auto& lmda_subset,
+               auto rng_gen_f,
+               std::decay_t<ModelType>& model,
+               upper_bd_t& upper_bd) 
+            { 
+                thread_routine(
+                        thr_i, n_sim_per_thr, start_seed, p_idxer,
+                        p, p_batch_size_, lmda_subset, 
+                        rng_gen_f, model, upper_bd);
+            };
+
         for (size_t thr_i = 0; thr_i < pool.size()-1; ++thr_i) {
-            pool[thr_i] = std::thread(f, 
-                    thr_i, n_sim_per_thr, 
-                    std::cref(p_idxer), p_batch_size_, 
-                    lmda_subset, 
-                    std::ref(upper_bds[thr_i]));
+            pool[thr_i] = std::thread(
+                    thr_routine_wrapper, 
+                    thr_i, n_sim_per_thr, start_seed, 
+                    std::cref(p_idxer), 
+                    std::cref(p), 
+                    p_batch_size_,
+                    lmda_subset, rng_gen_f,
+                    std::ref(model), std::ref(upper_bds[thr_i]) );
         } 
-        pool.back() = std::thread(f, 
-                pool.size()-1, n_sim_per_thr + n_sim_remain,
-                std::cref(p_idxer), p_batch_size_, 
-                lmda_subset,
-                std::ref(upper_bds[pool.size()-1]));
+        pool.back() = std::thread(
+                    thr_routine_wrapper, 
+                    pool.size()-1, n_sim_per_thr+n_sim_remain, start_seed, 
+                    std::cref(p_idxer), 
+                    std::cref(p), 
+                    p_batch_size_,
+                    lmda_subset, rng_gen_f,
+                    std::ref(model), std::ref(upper_bds.back()) );
 
         // increment indexer while all threads are running
         p_idxer_prev = p_idxer;
