@@ -106,6 +106,14 @@ private:
 
 struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 {
+private:
+    auto upper_bd_constant(double width) const
+    {
+        return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
+    }
+
+
+public:
     using outer_t = BinomialControlkTreatment<grid::Rectangular>;
     UpperBound(const outer_t& outer)
         : outer_{outer}
@@ -371,11 +379,6 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
     }
 
 private:
-
-    auto upper_bd_constant(double width) const
-    {
-        return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
-    }
 
     template <class PType
             , class PEndptType
