@@ -78,7 +78,7 @@ constexpr inline auto qnorm(ValueType p)
     // Define break-points.
     constexpr double p_low =  0.02425;
     constexpr double p_high = 1 - p_low;
-    long double q, r, e, u;
+    long double q=0, r=0, e=0, u=0;
     long double x = 0.0;
 
     // Rational approximation for lower region.
