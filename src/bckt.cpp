@@ -68,12 +68,6 @@ void bckt_fit(
     BinomialControlkTreatment<grid::Rectangular> 
         bckt(grid_dim, ph2_size, n_samples);
 
-    auto rng_gen_f = [=](auto& gen, auto& rng) {
-        std::uniform_real_distribution<double> unif(0., 1.);
-        rng = Eigen::MatrixXd::NullaryExpr(n_samples, grid_dim, 
-                [&](auto, auto) { return unif(gen); });
-    };
-    
     fit(n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
         lmda, [&](auto& gen, auto& rng) { unif_sampler(gen, rng, n_samples, grid_dim); }, bckt, 
         serialize_fname.get_cstring(), 
