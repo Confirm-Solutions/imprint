@@ -8,10 +8,11 @@
 #include <kevlar_bits/util/thread.hpp>
 #include <kevlar_bits/util/exceptions.hpp>
 #include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/range/grid_range.hpp>
 
 namespace kevlar {
 
-template <class PType
+template <class PRangeType
         , class LmdaType
         , class RngGenFType
         , class ModelType
@@ -20,9 +21,7 @@ inline void thread_routine(
     int thr_i, 
     size_t n, 
     size_t start_seed,
-    const dAryInt& begin, 
-    const PType& p,
-    size_t p_batch_size_thr, 
+    const PRangeType& p_range,
     const LmdaType& lmda_grid,
     RngGenFType rng_gen_f,
     ModelType&& model,
@@ -43,12 +42,12 @@ inline void thread_routine(
     std::mt19937 gen(start_seed + thr_i);
 
     // reset the upper bound object
-    upper_bd.reset(lmda_grid.size(), p_batch_size_thr);
+    upper_bd.reset(lmda_grid.size(), p_range.size());
 
     // for each simulation, create necessary rng, run model, update upper-bound object.
     for (size_t i = 0; i < n; ++i) {
         rng_gen_f(gen, rng);
-        model.run(rng, begin, p_batch_size_thr, p, lmda_grid, upper_bd);
+        model.run(rng, p_range, lmda_grid, upper_bd);
     }
 
     // at this point, upper_bd is in a state where it could technically
@@ -98,8 +97,9 @@ inline auto driver(
 
     std::vector<std::thread> pool(n_thr);
 
-    dAryInt p_idxer(p.size(), grid_dim);
-    dAryInt p_idxer_prev(p.size(), grid_dim);
+    using rectangular_range_t = rectangular_range<std::decay_t<PVecType> >;
+    rectangular_range curr_range(p, grid_dim, 0);
+    rectangular_range prev_range = curr_range;
     size_t p_grid_size = ipow(p.size(), grid_dim);
     size_t n_p_completed = 0;
     size_t max_lmda_size = lmda_grid.size();
@@ -116,7 +116,9 @@ inline auto driver(
     auto run_partition = [&](size_t p_batch_size_) {
 
         // MUST reset the final upper bound object
+        // and reset the range object.
         upper_bd_full.reset(max_lmda_size, p_batch_size_);
+        curr_range.set_size(p_batch_size_);
 
         // run every thread
         auto lmda_subset = lmda_grid.head(max_lmda_size);
@@ -124,17 +126,15 @@ inline auto driver(
             [](int thr_i,
                size_t n_sim_per_thr,
                size_t start_seed,
-               const dAryInt& p_idxer,
-               const std::decay_t<PVecType>& p,
-               size_t p_batch_size_,
+               const rectangular_range_t& curr_range,
                const auto& lmda_subset,
                auto rng_gen_f,
                std::decay_t<ModelType>& model,
                upper_bd_t& upper_bd) 
             { 
                 thread_routine(
-                        thr_i, n_sim_per_thr, start_seed, p_idxer,
-                        p, p_batch_size_, lmda_subset, 
+                        thr_i, n_sim_per_thr, start_seed, 
+                        curr_range, lmda_subset, 
                         rng_gen_f, model, upper_bd);
             };
 
@@ -142,36 +142,33 @@ inline auto driver(
             pool[thr_i] = std::thread(
                     thr_routine_wrapper, 
                     thr_i, n_sim_per_thr, start_seed, 
-                    std::cref(p_idxer), 
-                    std::cref(p), 
-                    p_batch_size_,
+                    std::cref(curr_range),
                     lmda_subset, rng_gen_f,
                     std::ref(model), std::ref(upper_bds[thr_i]) );
         } 
         pool.back() = std::thread(
                     thr_routine_wrapper, 
                     pool.size()-1, n_sim_per_thr+n_sim_remain, start_seed, 
-                    std::cref(p_idxer), 
-                    std::cref(p), 
-                    p_batch_size_,
+                    std::cref(curr_range), 
                     lmda_subset, rng_gen_f,
                     std::ref(model), std::ref(upper_bds.back()) );
 
-        // increment indexer while all threads are running
-        p_idxer_prev = p_idxer;
-        for (size_t k = 0; k < p_batch_size_; ++k, ++p_idxer);
+        // increment indexer while all threads are running 
+        // pre-emptive update: optimization
+        prev_range.set_idxer(curr_range.get_idxer());
+        auto& curr_idxer = curr_range.get_idxer();
+        for (size_t k = 0; k < p_batch_size_; ++k, ++curr_idxer);
 
         // wait until all threads finish
         for (auto& thr : pool) { thr.join(); }
 
         // pool upper bound estimates across all threads
-        for (size_t i = 0; i < upper_bds.size()-1; ++i) {
-            upper_bd_full.pool(upper_bds[i], n_sim_per_thr);
+        for (size_t i = 0; i < upper_bds.size(); ++i) {
+            upper_bd_full.pool(upper_bds[i]);
         }
-        upper_bd_full.pool(upper_bds.back(), n_sim_per_thr+n_sim_remain);
 
         process_upper_bd_f(
-                upper_bd_full, p_idxer_prev, p, p_endpt,
+                upper_bd_full, prev_range, p_endpt,
                 alpha, thr_delta, grid_radius, max_lmda_size);
     };
 

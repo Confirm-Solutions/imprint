@@ -38,8 +38,7 @@ void fit(
     Serializer s(serialize_fname.data());
 
     auto process_upper_bd = [&](auto& upper_bd_full,
-                               const auto& p_idxer_prev,
-                               const auto& p,
+                               const auto& p_range,
                                const auto& p_endpt,
                                auto alpha,
                                auto thr_delta,
@@ -47,7 +46,7 @@ void fit(
                                auto& max_lmda_size) {
         // create the final upper bound
         upper_bd_full.serialize(
-                s, p_idxer_prev, p, p_endpt,
+                s, p_range, p_endpt,
                 alpha, thr_delta, grid_radius);
     };
 

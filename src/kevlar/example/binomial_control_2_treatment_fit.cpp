@@ -14,7 +14,7 @@ int main()
     double alpha = 0.05;
     double delta = 0.05;
     size_t grid_dim = 3;
-    size_t grid_radius = grid_t::radius(p_size, lower, upper);
+    double grid_radius = grid_t::radius(p_size, lower, upper);
     size_t n_samples = 250;
     size_t ph2_size = 50;
 

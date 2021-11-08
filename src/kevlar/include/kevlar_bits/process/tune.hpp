@@ -32,8 +32,7 @@ auto tune(
         )
 {
     auto process_upper_bd = [](auto& upper_bd_full,
-                               const auto& p_idxer_prev,
-                               const auto& p,
+                               const auto& p_range,
                                const auto& p_endpt,
                                auto alpha,
                                auto thr_delta,
@@ -41,7 +40,7 @@ auto tune(
                                auto& max_lmda_size) {
         // create the final upper bound
         upper_bd_full.create(
-                p_idxer_prev, p, p_endpt,
+                p_range, p_endpt,
                 alpha, thr_delta, grid_radius);
         auto& upper_bd_raw = upper_bd_full.get();
         
