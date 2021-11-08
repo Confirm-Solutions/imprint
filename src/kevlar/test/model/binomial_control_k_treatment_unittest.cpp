@@ -2,6 +2,7 @@
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>   // separately unittested
 #include <kevlar_bits/util/math.hpp>   // separately unittested
+#include <kevlar_bits/util/range/grid_range.hpp>   // separately unittested
 
 namespace kevlar {
 
@@ -57,14 +58,14 @@ TEST_P(bckt_upper_bound_fixture_rect, update_one_test)
     auto upper_bd = opt.make_upper_bd();
     upper_bd.reset(thr_vec.size(), 1);
 
-    dAryInt it(p.size(), k); 
-    upper_bd.update(it, p, suff_stat, thr_vec, 
+    rectangular_range p_range(p, k, 1); 
+    upper_bd.update(p_range, suff_stat, thr_vec, 
             [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
     auto& upper_bd_raw = upper_bd.get();
     auto actual = upper_bd_raw.col(0);
     
     Eigen::VectorXd expected(thr_vec.size());
-    auto z = test_stat(it, p);
+    auto z = test_stat(p_range.get_idxer(), p);
     expected.array() = (z > thr_vec.array()).template cast<double>();
 
     expect_double_eq_vec(actual, expected);
@@ -77,21 +78,24 @@ TEST_P(bckt_upper_bound_fixture_rect, update_two_test)
     auto upper_bd = opt.make_upper_bd();
     upper_bd.reset(thr_vec.size(), 1);
 
-    dAryInt it(p.size(), k); 
-    upper_bd.update(it, p, suff_stat, thr_vec, 
+    rectangular_range p_range(p, k, 2); 
+    auto it = p_range.begin();
+    upper_bd.update(p_range, suff_stat, thr_vec, 
             [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
     ++it;
-    upper_bd.update(it, p, suff_stat, thr_vec, 
+    p_range.set_idxer(*it);
+    upper_bd.update(p_range, suff_stat, thr_vec, 
             [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
     auto& upper_bd_raw = upper_bd.get();
     auto actual = upper_bd_raw.col(0);
     
-    it.setZero();
+    rectangular_range p_range_2(p, k, 2);
+    it = p_range_2.begin();
     Eigen::VectorXd expected(thr_vec.size());
-    auto z = test_stat(it, p);
+    auto z = test_stat(*it, p);
     expected.array() = (z > thr_vec.array()).template cast<double>();
     ++it;
-    z = test_stat(it, p);
+    z = test_stat(*it, p);
     expected.array() += (z > thr_vec.array()).template cast<double>();
 
     expect_double_eq_vec(actual, expected);
@@ -110,11 +114,12 @@ TEST_P(bckt_upper_bound_fixture_rect, create_two_test)
     sort_cols(p_endpt);
 
     for (int i = 0; i < 2; ++i, ++it) {
-        upper_bd.update(it, p, suff_stat, thr_vec, 
+        upper_bd.update(
+                rectangular_range(p, it, 1), suff_stat, thr_vec, 
                 [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
     }
     it.setZero();
-    upper_bd.create(it, p, p_endpt, alpha, width, grid_radius);
+    upper_bd.create(rectangular_range(p, it, 1), p_endpt, alpha, width, grid_radius);
     auto& upper_bd_raw = upper_bd.get();
     auto actual = upper_bd_raw.col(0);
 

@@ -9,104 +9,135 @@
 #include <algorithm>
 
 namespace kevlar {
+namespace internal {
 
-template <class GridType = grid::Arbitrary>
-struct BinomialControlkTreatment
+struct BinomialControlkTreatmentBase
 {
-    /*
-     * Runs the Binomial 3-arm phase II/III trial simulation.
-     * 
-     * @param   p           vector of length k with probability of each arm success rate (null point).
-     * @param   unif        matrix with k columns where column i is the uniform draws of arm i.
-     * @param   ph2_size    phase ii number of patients from treatment arms.
-     *                      Assumes the treatment arms have the same number of patients.
-     */
-    template <class PType, class UnifType>
-    auto run(
-        const PType& p, 
-        const UnifType& unif,
-        size_t ph2_size)
-    {
-        size_t k = unif.cols()-1;
-        size_t n = unif.rows();
-        size_t ph3_size = n - ph2_size;
-
-        // resize cache
-        a_sum_.conservativeResize(k);
-
-        // phase II
-        for (size_t i = 0; i < k; ++i) {
-            a_sum_[i] = (unif.col(i+1).head(ph2_size).array() < p(i+1)).count();
-        }
-
-        // compare and choose arm with more successes
-        Eigen::Index a_star;
-        a_sum_.maxCoeff(&a_star);
-
-        // phase III
-        size_t a_star_rest_sum = (unif.col(a_star+1).tail(ph3_size).array() < p(a_star+1)).count();
-        auto p_star = static_cast<double>(a_sum_[a_star] + a_star_rest_sum) / n;
-        auto p_0 = (unif.col(0).array() < p(0)).template cast<double>().mean();
-        auto z = (p_star - p_0);
-        auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-        z = (var == 0) ? std::numeric_limits<double>::infinity() : z / sqrt(var / n); 
-        return z;
-    }
-
-private:
-    Eigen::VectorXd a_sum_;
-};
-
-/* Specialization: Rectangular grid */
-template <>
-struct BinomialControlkTreatment<grid::Rectangular>
-{
-    struct UpperBound;
-
-    using upper_bd_t = UpperBound;
-
-    BinomialControlkTreatment(
+    BinomialControlkTreatmentBase(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples
             )
-        : n_arms_(n_arms), ph2_size_(ph2_size), n_samples_(n_samples)
+        : n_arms_(n_arms)
+        , ph2_size_(ph2_size)
+        , n_samples_(n_samples)
     {}
 
-    /*
-     * Runs the Binomial 3-arm Phase II/III trial simulation.
-     * 
-     * @param   unif            matrix with n_arms columns where column i is the uniform draws of arm i.
-     * @param   p_idxer         current indexer for the full p-grid.
-     * @param   p_batch_size    number of grid points to consider starting at p_idxer
-     * @param   p               vector of length d with probability of an arm success rate (null point).
-     *                          Assumes the grid is rectangular with points formed as a tuple of the values in p.
-     * @param   thr_grid        Grid of threshold values for tuning. See requirements for UpperBound.
-     * @param   upper_bd        Upper-bound object to update.
-     */
-    template <class UnifType
-            , class PType
-            , class ThrVecType>
-    inline void run(
-            const UnifType& unif,
-            const dAryInt& p_idxer,
-            size_t p_batch_size,
-            const PType& p,
-            const ThrVecType& thr_grid,
-            upper_bd_t& upper_bd
-            ) const;
-
-    inline auto make_upper_bd() const;
-
-private:
+protected:
     size_t n_arms_;
     size_t ph2_size_;
     size_t n_samples_;
 };
 
+} // namespace internal
+
+/*
+ * Binomial control + k Treatment model.
+ * For a given point null p = (p_0,..., p_{k}),
+ * n responses Y_{ij} for each arm j=0,...,k where Y_{ij} ~ Bern(p_j) iid,
+ * Phase II size of ph2_size, it does the following procedure:
+ *
+ *  - select the treatment arm j* with most responses based on the first ph2_size samples
+ *  - construct the paired z-test between p_{j*} and p_0 testing for the null that p_{j*} <= p_0.
+ */
+
+// ========================================================
+// BinomialControlkTreatment DECLARATIONS
+// ========================================================
+
+/* Forward declaration */
+template <class GridType = grid::Arbitrary>
+struct BinomialControlkTreatment;
+
+/* Specialization declaration: arbitrary grid */
+template <>
+struct BinomialControlkTreatment<grid::Arbitrary>
+    : internal::BinomialControlkTreatmentBase
+{
+private:
+    using base_t = internal::BinomialControlkTreatmentBase;
+
+public:
+    struct UpperBound;
+
+    using upper_bd_t = UpperBound;
+    using base_t::base_t;
+
+    /*
+     * Runs the Binomial 3-arm Phase II/III trial simulation.
+     * 
+     * @param   unif            matrix with n_arms columns where column i is the uniform draws of arm i.
+     * @param   p_range         current range of the full p-grid.
+     * @param   thr_grid        Grid of threshold values for tuning. See requirements for UpperBound.
+     * @param   upper_bd        Upper-bound object to update.
+     */
+    template <class UnifType
+            , class PRangeType
+            , class ThrVecType>
+    inline void run(
+            const UnifType& unif,
+            const PRangeType& p_range,
+            const ThrVecType& thr_grid,
+            upper_bd_t& upper_bd
+            ) const;
+
+    /*
+     * Creates an upper bound object associated with the metadata of the current object.
+     */
+    inline auto make_upper_bd() const;
+};
+
+/* Specialization declaration: rectangular grid */
+template <>
+struct BinomialControlkTreatment<grid::Rectangular>
+    : internal::BinomialControlkTreatmentBase
+{
+private:
+    using base_t = internal::BinomialControlkTreatmentBase;
+
+public:
+    struct UpperBound;
+
+    using upper_bd_t = UpperBound;
+    using base_t::base_t;
+
+    template <class UnifType
+            , class PRangeType
+            , class ThrVecType>
+    inline void run(
+            const UnifType& unif,
+            const PRangeType& p_range,
+            const ThrVecType& thr_grid,
+            upper_bd_t& upper_bd
+            ) const;
+
+    inline auto make_upper_bd() const;
+};
+
+// ========================================================
+// UpperBound DEFINITIONS                                           
+// ========================================================
+
+/* Definition of UpperBound nested class: arbitrary grid */
+struct BinomialControlkTreatment<grid::Arbitrary>::UpperBound
+{
+    using outer_t = BinomialControlkTreatment<grid::Arbitrary>;
+
+    UpperBound(const outer_t& outer)
+        : outer_{outer}
+    {}
+
+    // TODO: member fns
+    
+private:
+    const outer_t& outer_;
+};
+
+/* Definition of UpperBound nested class: rectangular grid */
 struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 {
     using outer_t = BinomialControlkTreatment<grid::Rectangular>;
+
     UpperBound(const outer_t& outer)
         : outer_{outer}
     {}
@@ -117,18 +148,18 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
      * the rejection proportions are updated as running averages in upper_bd_
      * and the gradient components are updated as running averages in grad_buff_.
      *
-     * Assumes that upper_bd_ has already been reshaped and initialized (or updated from previous call).
+     * This operation puts the state into Createable.
+     * Assumes that the internals have been initialized properly (e.g. see reset()).
      *
      * @param   thr_vec     vector of thresholds. Must be in decreasing order.
      *                      See requirements for create().
      */
-    template <class PType
+    template <class PRangeType
             , class SuffStatType
             , class ThrVecType
             , class TestStatFType>
     void update(
-            dAryInt p_idxer,
-            const PType& p,
+            const PRangeType& p_range,
             SuffStatType& suff_stat,
             const ThrVecType& thr_vec,
             TestStatFType test_stat_f
@@ -139,7 +170,10 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
         ++n_;
 
-        for (int j = 0; j < upper_bd_.cols(); ++j, ++p_idxer) {
+        auto p_begin = p_range.begin();
+
+        for (int j = 0; j < upper_bd_.cols(); ++j, ++p_begin) {
+            auto& p_idxer = *p_begin;
             auto test_stat = test_stat_f(p_idxer);
 
             // find first threshold s.d. test_stat > thr
@@ -156,6 +190,7 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
             const auto slice_size = upper_bd_.size();
             auto slice_offset = 0;
             auto& p_idxer_bits = p_idxer();
+            auto& p = p_begin.get_1d_grid();
             for (size_t k = 0; k < outer_.n_arms_; ++k, slice_offset += slice_size) {
                 Eigen::Map<mat_t> grad_k_cache(
                         grad_buff_.data() + slice_offset, 
@@ -170,23 +205,38 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
         }
     }
 
-    void pool(const UpperBound& other, size_t n)
+    /*
+     * Pools other upper bound objects into the current object.
+     * Must be in state Createable to be a valid call.
+     *
+     * @param   other       other UpperBound object to pool into current object.
+     */
+    void pool(const UpperBound& other)
     {
         upper_bd_ += other.upper_bd_;
         grad_buff_ += other.grad_buff_;
-        n_ += n;
+        n_ += other.n_;
     }
 
     /*
+     * Creates a full upper bound estimate.
+     * Must be in state Createable to be a valid call.
+     * After the call, the state is not in Createable.
+     *
+     * @param   p_idxer     a d-ary integer that will index the vector p to get the configuration of the grid point.
      * @param   p           vector of 1-d p values. Algorithm is only statistically valid when
      *                      p was constructed from an evenly-spaced of radius grid_radius in the natural parameter space.
      * @param   p_endpt     a 2 x c matrix where c is the length of p.
      *                      Each column c contains the endpoints of the 1-d grid centered at p[c].
      *                      The first row must be element-wise less than the second row.
+     * @param   alpha       Nominal level of test.
+     * @param   width       The constant term upper bound width (width * standard_error / sqrt(n_)).
+     *                      Usually, this will be some critical threshold for 1-delta/2 quantile of some asymptotic distribution (normal)
+     *                      where delta is the maximum probability of the upper bound exceeding alpha level.
+     * @param   grid_radius radius of the grid in the natural parameter space.
      */
-    template <class PType, class PEndPtType>
-    void create(const dAryInt& p_idxer, 
-                const PType& p, 
+    template <class PRangeType, class PEndPtType>
+    void create(const PRangeType& p_range, 
                 const PEndPtType& p_endpt,
                 double alpha,
                 double width, 
@@ -212,13 +262,17 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
         // add upper bound for gradient term and hessian term
         upper_bd_grad_hess(
-            p_idxer, p, p_endpt, alpha, grid_radius,
+            p_range, p_endpt, alpha, grid_radius,
             [&](Eigen::Index i, auto grad_bd, auto hess_bd) {
                 upper_bd_.col(i).array() += grad_bd + hess_bd;
             });
 
     }
 
+    /* 
+     * Resets the internals to consider m number of thresholds 
+     * and n number of grid points when updating.
+     */
     void reset(size_t m, size_t n)
     {
         upper_bd_.setZero(m, n);
@@ -244,19 +298,20 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
     /*
      * Serializes the necessary quantities to construct the upper bound.
-     * Assumes that the object is in a state where update or pool has been called.
+     * Assumes that the object is in state Createable.
      */
     template <class SerializerType
-            , class PType
+            , class PRangeType
             , class PEndptType>
     void serialize(SerializerType& s, 
-                   const dAryInt& p_idxer,
-                   const PType& p,
+                   const PRangeType& p_range,
                    const PEndptType& p_endpt,
                    double alpha,
                    double width,
                    double grid_radius) 
     {
+        auto& p = p_range.get_1d_grid();
+
         if (!serialized_) {
             uint32_t n_total = ipow(p.size(), outer_.n_arms_);
             uint32_t n_arms = outer_.n_arms_;
@@ -279,13 +334,17 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 
         // add upper bound for gradient term and hessian term
         upper_bd_grad_hess(
-                p_idxer, p, p_endpt, alpha, grid_radius,
+                p_range, p_endpt, alpha, grid_radius,
                 [&](Eigen::Index, auto grad_bd, auto hess_bd) {
                     s << grad_bd << hess_bd;
                 });
     }
 
     /*
+     * Unserializes and stores the results into the arguments.
+     * TODO: this is only a valid operation if the Unserializer is processing a file
+     * that was created from calling serialize() with 1-threshold considered.
+     *
      * @param   c_vec       vector for constant monte carlo estimate (p).
      * @param   c_bd_vec    vector for constant upper bound (p).
      * @param   grad_mat    matrix for gradient monte carlo estimates for all arms (p x k).
@@ -377,20 +436,23 @@ private:
         return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
     }
 
-    template <class PType
+    template <class PRangeType
             , class PEndptType
             , class FType>
     void upper_bd_grad_hess(
-            dAryInt p_idxer,
-            const PType& p,
+            const PRangeType& p_range,
             const PEndptType& p_endpt,
             double alpha,
             double grid_radius,
             FType f) const 
     {
-        for (Eigen::Index i = 0; i < upper_bd_.cols(); ++i, ++p_idxer) {
+        auto p_begin = p_range.begin();
 
+        for (Eigen::Index i = 0; i < upper_bd_.cols(); ++i, ++p_begin) {
+            
+            auto& p_idxer = *p_begin;
             auto& bits = p_idxer();
+            auto& p = p_begin.get_1d_grid();
 
             // compute grad upper bound
             double var = 0;
@@ -428,15 +490,61 @@ private:
     bool serialized_ = false;   // true iff serialize() has been called.
 };
 
+// ========================================================
+// BinomialControlkTreatment Run DEFINITIONS
+// ========================================================
+
+/* Specialization: arbitrary */
 template <class UnifType
-        , class PType
+        , class PRangeType
+        , class ThrVecType>
+inline void BinomialControlkTreatment<grid::Arbitrary>::run(
+            const UnifType& unif,
+            const PRangeType& p_range,
+            const ThrVecType& thr_grid,
+            upper_bd_t& upper_bd
+            ) const
+{
+    assert(static_cast<size_t>(unif.rows()) == n_samples_);
+    assert(static_cast<size_t>(unif.cols()) == n_arms_);
+
+    size_t k = unif.cols()-1;
+    size_t n = unif.rows();
+    size_t ph2_size = ph2_size;
+    size_t ph3_size = n - ph2_size;
+
+    // resize cache
+    Eigen::VectorXd a_sum(k);
+
+    auto z_stat = [&](const auto& p) {
+        // phase II
+        for (size_t i = 0; i < a_sum.size(); ++i) {
+            a_sum[i] = (unif.col(i+1).head(ph2_size).array() < p(i+1)).count();
+        }
+
+        // compare and choose arm with more successes
+        Eigen::Index a_star;
+        a_sum.maxCoeff(&a_star);
+
+        // phase III
+        size_t a_star_rest_sum = (unif.col(a_star+1).tail(ph3_size).array() < p(a_star+1)).count();
+        auto p_star = static_cast<double>(a_sum[a_star] + a_star_rest_sum) / n;
+        auto p_0 = (unif.col(0).array() < p(0)).template cast<double>().mean();
+        auto z = (p_star - p_0);
+        auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
+        z = (var == 0) ? std::numeric_limits<double>::infinity() : z / sqrt(var / n); 
+        return z;
+    };
+}
+
+/* Specialization: rectangular */
+template <class UnifType
+        , class PRangeType
         , class ThrVecType>
 inline void 
 BinomialControlkTreatment<grid::Rectangular>::run(
         const UnifType& unif,
-        const dAryInt& p_idxer,
-        size_t p_batch_size,
-        const PType& p,
+        const PRangeType& p_range,
         const ThrVecType& thr_grid,
         upper_bd_t& upper_bd
         ) const
@@ -449,6 +557,7 @@ BinomialControlkTreatment<grid::Rectangular>::run(
     size_t n = unif.rows();
     size_t ph2_size = ph2_size_;
     size_t ph3_size = n - ph2_size;
+    auto& p = p_range.get_1d_grid();
     size_t d = p.size();
 
     Eigen::VectorXd p_sorted = p;
@@ -493,11 +602,20 @@ BinomialControlkTreatment<grid::Rectangular>::run(
         return z;
     };
 
-    upper_bd.update(p_idxer, p, suff_stat, thr_grid, z_stat);
+    upper_bd.update(p_range, suff_stat, thr_grid, z_stat);
 }
 
-inline auto
-BinomialControlkTreatment<grid::Rectangular>::make_upper_bd() const
-{ return UpperBound(*this); }
+// ========================================================
+// make_upper_bd DEFINITIONS
+// ========================================================
+#define MAKE_UPPER_BD_GEN(grid_type) \
+    inline auto \
+    BinomialControlkTreatment<grid::grid_type>::make_upper_bd() const \
+    { return UpperBound(*this); } 
+
+MAKE_UPPER_BD_GEN(Arbitrary)
+MAKE_UPPER_BD_GEN(Rectangular)
+
+#undef MAKE_UPPER_BD_GEN
 
 } // namespace kevlar
