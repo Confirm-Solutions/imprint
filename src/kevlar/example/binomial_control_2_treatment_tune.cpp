@@ -1,6 +1,5 @@
 #include <iostream>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/process/tune.hpp>
 #include <kevlar_bits/util/grid.hpp>
 
 int main()
@@ -38,8 +37,9 @@ int main()
         model(grid_dim, ph2_size, n_samples);
 
     try {
-        auto thr = tune(n_sim, alpha, delta, grid_dim, grid_radius,
-             p_1d, p_endpt, thr_vec, rng_gen_f, model, 0);
+        auto thr = model.tune(
+                n_sim, alpha, delta, grid_dim, grid_radius,
+                p_1d, p_endpt, thr_vec, rng_gen_f, 0);
         std::cout << thr << std::endl;
     } 
     catch (const kevlar_error& e) {

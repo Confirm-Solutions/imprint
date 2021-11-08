@@ -33,9 +33,9 @@ double bckt_tune(
     BinomialControlkTreatment<grid::Rectangular> 
         bckt(grid_dim, ph2_size, n_samples);
 
-    return tune(
+    return bckt.tune(
         n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
-        lmda_grid, [&](auto& gen, auto& rng) { unif_sampler(gen, rng, n_samples, grid_dim); }, bckt, 
+        lmda_grid, [&](auto& gen, auto& rng) { unif_sampler(gen, rng, n_samples, grid_dim); }, 
         start_seed_, p_batch_size_, pb_ostream(Rcpp_cout_get()), do_progress_bar, n_thr_);
 }
 
@@ -68,8 +68,8 @@ void bckt_fit(
     BinomialControlkTreatment<grid::Rectangular> 
         bckt(grid_dim, ph2_size, n_samples);
 
-    fit(n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
-        lmda, [&](auto& gen, auto& rng) { unif_sampler(gen, rng, n_samples, grid_dim); }, bckt, 
+    bckt.fit(n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
+        lmda, [&](auto& gen, auto& rng) { unif_sampler(gen, rng, n_samples, grid_dim); }, 
         serialize_fname.get_cstring(), 
         start_seed_, p_batch_size_, pb_ostream(Rcpp_cout_get()), do_progress_bar, n_thr_);
 }

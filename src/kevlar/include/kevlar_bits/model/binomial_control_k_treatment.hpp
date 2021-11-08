@@ -4,11 +4,17 @@
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/hardware.hpp>
+#include <kevlar_bits/model/base.hpp>
 #include <Eigen/Core>
 #include <limits>
 #include <algorithm>
 
 namespace kevlar {
+
+/* Forward declaration */
+template <class GridType = grid::Arbitrary>
+struct BinomialControlkTreatment;
+
 namespace internal {
 
 struct BinomialControlkTreatmentBase
@@ -29,6 +35,15 @@ protected:
     size_t n_samples_;
 };
 
+template <class T>
+struct traits;
+
+template <class GridType>
+struct traits<BinomialControlkTreatment<GridType> >
+{
+    using upper_bd_t = typename BinomialControlkTreatment<GridType>::UpperBound;
+};
+
 } // namespace internal
 
 /*
@@ -44,10 +59,6 @@ protected:
 // ========================================================
 // BinomialControlkTreatment DECLARATIONS
 // ========================================================
-
-/* Forward declaration */
-template <class GridType = grid::Arbitrary>
-struct BinomialControlkTreatment;
 
 /* Specialization declaration: arbitrary grid */
 template <>
@@ -91,6 +102,7 @@ public:
 template <>
 struct BinomialControlkTreatment<grid::Rectangular>
     : internal::BinomialControlkTreatmentBase
+    , ModelBase<BinomialControlkTreatment<grid::Rectangular> >
 {
 private:
     using base_t = internal::BinomialControlkTreatmentBase;
