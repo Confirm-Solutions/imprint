@@ -136,6 +136,14 @@ private:
 /* Definition of UpperBound nested class: rectangular grid */
 struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
 {
+private:
+    auto upper_bd_constant(double width) const
+    {
+        return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
+    }
+
+
+public:
     using outer_t = BinomialControlkTreatment<grid::Rectangular>;
 
     UpperBound(const outer_t& outer)
@@ -430,11 +438,6 @@ struct BinomialControlkTreatment<grid::Rectangular>::UpperBound
     }
 
 private:
-
-    auto upper_bd_constant(double width) const
-    {
-        return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
-    }
 
     template <class PRangeType
             , class PEndptType
