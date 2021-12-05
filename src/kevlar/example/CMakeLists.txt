@@ -15,20 +15,20 @@
 #endif()
 
 set(
-    BENCHMARKS
+    EXAMPLES
     binomial_control_2_treatment_tune
-    binomial_control_2_treatment_fit
+    #binomial_control_2_treatment_fit
 )
 
-foreach(benchmark ${BENCHMARKS})
-    add_executable(${benchmark}
-        ${CMAKE_CURRENT_SOURCE_DIR}/${benchmark}.cpp)
-    target_link_libraries(${benchmark}
+foreach(example ${EXAMPLES})
+    add_executable(${example}
+        ${CMAKE_CURRENT_SOURCE_DIR}/${example}.cpp)
+    target_link_libraries(${example}
         ${PROJECT_NAME}
         Threads::Threads
         Eigen3::Eigen)
     if (KEVLAR_HAS_PTHREAD)
-        target_compile_definitions(${benchmark} PRIVATE
+        target_compile_definitions(${example} PRIVATE
             ${KEVLAR_HAS_PTHREAD_MACRO})
     endif()
 endforeach()

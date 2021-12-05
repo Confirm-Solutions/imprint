@@ -12,7 +12,7 @@ int main()
     double upper = 1.5;
     size_t n_sim = 50000;
     double alpha = 0.05;
-    double delta = 0.05;
+    double delta = 0.025;
     size_t grid_dim = 3;
     double grid_radius = grid_t::radius(p_size, lower, upper);
     size_t n_samples = 250;
@@ -24,25 +24,23 @@ int main()
     Eigen::MatrixXd p_endpt = grid_t::make_endpts(p_size, lower, upper);
     p_endpt = p_endpt.unaryExpr([](auto x) { return 1./(1. + std::exp(-x)); });
 
-    Eigen::VectorXd thr_vec = grid_t::make_grid(100, 12., 15.2);
+    Eigen::VectorXd thr_vec = grid_t::make_grid(10, 12., 15.2);
     sort_cols(thr_vec, std::greater<double>());
 
-    auto rng_gen_f = [=](auto& gen, auto& rng) {
-        std::uniform_real_distribution<double> unif(0., 1.);
-        rng = Eigen::MatrixXd::NullaryExpr(n_samples, grid_dim, 
-                [&](auto, auto) { return unif(gen); });
-    };
-
     BinomialControlkTreatment<grid::Rectangular> 
-        model(grid_dim, ph2_size, n_samples);
+        model(grid_dim, ph2_size, n_samples, p_1d, p_endpt);
 
     try {
         auto thr = model.tune(
-                n_sim, alpha, delta, grid_dim, grid_radius,
-                p_1d, p_endpt, thr_vec, rng_gen_f, 0);
+                n_sim, alpha, delta, grid_radius,
+                thr_vec, 0, std::numeric_limits<size_t>::infinity(),
+                pb_ostream(std::cout), true
+                );
         std::cout << thr << std::endl;
     } 
     catch (const kevlar_error& e) {
+        std::cerr << e.what() << std::endl;
+    } catch (const std::system_error& e) {
         std::cerr << e.what() << std::endl;
     }
 
