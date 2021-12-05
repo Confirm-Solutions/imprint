@@ -5,24 +5,8 @@
 
 namespace kevlar {
 
-template <class PType>
 struct rectangular_range;
 
-template <class PType>
-inline constexpr bool 
-    operator==(const typename rectangular_range<PType>::iterator_type& it1,
-               const typename rectangular_range<PType>::iterator_type& it2)
-    { return (it1.cnt_ == it2.cnt_) &&
-             (&it1.outer_ == &it2.outer_); }
-
-template <class PType>
-inline constexpr bool 
-    operator!=(const typename rectangular_range<PType>::iterator_type& it1,
-               const typename rectangular_range<PType>::iterator_type& it2)
-    { return (it1.curr_ != it2.curr_) ||
-             (&it1.outer_ != &it2.outer_); }
-
-template <class PType>
 struct rectangular_range
 {
     struct iterator_type 
@@ -41,14 +25,11 @@ struct rectangular_range
         iterator_type& operator++() { ++idxer_; ++cnt_; return *this; }
         reference operator*() { return idxer_; }
         pointer operator->() { return &idxer_; }
-
-        /* Additional getter for p-vector */
-        const PType& get_1d_grid() const { return outer_cref_.get().p_; }
         
-        friend constexpr bool operator==<PType>(
+        friend constexpr bool operator==(
                 const iterator_type&,
                 const iterator_type&);
-        friend constexpr bool operator!=<PType>(
+        friend constexpr bool operator!=(
                 const iterator_type&,
                 const iterator_type&);
     private:
@@ -57,16 +38,15 @@ struct rectangular_range
         size_t cnt_;
     };
 
-    rectangular_range(const PType& p,
+    rectangular_range(size_t base,
                       size_t n_bits,
                       size_t size)
-        : p_{p}, idxer_(p.size(), n_bits), size_{size}
+        : idxer_(base, n_bits), size_{size}
     {}
     
-    rectangular_range(const PType& p,
-                      const dAryInt& idxer,
+    rectangular_range(const dAryInt& idxer,
                       size_t size)
-        : p_{p}, idxer_{idxer}, size_{size}
+        : idxer_{idxer}, size_{size}
     {}
 
     iterator_type begin() const { return {*this, 0}; }
@@ -76,22 +56,23 @@ struct rectangular_range
     void set_idxer(const dAryInt& idx) { idxer_ = idx; }
     void set_size(size_t s) { size_ = s; }
     dAryInt& get_idxer() { return idxer_; }
-    const PType& get_1d_grid() const { return p_; }
 
 private:
-    const PType& p_;
     dAryInt idxer_;
     size_t size_ = 0;
 };
 
+inline constexpr bool 
+    operator==(const typename rectangular_range::iterator_type& it1,
+               const typename rectangular_range::iterator_type& it2)
+    { return (it1.cnt_ == it2.cnt_) &&
+             (&it1.outer_cref_.get() == &it2.outer_cref_.get()); }
 
-template <class PType>
-rectangular_range(const PType&, size_t, size_t) 
-    -> rectangular_range<std::decay_t<PType> >;
-
-template <class PType>
-rectangular_range(const PType&, const dAryInt&, size_t) 
-    -> rectangular_range<std::decay_t<PType> >;
+inline constexpr bool 
+    operator!=(const typename rectangular_range::iterator_type& it1,
+               const typename rectangular_range::iterator_type& it2)
+    { return (it1.cnt_ != it2.cnt_) ||
+             (&it1.outer_cref_.get() != &it2.outer_cref_.get()); }
 
 
 } // namespace kevlar

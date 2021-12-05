@@ -15,13 +15,13 @@
 #include <kevlar_bits/util/range/grid_range.hpp>
 #include <kevlar_bits/util/progress_bar.hpp>
 #include <kevlar_bits/util/serializer.hpp>
+#include <kevlar_bits/model/upper_bound.hpp>
 #include <Eigen/Core>
 
 namespace kevlar {
 namespace internal {
 
-template <class T>
-struct traits;
+template <class T> struct traits;
 
 } // namespace internal
 
@@ -33,17 +33,17 @@ private:
     derived_t& self() { return static_cast<derived_t&>(*this); }
     const derived_t& self() const { return static_cast<const derived_t&>(*this); }
 
-    template <class PRangeType
+    template <class MeanIdxerRangeType
             , class LmdaType
-            , class RngGenFType
+            , class StateType
             , class UpperBoundType>
     void thread_routine(
         int thr_i, 
         size_t n, 
         size_t start_seed,
-        const PRangeType& p_range,
+        const MeanIdxerRangeType& mean_idxer_range,
         const LmdaType& lmda_grid,
-        RngGenFType rng_gen_f,
+        StateType& state,
         UpperBoundType& upper_bd
             )
     {
@@ -55,18 +55,16 @@ private:
             throw thread_error(msg);
         }
 
-        // TODO: rng thing may need to be generalized to some class type
-        // similar to how it is for upper_bd_t.
-        Eigen::MatrixXd rng;
         std::mt19937 gen(start_seed + thr_i);
 
         // reset the upper bound object
-        upper_bd.reset(lmda_grid.size(), p_range.size());
+        upper_bd.reset(lmda_grid.size(), mean_idxer_range.size(), self().n_arms());
 
         // for each simulation, create necessary rng, run model, update upper-bound object.
         for (size_t i = 0; i < n; ++i) {
-            rng_gen_f(gen, rng);
-            self().run(rng, p_range, lmda_grid, upper_bd);
+            state.gen_rng(gen);
+            state.gen_suff_stat();
+            upper_bd.update(state, mean_idxer_range, lmda_grid);
         }
 
         // at this point, upper_bd is in a state where it could technically
@@ -74,22 +72,14 @@ private:
     }
 
 public:
-    template <class PVecType
-            , class PEndptType
-            , class LmdaGridType
-            , class RNGGenFType
+    template <class LmdaGridType
             , class PBType
             , class ProcessUpperBdFType>
     auto driver(
             size_t n_sim,
-            double alpha,
             double delta,
-            size_t grid_dim,
             double grid_radius,
-            const PVecType& p,
-            const PEndptType& p_endpt,
             const LmdaGridType& lmda_grid,
-            RNGGenFType rng_gen_f,
             size_t start_seed,
             size_t p_batch_size,
             PBType&& pb,
@@ -98,12 +88,10 @@ public:
             ProcessUpperBdFType process_upper_bd_f
             )
     {
-        using upper_bd_t = typename internal::traits<derived_t>::upper_bd_t;
+        using state_t = typename internal::traits<derived_t>::state_t;
+        using upper_bd_t = UpperBound<double>;
 
         if (n_thr <= 0) throw thread_error("Number of threads must be greater than 0.");
-
-        // compute the normal threshold for 1-delta/2
-        auto thr_delta = qnorm(1.-delta/2.);
 
         bool p_batch_defaulted = 
             (p_batch_size == std::numeric_limits<size_t>::infinity());
@@ -115,27 +103,28 @@ public:
 
         std::vector<std::thread> pool(n_thr);
 
-        using rectangular_range_t = rectangular_range<std::decay_t<PVecType> >;
-        rectangular_range curr_range(p, grid_dim, 0);
+        rectangular_range curr_range(self().n_means(), self().n_arms(), 0);
         rectangular_range prev_range = curr_range;
-        size_t p_grid_size = ipow(p.size(), grid_dim);
+        size_t mean_grid_size = ipow(self().n_means(), self().n_arms());
         size_t n_p_completed = 0;
         size_t max_lmda_size = lmda_grid.size();
 
         // construct each thread's upper bound objects.
-        std::vector<upper_bd_t> upper_bds;
-        upper_bds.reserve(pool.size());
+        std::vector<state_t> states;
+        states.reserve(pool.size());
         for (size_t i = 0; i < pool.size(); ++i) {
-            upper_bds.emplace_back(self().make_upper_bd());
+            states.emplace_back(self());
         }
-        upper_bd_t upper_bd_full = self().make_upper_bd();
+
+        std::vector<upper_bd_t> upper_bds(pool.size());
+        upper_bd_t upper_bd_full;
 
         // routine to run on each partition
         auto run_partition = [&](size_t p_batch_size_) {
 
             // MUST reset the final upper bound object
             // and reset the range object.
-            upper_bd_full.reset(max_lmda_size, p_batch_size_);
+            upper_bd_full.reset(max_lmda_size, p_batch_size_, self().n_arms());
             curr_range.set_size(p_batch_size_);
 
             // run every thread
@@ -144,31 +133,27 @@ public:
                 [this](int thr_i,
                    size_t n_sim_per_thr,
                    size_t start_seed,
-                   const rectangular_range_t& curr_range,
+                   const rectangular_range& curr_range,
                    const auto& lmda_subset,
-                   auto rng_gen_f,
+                   state_t& state,
                    upper_bd_t& upper_bd) 
                 { 
-                    thread_routine(
+                    this->thread_routine(
                             thr_i, n_sim_per_thr, start_seed, 
                             curr_range, lmda_subset, 
-                            rng_gen_f, upper_bd);
+                            state, upper_bd);
                 };
 
-            for (size_t thr_i = 0; thr_i < pool.size()-1; ++thr_i) {
+            for (size_t thr_i = 0; thr_i < pool.size(); ++thr_i) {
+                size_t n_sim_thr = (thr_i != pool.size()-1) ? 
+                    n_sim_per_thr : (n_sim_per_thr + n_sim_remain);
                 pool[thr_i] = std::thread(
                         thr_routine_wrapper, 
-                        thr_i, n_sim_per_thr, start_seed, 
+                        thr_i, n_sim_thr, start_seed, 
                         std::cref(curr_range),
-                        lmda_subset, rng_gen_f,
+                        lmda_subset, std::ref(states[thr_i]),
                         std::ref(upper_bds[thr_i]) );
             } 
-            pool.back() = std::thread(
-                        thr_routine_wrapper, 
-                        pool.size()-1, n_sim_per_thr+n_sim_remain, start_seed, 
-                        std::cref(curr_range), 
-                        lmda_subset, rng_gen_f,
-                        std::ref(upper_bds.back()) );
 
             // increment indexer while all threads are running 
             // pre-emptive update: optimization
@@ -185,18 +170,18 @@ public:
             }
 
             process_upper_bd_f(
-                    upper_bd_full, prev_range, p_endpt,
-                    alpha, thr_delta, grid_radius, max_lmda_size);
+                    upper_bd_full, prev_range,
+                    delta, grid_radius, max_lmda_size);
         };
 
         // initialize progress bar object (only used if do_progress_bar is true)
-        pb.set_n_total(p_grid_size);
+        pb.set_n_total(mean_grid_size);
 
         if (do_progress_bar) pb.initialize();
 
         try {
             // run the simulation on each partition of the p-grid
-            while (n_p_completed < p_grid_size) {
+            while (n_p_completed < mean_grid_size) {
                 size_t batch_size = p_batch_size;
                 if (p_batch_defaulted) {
                     // get next proposed batch size
@@ -205,7 +190,7 @@ public:
                     batch_size = std::max(proposal, 1);
                 }             
                 // take the min with remaining number of coordinates
-                batch_size = std::min(batch_size, p_grid_size - n_p_completed);
+                batch_size = std::min(batch_size, mean_grid_size - n_p_completed);
                 run_partition(batch_size);
                 n_p_completed += batch_size;
                 if (do_progress_bar) pb.update(batch_size);
@@ -219,20 +204,12 @@ public:
         return lmda_grid[max_lmda_size-1];
     }
 
-    template <class PVecType
-            , class PEndptType
-            , class RNGGenFType
-            , class PBType = pb_ostream>
+    template <class PBType = pb_ostream>
     void fit(
             size_t n_sim,
-            double alpha,
             double delta,
-            size_t grid_dim,
             double grid_radius,
-            const PVecType& p,
-            const PEndptType& p_endpt,
             double lmda,
-            RNGGenFType rng_gen_f,
             const std::string_view& serialize_fname,
             size_t start_seed=time(0),
             size_t p_batch_size=std::numeric_limits<size_t>::infinity(),
@@ -246,38 +223,27 @@ public:
 
         auto process_upper_bd = [&](auto& upper_bd_full,
                                    const auto& p_range,
-                                   const auto& p_endpt,
-                                   auto alpha,
-                                   auto thr_delta,
+                                   auto delta,
                                    auto grid_radius,
                                    auto& max_lmda_size) {
-            // create the final upper bound
-            upper_bd_full.serialize(
-                    s, p_range, p_endpt,
-                    alpha, thr_delta, grid_radius);
+            // serialize the final upper bound
+            upper_bd_full.serialize(s, self(), p_range, delta, grid_radius);
         };
 
         driver(
-            n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
-            lmda_grid, rng_gen_f, start_seed, p_batch_size, pb, do_progress_bar, n_thr,
+            n_sim, delta, grid_radius, 
+            lmda_grid, start_seed, p_batch_size, pb, do_progress_bar, n_thr,
             process_upper_bd);
     }
 
-    template <class PVecType
-            , class PEndptType
-            , class LmdaGridType
-            , class RNGGenFType
+    template <class LmdaGridType
             , class PBType = pb_ostream>
     auto tune(
             size_t n_sim,
             double alpha,
             double delta,
-            size_t grid_dim,
             double grid_radius,
-            const PVecType& p,
-            const PEndptType& p_endpt,
             const LmdaGridType& lmda_grid,
-            RNGGenFType rng_gen_f,
             size_t start_seed=time(0),
             size_t p_batch_size=std::numeric_limits<size_t>::infinity(),
             PBType&& pb = PBType(std::cout),
@@ -285,17 +251,13 @@ public:
             unsigned int n_thr=std::thread::hardware_concurrency()
             )
     {
-        auto process_upper_bd = [](auto& upper_bd_full,
-                                   const auto& p_range,
-                                   const auto& p_endpt,
-                                   auto alpha,
-                                   auto thr_delta,
-                                   auto grid_radius,
-                                   auto& max_lmda_size) {
+        auto process_upper_bd = [&](auto& upper_bd_full,
+                                    const auto& p_range,
+                                    auto delta,
+                                    auto grid_radius,
+                                    auto& max_lmda_size) {
             // create the final upper bound
-            upper_bd_full.create(
-                    p_range, p_endpt,
-                    alpha, thr_delta, grid_radius);
+            upper_bd_full.create(self(), p_range, delta, grid_radius);
             auto& upper_bd_raw = upper_bd_full.get();
             
             // check the lmda threshold condition
@@ -309,8 +271,8 @@ public:
             }
         };
         return driver(
-                n_sim, alpha, delta, grid_dim, grid_radius, p, p_endpt,
-                lmda_grid, rng_gen_f, start_seed, p_batch_size, pb, do_progress_bar, n_thr,
+                n_sim, delta, grid_radius, 
+                lmda_grid, start_seed, p_batch_size, pb, do_progress_bar, n_thr,
                 process_upper_bd);
     }
 };

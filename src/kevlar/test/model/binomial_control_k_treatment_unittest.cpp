@@ -53,14 +53,13 @@ using bckt_upper_bound_fixture_rect =
 
 TEST_P(bckt_upper_bound_fixture_rect, update_one_test)
 {
-    bckt_t opt(k, ph2_size, unif_rows);
+    bckt_t opt(k, ph2_size, unif_rows, p, p);
 
-    auto upper_bd = opt.make_upper_bd();
-    upper_bd.reset(thr_vec.size(), 1);
+    UpperBound<double> upper_bd;
+    upper_bd.reset(thr_vec.size(), 1, k);
 
-    rectangular_range p_range(p, k, 1); 
-    upper_bd.update(p_range, suff_stat, thr_vec, 
-            [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
+    rectangular_range p_range(p.size(), k, 1); 
+    upper_bd.update(opt, p_range, thr_vec);
     auto& upper_bd_raw = upper_bd.get();
     auto actual = upper_bd_raw.col(0);
     
@@ -73,7 +72,7 @@ TEST_P(bckt_upper_bound_fixture_rect, update_one_test)
 
 TEST_P(bckt_upper_bound_fixture_rect, update_two_test)
 {
-    bckt_t opt(k, ph2_size, unif_rows);
+    bckt_t opt(k, ph2_size, unif_rows, );
 
     auto upper_bd = opt.make_upper_bd();
     upper_bd.reset(thr_vec.size(), 1);
