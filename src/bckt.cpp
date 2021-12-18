@@ -1,6 +1,7 @@
 #include <kevlar>
 #include "unif_sampler.h"
 #include <RcppEigen.h>
+#include <Rcpp.h>
 
 using namespace Rcpp;
 using namespace kevlar;
