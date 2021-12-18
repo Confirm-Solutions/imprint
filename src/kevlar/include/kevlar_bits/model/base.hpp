@@ -109,13 +109,13 @@ public:
         size_t n_p_completed = 0;
         size_t max_lmda_size = lmda_grid.size();
 
-        // construct each thread's upper bound objects.
         std::vector<state_t> states;
         states.reserve(pool.size());
         for (size_t i = 0; i < pool.size(); ++i) {
             states.emplace_back(self());
         }
 
+        // construct each thread's upper bound objects.
         std::vector<upper_bd_t> upper_bds(pool.size());
         upper_bd_t upper_bd_full;
 

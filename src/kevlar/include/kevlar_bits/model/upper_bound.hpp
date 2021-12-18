@@ -91,6 +91,8 @@ public:
 
             // update rejection count only in the rows that reject
             auto rej_length = std::distance(it, end);
+            if (rej_length == 0) continue;
+
             auto upper_bd_j = upper_bd_.col(j);
             upper_bd_j.tail(rej_length).array() += 1;
 
@@ -236,7 +238,7 @@ public:
 
         // add upper bound for gradient term and hessian term
         upper_bd_grad_hess(
-                mean_idxer_range, delta, grid_radius,
+                model, mean_idxer_range, delta, grid_radius,
                 [&](Eigen::Index, auto grad_bd, auto hess_bd) {
                     s << grad_bd << hess_bd;
                 });

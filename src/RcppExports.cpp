@@ -36,12 +36,11 @@ BEGIN_RCPP
 END_RCPP
 }
 // bckt_fit
-void bckt_fit(int n_sim, double alpha, double delta, int ph2_size, int n_samples, int grid_dim, double grid_radius, const Eigen::Map<Eigen::VectorXd> p, const Eigen::Map<Eigen::MatrixXd> p_endpt, double lmda, String serialize_fname, int start_seed, int p_batch_size, int n_thr, bool do_progress_bar);
-RcppExport SEXP _kevlar_bckt_fit(SEXP n_simSEXP, SEXP alphaSEXP, SEXP deltaSEXP, SEXP ph2_sizeSEXP, SEXP n_samplesSEXP, SEXP grid_dimSEXP, SEXP grid_radiusSEXP, SEXP pSEXP, SEXP p_endptSEXP, SEXP lmdaSEXP, SEXP serialize_fnameSEXP, SEXP start_seedSEXP, SEXP p_batch_sizeSEXP, SEXP n_thrSEXP, SEXP do_progress_barSEXP) {
+void bckt_fit(int n_sim, double delta, int ph2_size, int n_samples, int grid_dim, double grid_radius, const Eigen::Map<Eigen::VectorXd> p, const Eigen::Map<Eigen::MatrixXd> p_endpt, double lmda, String serialize_fname, int start_seed, int p_batch_size, int n_thr, bool do_progress_bar);
+RcppExport SEXP _kevlar_bckt_fit(SEXP n_simSEXP, SEXP deltaSEXP, SEXP ph2_sizeSEXP, SEXP n_samplesSEXP, SEXP grid_dimSEXP, SEXP grid_radiusSEXP, SEXP pSEXP, SEXP p_endptSEXP, SEXP lmdaSEXP, SEXP serialize_fnameSEXP, SEXP start_seedSEXP, SEXP p_batch_sizeSEXP, SEXP n_thrSEXP, SEXP do_progress_barSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type n_sim(n_simSEXP);
-    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< double >::type delta(deltaSEXP);
     Rcpp::traits::input_parameter< int >::type ph2_size(ph2_sizeSEXP);
     Rcpp::traits::input_parameter< int >::type n_samples(n_samplesSEXP);
@@ -55,7 +54,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type p_batch_size(p_batch_sizeSEXP);
     Rcpp::traits::input_parameter< int >::type n_thr(n_thrSEXP);
     Rcpp::traits::input_parameter< bool >::type do_progress_bar(do_progress_barSEXP);
-    bckt_fit(n_sim, alpha, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar);
+    bckt_fit(n_sim, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar);
     return R_NilValue;
 END_RCPP
 }
@@ -112,7 +111,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_kevlar_bckt_tune", (DL_FUNC) &_kevlar_bckt_tune, 14},
-    {"_kevlar_bckt_fit", (DL_FUNC) &_kevlar_bckt_fit, 15},
+    {"_kevlar_bckt_fit", (DL_FUNC) &_kevlar_bckt_fit, 14},
     {"_kevlar_bckt_unserialize", (DL_FUNC) &_kevlar_bckt_unserialize, 1},
     {"_kevlar_grid_radius", (DL_FUNC) &_kevlar_grid_radius, 3},
     {"_kevlar_make_grid", (DL_FUNC) &_kevlar_make_grid, 3},

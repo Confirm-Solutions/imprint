@@ -5,8 +5,8 @@ bckt_tune <- function(n_sim, alpha, delta, ph2_size, n_samples, grid_dim, grid_r
     .Call(`_kevlar_bckt_tune`, n_sim, alpha, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda_grid, start_seed, p_batch_size, n_thr, do_progress_bar)
 }
 
-bckt_fit <- function(n_sim, alpha, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed = -1L, p_batch_size = -1L, n_thr = -1L, do_progress_bar = TRUE) {
-    invisible(.Call(`_kevlar_bckt_fit`, n_sim, alpha, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar))
+bckt_fit <- function(n_sim, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed = -1L, p_batch_size = -1L, n_thr = -1L, do_progress_bar = TRUE) {
+    invisible(.Call(`_kevlar_bckt_fit`, n_sim, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar))
 }
 
 bckt_unserialize <- function(fname) {
