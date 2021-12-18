@@ -164,6 +164,12 @@ public:
             }
 
             // Phase III
+
+            // Only want false-rejection for Type-I
+            // Since the test is one-sided (upper), set to -inf if selected arm is not in null.
+            bool is_selected_arm_in_null = outer_.hypos_[a_star-1](mean_idxer);
+            if (!is_selected_arm_in_null) return -std::numeric_limits<double>::infinity();
+
             auto n = outer_.n_samples_;
             auto p_star = static_cast<double>(suff_stat_(idx[a_star], a_star)) / n;
             auto p_0 = static_cast<double>(suff_stat_(idx[0], 0)) / n;
@@ -172,6 +178,7 @@ public:
             z = (var <= 0) ? 
                 std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
                 z / std::sqrt(var / n); 
+
             return z;
         }
 
@@ -188,15 +195,19 @@ public:
     using state_t = StateType;
 
     // @param   prob        MUST be sorted.
+    // @param   hypos       hypos[i](p) returns true if and only if 
+    //                      ith arm at prob value p is considered "in the null space".
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
             const Eigen::VectorXd& prob,
-            const Eigen::MatrixXd& prob_endpt)
+            const Eigen::MatrixXd& prob_endpt,
+            const std::vector<std::function<bool(const dAryInt&)> >& hypos)
         : base_t(n_arms, ph2_size, n_samples)
         , prob_(prob)
         , prob_endpt_(prob_endpt)
+        , hypos_(hypos)
     {}
 
     auto n_means() const { return prob_.size(); }
@@ -224,12 +235,16 @@ public:
         std::for_each(bits.data(), bits.data() + bits.size(),
             [&](auto k) {
                 auto col_k = prob_endpt_.col(k);
-                auto lower = col_k[0] - 0.5; // shift away center
-                auto upper = col_k[1] - 0.5; // shift away center
-                // max of p(1-p) occurs for whichever p is closest to 0.5.
-                bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                auto max_endpt = col_k[max_at_upper]; 
-                hess_bd += max_endpt * (1. - max_endpt);
+                if (col_k[0] <= 0.5 && 0.5 <= col_k[1]) {
+                    hess_bd += 0.25;
+                } else {
+                    auto lower = col_k[0] - 0.5; // shift away center
+                    auto upper = col_k[1] - 0.5; // shift away center
+                    // max of p(1-p) occurs for whichever p is closest to 0.5.
+                    bool max_at_upper = (std::abs(upper) < std::abs(lower));
+                    auto max_endpt = col_k[max_at_upper]; 
+                    hess_bd += max_endpt * (1. - max_endpt);
+                }
             });
         return hess_bd * n_samples_;
     }
@@ -237,6 +252,7 @@ public:
 private:
     const Eigen::VectorXd& prob_;       // sorted (ascending) probability values
     const Eigen::MatrixXd& prob_endpt_; // each column is endpt (in p-space) of the grid centered at the corresponding value in prob_
+    const std::vector<std::function<bool(const dAryInt&)> >& hypos_;    // list of null-hypothesis checker
 };
 
 } // namespace kevlar

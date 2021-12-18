@@ -85,13 +85,14 @@ endif()
 message(STATUS "Compiling in ${CMAKE_BUILD_TYPE} mode")
 
 # Find pthread
-unset(KEVLAR_HAS_PTHREAD)
-find_package(Threads REQUIRED)
-if (CMAKE_USE_PTHREADS_INIT)
-    set(KEVLAR_HAS_PTHREAD ON)
-endif()
-if (DEFINED KEVLAR_HAS_PTHREAD)
-    set(KEVLAR_HAS_PTHREAD_MACRO "-DKEVLAR_HAS_PTHREAD")
+if (NOT DEFINED KEVLAR_HAS_PTHREAD)
+    find_package(Threads REQUIRED)
+    if (CMAKE_USE_PTHREADS_INIT)
+        set(KEVLAR_HAS_PTHREAD ON)
+    endif()
+    if (DEFINED KEVLAR_HAS_PTHREAD)
+        set(KEVLAR_HAS_PTHREAD_MACRO "-DKEVLAR_HAS_PTHREAD")
+    endif()
 endif()
 
 # Test subdirectory

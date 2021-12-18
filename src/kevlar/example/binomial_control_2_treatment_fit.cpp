@@ -9,8 +9,7 @@ int main()
     size_t p_size = 64;
     double lower = -0.5;
     double upper = 1.5;
-    size_t n_sim = 50000;
-    double alpha = 0.05;
+    size_t n_sim = 1000;
     double delta = 0.05;
     size_t grid_dim = 3;
     double grid_radius = grid_t::radius(p_size, lower, upper);
@@ -23,18 +22,22 @@ int main()
     Eigen::MatrixXd p_endpt = grid_t::make_endpts(p_size, lower, upper);
     p_endpt = p_endpt.unaryExpr([](auto x) { return 1./(1. + std::exp(-x)); });
 
-    auto rng_gen_f = [=](auto& gen, auto& rng) {
-        std::uniform_real_distribution<double> unif(0., 1.);
-        rng = Eigen::MatrixXd::NullaryExpr(n_samples, grid_dim, 
-                [&](auto, auto) { return unif(gen); });
-    };
+    std::vector<std::function<bool(const dAryInt&)> > hypos;
+    hypos.reserve(grid_dim-1);
+    for (size_t i = 0; i < grid_dim-1; ++i) {
+        hypos.emplace_back(
+                [i, &p_1d](const dAryInt& mean_idxer) { 
+                    auto& bits = mean_idxer(); 
+                    return p_1d[bits[i+1]] > p_1d[bits[0]];
+                });
+    }
 
     BinomialControlkTreatment<grid::Rectangular> 
-        model(grid_dim, ph2_size, n_samples);
+        model(grid_dim, ph2_size, n_samples, p_1d, p_endpt, hypos);
 
     try {
-        model.fit(n_sim, alpha, delta, grid_dim, grid_radius,
-                  p_1d, p_endpt, 13.552, rng_gen_f, "fit_out", 0);
+        model.fit(n_sim, delta, grid_radius,
+                  13.552, "fit_out", 0);
     } 
     catch (const kevlar_error& e) {
         std::cerr << e.what() << std::endl;
