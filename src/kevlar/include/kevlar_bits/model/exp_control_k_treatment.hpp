@@ -46,125 +46,167 @@ public:
     public:
         StateType(const outer_t& outer)
             : outer_(outer)
+            , exp_(outer.n_samples(), outer.n_arms())
+            , logrank_cum_sum_(2*outer.n_samples()+1)
+            , v_cum_sum_(2*outer.n_samples()+1)
         {}
 
         template <class GenType>
         void gen_rng(GenType&& gen) { 
-            std::gamma_distribution<double> g(outer_.n_samples_, 1.);            
-            std::gamma_distribution<double> g_ph2(outer_.ph2_size_, 1.);            
-            std::gamma_distribution<double> g_ph3(outer_.n_samples_-outer_.ph2_size_, 1.);            
-
-            gamma_control_ = g(gen);
-            gamma_.resize(outer_.n_arms_-1, 2);
-            gamma_.col(0) = Eigen::VectorXd::NullaryExpr(gamma_.rows(), 
-                    [&](auto) { return g_ph2(gen); });
-            gamma_.col(1) = Eigen::VectorXd::NullaryExpr(gamma_.rows(), 
-                    [&](auto) { return g_ph3(gen); });
+            exp_ = exp_.NullaryExpr(outer_.n_samples(), outer_.n_arms(),
+                    [&](auto, auto) { 
+                        return std::exponential_distribution<double>(1.0)(gen);
+                    });
         }
 
         void gen_suff_stat() {
-            size_t k = outer_.n_arms_-1;
-            size_t d = outer_.n_means();
-
-            suff_stat_.resize(d, k+1);
-            Eigen::Map<Eigen::VectorXd> control_suff(suff_stat_.data(), d);
-            Eigen::Map<Eigen::MatrixXd> ph3_suff(suff_stat_.col(1).data(), d, k);
-            ph2_suff_stat_.resize(d, k);
-
-            control_suff.array() = gamma_control_ / outer_.lmda_.array();
-            ph3_suff = (1./outer_.lmda_.array()).matrix() * gamma_.col(1).transpose();
-            ph2_suff_stat_ = (1./outer_.lmda_.array()).matrix() * gamma_.col(0).transpose();
-            suff_stat_.block(0, 1, d, k) += ph2_suff_stat_;
+            suff_stat_ = exp_.colwise().sum();
+            sort_cols(exp_);
         }
 
-        template <class MeanIdxerType>
-        auto test_stat(const MeanIdxerType& mean_idxer) const {
-            auto& idx = mean_idxer();
+        template <class IdxerType>
+        auto test_stat(const IdxerType& idxer) {
+            auto& bits = idxer(); 
+            auto hzrd_rate_curr = outer_.hzrd_rate_[bits[0]];
+            auto exp_control = exp_.col(0);     // assumed to be sorted
+            auto exp_treatment = exp_.col(1);   // assumed to be sorted
 
-            // Phase II
-            int a_star = -1;
-            int max_count = -1;
-            for (int j = 1; j < idx.size(); ++j) {
-                int prev_count = max_count;
-                max_count = std::max(prev_count, ph2_suff_stat_(idx[j], j-1));
-                a_star = (max_count != prev_count) ? j : a_star;
+            if (hzrd_rate_curr != hzrd_rate_prev_) {
+                auto hzrd_rate_ratio = (hzrd_rate_prev_ / hzrd_rate_curr);
+
+                // compute treatment ~ Exp(hzrd_rate_curr)
+                exp_treatment *= hzrd_rate_ratio;
+                suff_stat_[1] *= hzrd_rate_ratio;
+
+                // if hzrd rate was different from previous run,
+                // save the current one as the new "previous"
+                hzrd_rate_prev_ = hzrd_rate_curr;
+
+                logrank_cum_sum_[0] = 0.0;
+                v_cum_sum_[0] = 0.0;
+
+                Eigen::Matrix<double, 2, 1> N_j;
+                double O_1j = 0.0;
+                N_j.array() = outer_.n_samples();
+                size_t cr_idx = 0, tr_idx = 0, i=0; // control, treatment, and cum_sum index
+
+                while (cr_idx < exp_control.size() && tr_idx < exp_treatment.size()) 
+                {
+                    bool failed_in_treatment = (exp_treatment[tr_idx] < exp_control[cr_idx]);
+                    tr_idx += failed_in_treatment;
+                    cr_idx += (1-failed_in_treatment);
+                    O_1j = failed_in_treatment;
+
+                    auto N = N_j.sum();
+                    auto E_1j = N_j[1] / N;
+                    logrank_cum_sum_[i+1] = logrank_cum_sum_[i] + (O_1j - E_1j);
+                    v_cum_sum_[i+1] = v_cum_sum_[i] + E_1j * (1-E_1j);
+                    
+                    --N_j[failed_in_treatment];
+                    O_1j = 0.0;
+                    ++i;
+                }
+
+                size_t tot = logrank_cum_sum_.size();
+                logrank_cum_sum_.tail(tot-i).array() = logrank_cum_sum_[i];
+                v_cum_sum_.tail(tot-i).array() = v_cum_sum_[i];
             }
 
-            // Phase III
-            auto n = outer_.n_samples_;
-            auto p_star = static_cast<double>(suff_stat_(idx[a_star], a_star)) / n;
-            auto p_0 = static_cast<double>(suff_stat_(idx[0], 0)) / n;
-            auto z = (p_star - p_0);
-            auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-            z = (var <= 0) ? 
-                std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
-                z / std::sqrt(var / n); 
-            return z;
+            auto censor_dilated_curr = outer_.censor_time_ * outer_.lmda_[bits[1]];
+            auto it_c = std::lower_bound(exp_control.data(), 
+                                         exp_control.data()+exp_control.size(), 
+                                         censor_dilated_curr);
+            auto it_t = std::lower_bound(exp_treatment.data(), 
+                                         exp_treatment.data()+exp_treatment.size(), 
+                                         censor_dilated_curr);
+            // Y_1 Y_2 ...
+            // T C T (censor) T T T C
+            // idx = (2-1) + (3-1) = 3;
+            size_t idx = std::distance(exp_control.data(), it_c) +
+                         std::distance(exp_treatment.data(), it_t) - 2;
+            return (v_cum_sum_[idx] <= 0.0) ? 
+                    std::copysign(1., logrank_cum_sum_[idx]) * std::numeric_limits<double>::infinity() :
+                    logrank_cum_sum_[idx] / std::sqrt(v_cum_sum_[idx]);
         }
 
-        auto grad_lr(size_t arm, size_t mean_idx) const {
-            return suff_stat_(mean_idx, arm) - outer_.n_samples_ * outer_.prob_[mean_idx];
+        template <class IdxerType>
+        auto grad_lr(size_t arm, const IdxerType& idxer) const {
+            auto& bits = idxer();
+            auto mean = (arm == 1) ? 1./hzrd_rate_prev_ : 1.;
+            return (suff_stat_(arm) - outer_.n_samples() * mean) / outer_.lmda_[bits[1]];
         }
 
     private:
-        double gamma_control_ = 0;          // gamma rng for arm 0
-        Eigen::MatrixXd gamma_;             // gamma_(i,j) = gamma rng for phase (j+2) and arm (i+1)
-        Eigen::MatrixXd suff_stat_;         // sufficient statistic table for each prob_ value and arm
-        Eigen::MatrixXd ph2_suff_stat_;     // sufficient statistic table only looking at phase 2 and treatment arms
+        double hzrd_rate_prev_ = 1.0;       // hazard rate used previously
+        Eigen::MatrixXd exp_;               // exp_(i,j) = 
+                                            //      Exp(1) draw for patient i in group j=0 (and sorted)
+                                            //      Exp(hzrd_rate_prev_) draw for patient i in group j=1 (and sorted)
+        Eigen::Vector2d suff_stat_;         // sufficient statistic for each arm
+                                            // - sum of Exp(1) for group 0 (control)
+                                            // - sum of Exp(hzrd_rate_prev_) for group 1 (treatment)
+        Eigen::VectorXd logrank_cum_sum_;
+        Eigen::VectorXd v_cum_sum_;
     };
 
     using state_t = StateType;
 
-    // @param   prob        MUST be sorted.
+    // @param   n_samples       number of patients in each arm
+    // @param   lmda            grid of lmda (ascending) (must be evenly-spaced in natural param space)
+    //                          Must not include 0.
+    // @param   lmda_lower      lower boundary point of rectangle (in natural param space) centered at lmda 
+    //                          Must not include 0.
+    // @param   hzrd_rate       exp(offset) where offset is evenly-spaced (same radius as lmda in natural param).
+    //                          Must not include 0.
+    // @param   hzrd_rate_lower lower boundary point of rectangle (in offset space) centered at hzrd_rate.
+    //                          Must not include 0.
+    template <class LmdaType, class LmdaLowerType, class HzrdType, class HzrdLowerType>
     ExpControlkTreatment(
-            size_t n_arms,
-            size_t ph2_size,
             size_t n_samples,
-            const Eigen::VectorXd& lmda,
-            const Eigen::MatrixXd& lmda_endpt)
-        : base_t(n_arms, ph2_size, n_samples)
-        , lmda_(lmda)
-        , lmda_endpt_(lmda_endpt)
+            double censor_time,
+            const LmdaType& lmda,
+            const LmdaLowerType& lmda_lower,
+            const HzrdType& hzrd_rate,
+            const HzrdLowerType& hzrd_rate_lower)
+        : base_t(2, 0, n_samples)
+        , censor_time_(censor_time)
+        , lmda_(lmda.data(), lmda.size())
+        , lmda_lower_(lmda_lower.data(), lmda_lower.rows(), lmda_lower.cols())
+        , hzrd_rate_(hzrd_rate.data(), hzrd_rate.size())
+        , hzrd_rate_lower_(hzrd_rate_lower.data(), hzrd_rate_lower.size())
     {}
 
     Eigen::Index n_means() const { return lmda_.size(); }
 
     constexpr auto n_total_params() const { 
-        return ipow(lmda_.size(), n_arms_);
+        assert(lmda_.size() == hzrd_rate_.size());
+        return lmda_.size() * hzrd_rate_.size();
     }
 
-    template <class MeanIdxerType>
-    auto tr_cov(const MeanIdxerType& mean_idxer) const
+    template <class IdxerType>
+    auto tr_cov(const IdxerType& idxer) const
     {
-        const auto& bits = mean_idxer();
-        const auto& l = lmda_;
-        double var = 0;
-        std::for_each(bits.data(), bits.data() + bits.size(),
-            [&](auto k) { var += l[k] * (1.-p[k]); });
-        return var * n_samples_;
+        auto& bits = idxer();
+        auto hzrd_rate = hzrd_rate_[bits[0]];
+        auto mean_1 = 1./lmda_[bits[1]];
+        auto mean_0 = 1./hzrd_rate * mean_1;
+        return n_samples() * (mean_1*mean_1 + mean_0*mean_0);
     }
 
-    template <class MeanIdxerType>
-    auto tr_max_cov(const MeanIdxerType& mean_idxer) const
+    template <class IdxerType>
+    auto tr_max_cov(const IdxerType& idxer) const
     {
-        double hess_bd = 0;
-        const auto& bits = mean_idxer();
-        std::for_each(bits.data(), bits.data() + bits.size(),
-            [&](auto k) {
-                auto col_k = prob_endpt_.col(k);
-                auto lower = col_k[0] - 0.5; // shift away center
-                auto upper = col_k[1] - 0.5; // shift away center
-                // max of p(1-p) occurs for whichever p is closest to 0.5.
-                bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                auto max_endpt = col_k[max_at_upper]; 
-                hess_bd += max_endpt * (1. - max_endpt);
-            });
-        return hess_bd * n_samples_;
+        auto& bits = idxer();
+        auto lmda_lower = lmda_lower_(bits[1]);
+        auto hzrd_rate_lower = hzrd_rate_lower_(bits[0]);
+        return n_samples() * (1./(lmda_lower*lmda_lower)) * (1.0 + 1./(hzrd_rate_lower*hzrd_rate_lower));
     }
 
 private:
-    const Eigen::VectorXd& lmda_;       // sorted (ascending) probability values
-    const Eigen::MatrixXd& lmda_endpt_; // each column is endpt (in p-space) of the grid centered at the corresponding value in prob_
+    double censor_time_;
+    Eigen::Map<const Eigen::VectorXd> lmda_;        // sorted (ascending) lmda (center) values
+    Eigen::Map<const Eigen::VectorXd> lmda_lower_;  // lower boundary point in lmda_ grid
+    Eigen::Map<const Eigen::VectorXd> hzrd_rate_;   // sorted (ascending) hazard rate
+    Eigen::Map<const Eigen::VectorXd> hzrd_rate_lower_; // lower boundary point in hzrd_rate_ grid
 };
 
 } // namespace kevlar
