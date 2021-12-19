@@ -6,11 +6,11 @@ int main()
     using namespace kevlar;
     using grid_t = Gridder<grid::Rectangular>;
 
-    size_t p_size = 64;
-    double lower = -0.5;
-    double upper = 1.5;
-    size_t n_sim = 1000;
-    double delta = 0.05;
+    size_t p_size = 32;
+    double lower = 1.0;
+    double upper = 1.1;
+    size_t n_sim = 600;
+    double delta = 0.025;
     size_t grid_dim = 3;
     double grid_radius = grid_t::radius(p_size, lower, upper);
     size_t n_samples = 250;
@@ -28,7 +28,7 @@ int main()
         hypos.emplace_back(
                 [i, &p_1d](const dAryInt& mean_idxer) { 
                     auto& bits = mean_idxer(); 
-                    return p_1d[bits[i+1]] > p_1d[bits[0]];
+                    return p_1d[bits[i+1]] <= p_1d[bits[0]];
                 });
     }
 
@@ -37,7 +37,7 @@ int main()
 
     try {
         model.fit(n_sim, delta, grid_radius,
-                  13.552, "fit_out", 0);
+                  2.86875, "fit_out", 0);//, p_size*10, pb_ostream(std::cout), false);
     } 
     catch (const kevlar_error& e) {
         std::cerr << e.what() << std::endl;

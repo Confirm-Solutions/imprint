@@ -70,7 +70,7 @@ public:
             , class MeanIdxerRangeType
             , class ThrVecType>
     void update(
-            const ModelType& model,
+            ModelType&& model,
             const MeanIdxerRangeType& mean_idxer_range,
             const ThrVecType& thr_vec
             )
@@ -99,7 +99,6 @@ public:
             // update gradient for each dimension
             const auto slice_size = upper_bd_.size();
             auto slice_offset = 0;
-            auto& idxer_bits = idxer();
             size_t n_arms = this->n_arms();
             for (size_t k = 0; k < n_arms; ++k, slice_offset += slice_size) {
                 Eigen::Map<mat_t> grad_k_cache(
@@ -111,7 +110,7 @@ public:
                 // add (T - nabla_eta A(m)) for each threshold where we have rejection.
                 // where T is the sufficient statistic for arm k under mean m,
                 // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
-                grad_k_j.tail(rej_length).array() += model.grad_lr(k, idxer_bits[k]);
+                grad_k_j.tail(rej_length).array() += model.grad_lr(k, idxer);
             }
         }
     }

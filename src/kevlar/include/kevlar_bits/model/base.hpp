@@ -150,14 +150,14 @@ public:
                 pool[thr_i] = std::thread(
                         thr_routine_wrapper, 
                         thr_i, n_sim_thr, start_seed, 
-                        std::cref(curr_range),
+                        curr_range,
                         lmda_subset, std::ref(states[thr_i]),
                         std::ref(upper_bds[thr_i]) );
             } 
 
             // increment indexer while all threads are running 
             // pre-emptive update: optimization
-            prev_range.set_idxer(curr_range.get_idxer());
+            prev_range = curr_range;
             auto& curr_idxer = curr_range.get_idxer();
             for (size_t k = 0; k < p_batch_size_; ++k, ++curr_idxer);
 
@@ -175,9 +175,10 @@ public:
         };
 
         // initialize progress bar object (only used if do_progress_bar is true)
-        pb.set_n_total(mean_grid_size);
-
-        if (do_progress_bar) pb.initialize();
+        if (do_progress_bar) {
+            pb.set_n_total(mean_grid_size);
+            pb.initialize();
+        }
 
         try {
             // run the simulation on each partition of the p-grid

@@ -18,6 +18,7 @@ set(
     EXAMPLES
     binomial_control_2_treatment_tune
     binomial_control_2_treatment_fit
+    exp_control_treatment_tune
 )
 
 foreach(example ${EXAMPLES})

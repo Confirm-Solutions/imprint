@@ -66,8 +66,8 @@ public:
             UpperBoundType& upper_bd
             ) const
     {
-        assert(static_cast<size_t>(unif.rows()) == n_samples_);
-        assert(static_cast<size_t>(unif.cols()) == n_arms_);
+        assert(static_cast<size_t>(unif.rows()) == n_samples());
+        assert(static_cast<size_t>(unif.cols()) == n_arms());
 
         size_t k = unif.cols()-1;
         size_t n = unif.rows();
@@ -123,12 +123,12 @@ public:
 
         template <class GenType>
         void gen_rng(GenType&& gen) { 
-            static_interface_t::uniform(0., 1., gen, unif_, outer_.n_samples_, outer_.n_arms_); 
+            static_interface_t::uniform(0., 1., gen, unif_, outer_.n_samples(), outer_.n_arms()); 
         }
 
         void gen_suff_stat() {
-            size_t k = outer_.n_arms_-1;
-            size_t n = outer_.n_samples_;
+            size_t k = outer_.n_arms()-1;
+            size_t n = outer_.n_samples();
             size_t ph2_size = outer_.ph2_size_;
             size_t ph3_size = n - ph2_size;
             size_t d = outer_.prob_.size();
@@ -170,7 +170,7 @@ public:
             bool is_selected_arm_in_null = outer_.hypos_[a_star-1](mean_idxer);
             if (!is_selected_arm_in_null) return -std::numeric_limits<double>::infinity();
 
-            auto n = outer_.n_samples_;
+            auto n = outer_.n_samples();
             auto p_star = static_cast<double>(suff_stat_(idx[a_star], a_star)) / n;
             auto p_0 = static_cast<double>(suff_stat_(idx[0], 0)) / n;
             auto z = (p_star - p_0);
@@ -182,8 +182,10 @@ public:
             return z;
         }
 
-        auto grad_lr(size_t arm, size_t mean_idx) const {
-            return suff_stat_(mean_idx, arm) - outer_.n_samples_ * outer_.prob_[mean_idx];
+        template <class MeanIdxerType>
+        auto grad_lr(size_t arm, const MeanIdxerType& mean_idxer) const {
+            auto& bits = mean_idxer();
+            return suff_stat_(bits[arm], arm) - outer_.n_samples() * outer_.prob_[bits[arm]];
         }
 
     private:
@@ -194,26 +196,31 @@ public:
 
     using state_t = StateType;
 
-    // @param   prob        MUST be sorted.
+    // @param   n_arms      number of arms.
+    // @param   ph2_size    phase II size.
+    // @param   n_samples   number of patients in each arm.
+    // @param   prob        vector of (center) probability param to binomial. MUST be sorted ascending.
+    // @param   prob_endpt  each column is lower and upper of the grid centered at prob.
     // @param   hypos       hypos[i](p) returns true if and only if 
     //                      ith arm at prob value p is considered "in the null space".
+    template <class ProbType, class ProbEndptType> 
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
-            const Eigen::VectorXd& prob,
-            const Eigen::MatrixXd& prob_endpt,
+            const ProbType& prob,
+            const ProbEndptType& prob_endpt,
             const std::vector<std::function<bool(const dAryInt&)> >& hypos)
         : base_t(n_arms, ph2_size, n_samples)
-        , prob_(prob)
-        , prob_endpt_(prob_endpt)
+        , prob_(prob.data(), prob.size())
+        , prob_endpt_(prob_endpt.data(), prob_endpt.rows(), prob_endpt.cols())
         , hypos_(hypos)
     {}
 
     auto n_means() const { return prob_.size(); }
 
     constexpr auto n_total_params() const { 
-        return ipow(prob_.size(), n_arms_);
+        return ipow(prob_.size(), n_arms());
     }
 
     template <class MeanIdxerType>
@@ -224,7 +231,7 @@ public:
         double var = 0;
         std::for_each(bits.data(), bits.data() + bits.size(),
             [&](auto k) { var += p[k] * (1.-p[k]); });
-        return var * n_samples_;
+        return var * n_samples();
     }
 
     template <class MeanIdxerType>
@@ -246,12 +253,13 @@ public:
                     hess_bd += max_endpt * (1. - max_endpt);
                 }
             });
-        return hess_bd * n_samples_;
+        return hess_bd * n_samples();
     }
 
 private:
-    const Eigen::VectorXd& prob_;       // sorted (ascending) probability values
-    const Eigen::MatrixXd& prob_endpt_; // each column is endpt (in p-space) of the grid centered at the corresponding value in prob_
+    Eigen::Map<const Eigen::VectorXd> prob_;        // sorted (ascending) probability values
+    Eigen::Map<const Eigen::MatrixXd> prob_endpt_;  // each column is endpt (in p-space) of the grid 
+                                                    // centered at the corresponding value in prob_
     const std::vector<std::function<bool(const dAryInt&)> >& hypos_;    // list of null-hypothesis checker
 };
 

@@ -17,6 +17,7 @@ struct ControlkTreatmentBase
         , n_samples_(n_samples)
     {}
 
+    size_t n_samples() const { return n_samples_; }
     size_t n_arms() const { return n_arms_; }
 
     /* Helper static interface */
