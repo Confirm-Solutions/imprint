@@ -9,8 +9,16 @@ bckt_fit <- function(n_sim, delta, ph2_size, n_samples, grid_dim, grid_radius, p
     invisible(.Call(`_kevlar_bckt_fit`, n_sim, delta, ph2_size, n_samples, grid_dim, grid_radius, p, p_endpt, lmda, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar))
 }
 
-bckt_unserialize <- function(fname) {
-    .Call(`_kevlar_bckt_unserialize`, fname)
+eckt_tune <- function(n_sim, alpha, delta, n_samples, grid_radius, censor_time, lmda, lmda_lower, hzrd_rate, hzrd_rate_lower, thr_vec, start_seed = -1L, p_batch_size = -1L, n_thr = -1L, do_progress_bar = TRUE) {
+    .Call(`_kevlar_eckt_tune`, n_sim, alpha, delta, n_samples, grid_radius, censor_time, lmda, lmda_lower, hzrd_rate, hzrd_rate_lower, thr_vec, start_seed, p_batch_size, n_thr, do_progress_bar)
+}
+
+eckt_fit <- function(n_sim, delta, n_samples, grid_radius, censor_time, lmda, lmda_lower, hzrd_rate, hzrd_rate_lower, thr, serialize_fname, start_seed = -1L, p_batch_size = -1L, n_thr = -1L, do_progress_bar = TRUE) {
+    invisible(.Call(`_kevlar_eckt_fit`, n_sim, delta, n_samples, grid_radius, censor_time, lmda, lmda_lower, hzrd_rate, hzrd_rate_lower, thr, serialize_fname, start_seed, p_batch_size, n_thr, do_progress_bar))
+}
+
+unserialize <- function(fname) {
+    .Call(`_kevlar_unserialize`, fname)
 }
 
 grid_radius <- function(n, lower, upper) {

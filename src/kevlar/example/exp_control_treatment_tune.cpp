@@ -7,12 +7,12 @@ int main()
     using namespace kevlar;
     using grid_t = Gridder<grid::Rectangular>;
 
-    size_t lmda_size = 128;
+    size_t lmda_size = 8;
     double lower = -0.1/4;
     double upper = 1./4;
     double hzrd_lower = -(upper-lower);
     double hzrd_upper = 0.0;
-    size_t n_sim = 1000000;
+    size_t n_sim = 1000;
     double alpha = 0.025;
     double delta = 0.025;
     double grid_radius = grid_t::radius(lmda_size, lower, upper);
