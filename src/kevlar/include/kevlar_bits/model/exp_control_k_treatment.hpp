@@ -57,6 +57,8 @@ public:
                     [&](auto, auto) { 
                         return std::exponential_distribution<double>(1.0)(gen);
                     });
+            exp_.col(1) /= hzrd_rate_prev_;
+            do_logrank_update_ = true;
         }
 
         void gen_suff_stat() {
@@ -81,6 +83,15 @@ public:
                 // if hzrd rate was different from previous run,
                 // save the current one as the new "previous"
                 hzrd_rate_prev_ = hzrd_rate_curr;
+
+                // since exp_ has been updated
+                do_logrank_update_ = true;
+            }
+
+            // compute log-rank information only if exp_ changed
+            if (do_logrank_update_) {
+                // mark as not needing update
+                do_logrank_update_ = false;
 
                 logrank_cum_sum_[0] = 0.0;
                 v_cum_sum_[0] = 0.0;
@@ -124,9 +135,10 @@ public:
             // idx = (2-1) + (3-1) = 3;
             size_t idx = std::distance(exp_control.data(), it_c) +
                          std::distance(exp_treatment.data(), it_t) - 2;
-            return (v_cum_sum_[idx] <= 0.0) ? 
+            auto z = (v_cum_sum_[idx] <= 0.0) ? 
                     std::copysign(1., logrank_cum_sum_[idx]) * std::numeric_limits<double>::infinity() :
                     logrank_cum_sum_[idx] / std::sqrt(v_cum_sum_[idx]);
+            return z;
         }
 
         template <class IdxerType>
@@ -137,6 +149,7 @@ public:
         }
 
     private:
+        bool do_logrank_update_ = true;     // true iff exp_ changed
         double hzrd_rate_prev_ = 1.0;       // hazard rate used previously
         Eigen::MatrixXd exp_;               // exp_(i,j) = 
                                             //      Exp(1) draw for patient i in group j=0 (and sorted)
