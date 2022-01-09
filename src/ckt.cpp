@@ -29,8 +29,8 @@ inline List tune_driver(
     std::string err_msg;
 
     try {
-        opt_lmda = model.tune(
-            n_sim, alpha, delta, grid_radius, thr_vec, 
+        opt_lmda = tune(
+            model, n_sim, alpha, delta, grid_radius, thr_vec, 
             start_seed_, p_batch_size_, 
             pb_ostream(Rcpp_cout_get()), do_progress_bar, n_thr_);
     }
@@ -60,7 +60,7 @@ inline void fit_driver(
         std::numeric_limits<size_t>::infinity() :
         p_batch_size;
     size_t n_thr_ = (n_thr < 0) ? std::thread::hardware_concurrency() : n_thr;
-    model.fit(n_sim, delta, grid_radius, thr, 
+    fit(model, n_sim, delta, grid_radius, thr, 
         serialize_fname.get_cstring(), 
         start_seed_, p_batch_size_, 
         pb_ostream(Rcpp_cout_get()), do_progress_bar, n_thr_);
