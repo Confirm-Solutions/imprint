@@ -10,7 +10,7 @@ n_samples = 250
 grid_dim = 3
 lower = -1.5
 upper = 1.5
-p_size = 64
+p_size = 32
 
 radius = grid_radius(p_size, lower, upper)
 p = make_grid(p_size, lower, upper)
@@ -39,7 +39,6 @@ print(tune.out$err)
 print(thr)
 
 # if lmda is within the range, fit at lmda.
-thr=2.3473
 if (thr_vec[length(thr_vec)] <= thr & thr <= thr_vec[1]) {
     bckt_fit(
         n_sim=n_sim,

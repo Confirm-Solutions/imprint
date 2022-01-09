@@ -10,10 +10,10 @@ lower = -0.1/4
 upper = 1/4
 log_hzrd_lower = -(upper-lower)
 log_hzrd_upper = 0.0
-lmda_size = 16
+lmda_size = 32
 censor_time = 2.0
 
-radius = grid_radius(n_samples, lower, upper)
+radius = grid_radius(lmda_size, lower, upper)
 lmda = exp(make_grid(lmda_size, lower, upper))
 lmda_lower = exp(make_endpts(lmda_size, lower, upper)[1,])
 hzrd_rate = exp(make_grid(lmda_size, log_hzrd_lower, log_hzrd_upper))
