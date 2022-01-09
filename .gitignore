@@ -44,3 +44,6 @@ vignettes/*.pdf
 build/
 /.vs
 /kevlar/CMakeSettings.json
+
+*_out
+*.png

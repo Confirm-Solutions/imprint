@@ -1,3 +1,4 @@
+#include <kevlar_bits/model/driver.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/util/grid.hpp>
 
@@ -36,7 +37,7 @@ int main()
         model(grid_dim, ph2_size, n_samples, p_1d, p_endpt, hypos);
 
     try {
-        model.fit(n_sim, delta, grid_radius,
+        fit(model, n_sim, delta, grid_radius,
                   2.86875, "fit_out", 0);//, p_size*10, pb_ostream(std::cout), false);
     } 
     catch (const kevlar_error& e) {

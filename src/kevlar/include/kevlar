@@ -2,3 +2,4 @@
 #include <kevlar_bits/util/grid.hpp> 
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/model/exp_control_k_treatment.hpp>
+#include <kevlar_bits/model/driver.hpp>

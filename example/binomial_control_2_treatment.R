@@ -10,9 +10,9 @@ n_samples = 250
 grid_dim = 3
 lower = -1.5
 upper = 1.5
-p_size = 32
+p_size = 64
 
-radius = grid_radius(n_samples, lower, upper)
+radius = grid_radius(p_size, lower, upper)
 p = make_grid(p_size, lower, upper)
 p = 1/(1 + exp(-p))
 p_endpt = make_endpts(p_size, lower, upper)

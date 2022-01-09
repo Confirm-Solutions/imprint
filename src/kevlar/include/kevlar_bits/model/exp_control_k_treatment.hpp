@@ -1,7 +1,8 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
-#include <kevlar_bits/model/base.hpp>
+#include <kevlar_bits/util/d_ary_int.hpp>
+#include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/model/control_k_treatment_base.hpp>
 #include <Eigen/Core>
 #include <limits>
@@ -30,7 +31,6 @@ struct traits<ExpControlkTreatment<GridType> >
 template <>
 struct ExpControlkTreatment<grid::Rectangular>
     : ControlkTreatmentBase
-    , ModelBase<ExpControlkTreatment<grid::Rectangular> >
 {
 private:
     using base_t = ControlkTreatmentBase;

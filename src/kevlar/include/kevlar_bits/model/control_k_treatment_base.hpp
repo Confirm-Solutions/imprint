@@ -5,8 +5,16 @@
 
 namespace kevlar {
 
+/*
+ * Base class for all control + k treatment designs.
+ */
 struct ControlkTreatmentBase
 {
+    /*
+     * @param   n_arms      number of arms (including control).
+     * @param   ph2_size    phase II number of patients in each arm.
+     * @param   n_samples   number of total patients in each arm (including phase II) for phase II and phase III.
+     */
     ControlkTreatmentBase(
             size_t n_arms,
             size_t ph2_size,

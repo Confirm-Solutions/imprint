@@ -1,4 +1,5 @@
 #include <iostream>
+#include <kevlar_bits/model/driver.hpp>
 #include <kevlar_bits/model/exp_control_k_treatment.hpp>
 #include <kevlar_bits/util/grid.hpp>
 
@@ -38,8 +39,8 @@ int main()
         model(n_samples, censor_time, lmda_1d, lmda_lower, hzrd_rate, hzrd_rate_lower);
 
     try {
-        auto thr = model.tune(
-                n_sim, alpha, delta, grid_radius,
+        auto thr = tune(
+                model, n_sim, alpha, delta, grid_radius,
                 thr_vec, 0, std::numeric_limits<size_t>::infinity(),
                 pb_ostream(std::cout), true, 1);
         std::cout << thr << std::endl;

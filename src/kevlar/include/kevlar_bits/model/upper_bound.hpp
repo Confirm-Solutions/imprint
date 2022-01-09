@@ -6,8 +6,10 @@ namespace kevlar {
 
 /*
  * This class is a generic object for capturing all the logic of constructing an upper bound.
- * Given an Exponential family model object satisfying a certain interface (see member functions below),
+ * Given an exponential family model object satisfying a certain interface (see member functions below),
  * it stores all necessary components of the upper bound (zeroth/first order term and zeroth/first/second order upper bound corrections).
+ *
+ * @param   ValueType       underlying value type (usually just double).
  */
 template <class ValueType>
 struct UpperBound
@@ -15,12 +17,29 @@ struct UpperBound
 private:
     using value_t = ValueType;
 
+    /*
+     * Upper bound correction for 0th order term (just naive plug-in confidence bound):
+     *
+     * z_{1-\delta / 2} * \sqrt{(\delta_0 * (1-\delta_0) / n)}
+     *
+     * @param   delta       confidence for provable upper bound.
+     */
     auto upper_bd_constant(value_t delta) const
     {
         auto width = qnorm(1.-delta/2.);
         return (width * (upper_bd_.array() * (1. - upper_bd_.array()) / n_).sqrt()).matrix();
     }
 
+    /*
+     * Computes the upper bound for gradient and hessian term (separately).
+     * Applies functor f to these quantities under each grid point.
+     *
+     * @param   model                   underlying model (design).
+     * @param   mean_idxer_range        range object representing the grid points.
+     * @param   delta                   confidence for provable upper bound.
+     * @param   grid_radius             radius of the grid in Theta space.
+     * @param   f                       functor to apply on gradient/hessian upper bounds under each grid point.
+     */
     template <class ModelType
             , class MeanIdxerRangeType
             , class FType>
@@ -57,14 +76,16 @@ public:
     /*
      * Beginning at the grid point index defined by p_idxer,
      * and ending upper_bd_.cols() number of coordinates later,
-     * the rejection proportions are updated as running averages in upper_bd_
-     * and the gradient components are updated as running averages in grad_buff_.
+     * the rejection proportions are updated by incrementing into upper_bd_
+     * and the gradient components into grad_buff_.
      *
      * This operation puts the state into Createable.
      * Assumes that the internals have been initialized properly (e.g. see reset()).
      *
-     * @param   thr_vec     vector of thresholds. Must be in decreasing order.
-     *                      See requirements for create().
+     * @param   model               underlying model.
+     * @param   mean_idxer_range    range object for the range of grid points.
+     * @param   thr_vec             vector of thresholds. Must be in decreasing order.
+     *                              See requirements for create().
      */
     template <class ModelType
             , class MeanIdxerRangeType
@@ -133,14 +154,9 @@ public:
      * Must be in state Createable to be a valid call.
      * After the call, the state is not in Createable.
      *
-     * @param   p_idxer     a d-ary integer that will index the vector p to get the configuration of the grid point.
-     * @param   p           vector of 1-d p values. Algorithm is only statistically valid when
-     *                      p was constructed from an evenly-spaced of radius grid_radius in the natural parameter space.
-     * @param   p_endpt     a 2 x c matrix where c is the length of p.
-     *                      Each column c contains the endpoints of the 1-d grid centered at p[c].
-     *                      The first row must be element-wise less than the second row.
-     * @param   alpha       Nominal level of test.
-     * @param   grid_radius radius of the grid in the natural parameter space.
+     * @param   mean_idxer_range     range object for the grid points.
+     * @param   delta                confidence of provable upper bound.
+     * @param   grid_radius          radius of the grid in the natural parameter space.
      */
     template <class ModelType, class MeanIdxerRangeType>
     void create(const ModelType& model,
@@ -192,12 +208,13 @@ public:
     /*
      * Computes a hint for what the batch size of parameters should be.
      * Given the number of thresholds (thr_vec_size) to consider,
-     * we estimate this from a pre-fit GLM model with hard-coded constants.
+     * we estimate this from a pre-fit GLM model.
      */
     constexpr auto p_batch_size_hint(size_t thr_vec_size) const 
     {
         // Heuristic for guessing how much can fit in the cache:
-        // Performance seems pretty good according to this formula.
+        // Performance seems pretty good according to this formula,
+        // though it may depend on the machine.
         size_t out = 7430 * std::exp(-0.035717058454485931 * thr_vec_size);
         return out;
     }
@@ -205,6 +222,12 @@ public:
     /*
      * Serializes the necessary quantities to construct the upper bound.
      * Assumes that the object is in state Createable.
+     *
+     * @param   s                   serializer object.
+     * @param   model               underlying model.
+     * @param   mean_idxer_range    range object for the grid points.
+     * @param   delta               confidence for provable upper bound.
+     * @param   grid_radius         radius of the grid in Theta space.
      */
     template <class SerializerType
             , class ModelType
@@ -246,8 +269,10 @@ public:
     /*
      * Unserializes and stores the results into the arguments.
      * TODO: this is only a valid operation if the Unserializer is processing a file
-     * that was created from calling serialize() with 1-threshold considered.
+     * that was created from calling serialize() with 1 threshold considered.
+     * I don't know if we want to generalize this further.
      *
+     * @param   us          unserializer object.
      * @param   c_vec       vector for constant monte carlo estimate (p).
      * @param   c_bd_vec    vector for constant upper bound (p).
      * @param   grad_mat    matrix for gradient monte carlo estimates for all arms (p x k).
@@ -343,6 +368,5 @@ private:
     size_t n_ = 0;              // number of updates
     bool serialized_ = false;   // true iff serialize() has been called.
 };
-
 
 } // namespace kevlar

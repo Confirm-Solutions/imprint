@@ -1,7 +1,8 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
-#include <kevlar_bits/model/base.hpp>
+#include <kevlar_bits/util/d_ary_int.hpp>
+#include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/model/control_k_treatment_base.hpp>
 #include <Eigen/Core>
 #include <limits>
@@ -103,7 +104,6 @@ public:
 template <>
 struct BinomialControlkTreatment<grid::Rectangular>
     : ControlkTreatmentBase
-    , ModelBase<BinomialControlkTreatment<grid::Rectangular> >
 {
 private:
     using base_t = ControlkTreatmentBase;
@@ -121,11 +121,18 @@ public:
             : outer_(outer)
         {}
 
+        /*
+         * Generate RNG for the simulation.
+         * Generate U(0,1) for each patient in each arm.
+         */
         template <class GenType>
         void gen_rng(GenType&& gen) { 
             static_interface_t::uniform(0., 1., gen, unif_, outer_.n_samples(), outer_.n_arms()); 
         }
 
+        /*
+         * Generates sufficient statistic for each arm under all possible grid points.
+         */
         void gen_suff_stat() {
             size_t k = outer_.n_arms()-1;
             size_t n = outer_.n_samples();
@@ -133,9 +140,14 @@ public:
             size_t ph3_size = n - ph2_size;
             size_t d = outer_.prob_.size();
 
+            // grab the block of uniforms associated with Phase II/III for treatments.
             auto ph2_unif = unif_.block(0, 1, ph2_size, k);
             auto ph3_unif = unif_.block(ph2_size, 1, ph3_size, k);
+
+            // grab control uniforms
             auto control_unif = unif_.col(0);
+
+            // sort each column of each block.
             sort_cols(ph2_unif);
             sort_cols(ph3_unif);
             sort_cols(control_unif);
@@ -144,19 +156,25 @@ public:
             Eigen::Map<Eigen::VectorXi> control_counts(suff_stat_.data(), d);
             Eigen::Map<Eigen::MatrixXi> ph3_counts(suff_stat_.col(1).data(), d, k);
             ph2_counts_.resize(d, k);
+
+            // output cumulative count of uniforms < outer_.prob_[k] into counts object.
             cum_count(ph2_unif, outer_.prob_, ph2_counts_);
             cum_count(ph3_unif, outer_.prob_, ph3_counts);
             cum_count(control_unif, outer_.prob_, control_counts);
+
             suff_stat_.block(0, 1, d, k) += ph2_counts_;
         }
 
+        /*
+         * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+         */ 
         template <class MeanIdxerType>
         auto test_stat(const MeanIdxerType& mean_idxer) const {
             auto& idx = mean_idxer();
 
             // Phase II
-            int a_star = -1;
-            int max_count = -1;
+            int a_star = -1;    // selected arm with highest Phase II response count.
+            int max_count = -1; // maximum Phase II response count.
             for (int j = 1; j < idx.size(); ++j) {
                 int prev_count = max_count;
                 max_count = std::max(prev_count, ph2_counts_(idx[j], j-1));
@@ -165,11 +183,12 @@ public:
 
             // Phase III
 
-            // Only want false-rejection for Type-I
+            // Only want false-rejection for Type-I.
             // Since the test is one-sided (upper), set to -inf if selected arm is not in null.
             bool is_selected_arm_in_null = outer_.hypos_[a_star-1](mean_idxer);
             if (!is_selected_arm_in_null) return -std::numeric_limits<double>::infinity();
 
+            // pairwise z-test
             auto n = outer_.n_samples();
             auto p_star = static_cast<double>(suff_stat_(idx[a_star], a_star)) / n;
             auto p_0 = static_cast<double>(suff_stat_(idx[0], 0)) / n;
@@ -182,6 +201,14 @@ public:
             return z;
         }
 
+        /*
+         * Computes the gradient of the log-likelihood ratio:
+         *      T - \nabla_\eta A(\eta)
+         * where T is the sufficient statistic (vector), A is the log-partition function, and \eta is the natural parameter.
+         *
+         * @param   arm             arm index.
+         * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+         */
         template <class MeanIdxerType>
         auto grad_lr(size_t arm, const MeanIdxerType& mean_idxer) const {
             auto& bits = mean_idxer();
@@ -223,6 +250,12 @@ public:
         return ipow(prob_.size(), n_arms());
     }
 
+    /*
+     * Computes the trace of the covariance matrix.
+     * TODO: For now, this is all what upper-bound object requires, but may need generalizing.
+     *
+     * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+     */
     template <class MeanIdxerType>
     auto tr_cov(const MeanIdxerType& mean_idxer) const
     {
@@ -234,6 +267,12 @@ public:
         return var * n_samples();
     }
 
+    /*
+     * Computes the trace of the supremum (in the grid) of covariance matrix.
+     * TODO: For now, this is all what upper-bound object requires, but may need generalizing.
+     *
+     * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+     */
     template <class MeanIdxerType>
     auto tr_max_cov(const MeanIdxerType& mean_idxer) const
     {
