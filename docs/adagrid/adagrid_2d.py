@@ -122,6 +122,35 @@ class Binomial2Arm():
         gridpt.delta_0_ci_upper = \
             gridpt.delta_0 + (2*gridpt.delta_0*(1-gridpt.delta_0))/gridpt.N
 
+    def tune_gridpt(gridpt, N_max):
+        delta_ub_eps = 0
+        if np.maximum(gridpt.radius) > 1e-6:
+            delta_ub_eps = 0.5 * (gridpt.delta_1 + gridpt.delta_1_u) + 0.75 * gridpt.delta_2_u
+
+        delta_ub_N = 0
+        if gridpt.N < N_max:
+            gridpt_tmp = GridPt(gridpt.pt, gridpt.radius, gridpt.parent)
+            model.seed += 1
+            model.upper_bound(gridpt_tmp)
+            model.seed -= 1
+            ndelta_0 = 0.5 * (gridpt.delta_0 - gridpt_tmp.delta_0)
+            ndelta_0_u = gridpt.delta_0_u - norm.isf(self.delta/2.) * \
+                        np.sqrt(ndelta_0 * (1-ndelta_0) / (2*gridpt.N))
+            ndelta_1 = 0.5 * (gridpt.delta_1 - gridpt_tmp.delta_1)
+            ndelta_1_u = 0.5 * gridpt.delta_1_u
+            delta_ub_N = ndelta_0 + ndelta_0_u + ndelta_1 + ndelta_1_u
+
+        delta_ub_lmda = 0
+
+        new_thresh = model.delta_lmda(gridpt)
+
+        imax = np.argmax([delta_ub_eps, delta_ub_N, delta_ub_lmda])
+
+        # maximum occurs for changing lambda
+        if imax == 2:
+            model.thresh = new_thresh
+            break
+
 def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
     # store upper bound at current grid point
     model.upper_bd(gridpt)
@@ -129,38 +158,11 @@ def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
     # get full upper bound
     ub = gridpt.create_upper()
 
-    # boolean to see if we should add further points
-    shrink_grid = False
+    while ub >= alpha:
+        model.tune_gridpt(gridpt)
+        ub = gridpt.create_upper()
 
-    # check hessian bound difference for shrink
-    #d2u_old = gridpt.parent.delta_2_u
-    #d2u = gridpt.delta_2_u
-    #dd2u = np.abs(d2u_old - d2u)
-    #d2_bd = alpha if (d2u_old == np.Inf) or (alpha >= gridpt.parent.delta_0_ci_lower) else d2u_old
-    #d2u_prop = d2u / ub if ub > 0 else 0
-    ub_old = gridpt.parent.create_upper()
-    #d2u_old_prop = d2u_old / ub_old if ub_old > 0 and (not np.isinf(ub_old)) else 0
-    shrink_grid = (np.abs(ub-ub_old) >= 0.05*ub_old)
     print("{p}:\n\tub={ub}\n\tub_old={ub_old}".format(p=gridpt.pt, ub=ub, ub_old=ub_old))
-
-    # check N
-    N_old = gridpt.N
-    if alpha >= gridpt.delta_0_ci_lower and \
-        alpha <= gridpt.delta_0_ci_upper:
-        gridpt.N = max(
-            min(np.ceil(-np.log(0.025)/(2*(0.025-gridpt.delta_0)**2))
-                if gridpt.delta_0 != 0.025 else N_old,
-                N_max),
-            2*N_old)
-
-    # final check for shrink: 1st order upper bound
-    #if not shrink_grid:
-    #    d1u_old = gridpt.parent.delta_1_u
-    #    d1u = gridpt.delta_1_u * np.sqrt(N_old / gridpt.N)
-    #    d1u_prop = d1u / (ub - gridpt.delta_1_u + d1u)
-    #    d1u_old_prop = d1u_old / gridpt.parent.create_upper()
-    #    dd1u = d1u_prop
-    #    shrink_grid = (dd1u >= 0.15)
 
     # if we have to shrink grid
     if shrink_grid:
