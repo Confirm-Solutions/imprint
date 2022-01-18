@@ -1,39 +1,49 @@
 from gridpt import GridPt
 from binomial import Binomial2Arm
-import numpy as np
-from scipy.stats import norm
-from copy import copy
-import queue
 from matplotlib import cm
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
+import numpy as np
 
-def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
+def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max, slack=alpha*0.1):
     # store upper bound at current grid point
     model.upper_bd(gridpt)
 
     # get full upper bound
     ub = gridpt.create_upper()
 
-    itr = 0
-    while ub >= alpha and itr < 20:
-        model.tune_gridpt(gridpt)
-        ub = gridpt.create_upper()
-        ++itr
+    # already a good estimate for ub: no need to tune N and eps further
+    if (ub < alpha-slack) or (gridpt.N >= N_max):
+        grid_final.append(gridpt)
+        return
 
-    # delta_0' + delta_1' ~ N(delta_0 + delta_1, sigma^2)
-    # sigma = sd([delta_0'_i + v^* delta_1'_i])
-    # P(Ub > alpha) ~~ 1-NCDF((ub-alpha)/sigma) decrease
-    while ((ub - alpha) / sigma) < norm.isf(0.05):
-        model.tune_gridpt(gridpt)
-        ub = gridpt.create_upper()
-        # update sigma
+    # Compute z-score if N changed to N*2^d, d = dimension of gridpt
+    N = gridpt.N
+    d = len(gridpt.pt)
+    N_factor = 2**d
+    N_new = np.min(N * N_factor, N_max)
+    N_ratio = N/N_new
+    sigma_dN = gridpt.sigma / np.sqrt(N_new)
+    mu_dN = gridpt.delta_0() + gridpt.delta_1() \
+        + (gridpt.delta_0_u() + gridpt.delta_1_u()) * np.sqrt(N_ratio) \
+        + gridpt.delta_2_u()
+    z_dN = (alpha - mu_dN) / sigma_dN
 
-    print("{p}:\n\tub={ub}\n\tub_old={ub_old}".format(p=gridpt.pt, ub=ub, ub_old=ub_old))
+    # Compute z-score if eps changed to eps/2
+    sigma_deps = gridpt.sigma
+    mu_deps = gridpt.delta_0() + gridpt.delta_1() \
+        + gridpt.delta_1_u() / 2. \
+        + gridpt.delta_2_u() / 4.
+    z_deps = (alpha - mu_deps) / sigma_deps
 
-    # if we have to shrink grid
-    if shrink_grid:
-        d = len(gridpt.pt)
+    # Compare z-scores: larger the z-score, the more likely UpperBound < alpha.
+
+    # 1) increase N and push gridpt into grid_q
+    if z_dN > z_deps:
+        gridpt.N = N_new
+        grid_q.append(gridpt)
+
+    # 2) decrease eps by adding children gridpts into grid_q
+    else:
         bits = np.zeros(d)
         new_rad = gridpt.radius / 2
         for _ in range(2**d):
@@ -50,11 +60,8 @@ def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
                 bits[j] = (bits[j] + 1) % 2
                 if carry == 0:
                     break
-    else:
-        grid_final.append(gridpt)
 
-def adagrid(lower, upper, model, alpha=0.025,
-            init_size=2, N_init=1000, N_max=100000, max_iter=2):
+def adagrid(lower, upper, model, alpha, init_size, max_iter, N_init, N_max):
     # set-up root node for special behavior
     root_pt = GridPt(None, None, None)
     root_pt.N = N_init
@@ -80,6 +87,7 @@ def adagrid(lower, upper, model, alpha=0.025,
         [c.flatten().reshape(-1,1) for c in coords],
         axis=1)
 
+    # create initial queue of potential gridpts to look into further
     grid_q = queue.Queue()
     for pt in grid:
         if model.is_viable(pt):
@@ -126,8 +134,9 @@ if __name__ == '__main__':
                    model=model,
                    alpha=0.025,
                    init_size=16,
-                   max_iter=6,
-                   N_max=10000)
+                   max_iter=8,
+                   N_init=1000,
+                   N_max=64000)
     grid_raw = np.array([pt.pt for pt in grid])
     N_raw = np.array([pt.N for pt in grid])
     plt.scatter(grid_raw[:,0], grid_raw[:,1], s=1, alpha=N_raw/np.max(N_raw))
