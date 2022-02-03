@@ -1,10 +1,17 @@
+import numpy as np
+from scipy.stats import norm
+
 class Binomial2Arm():
     def __init__(self):
         self.n_sample = 250
-        self.seed = 0
-        self.thresh = 1.96 # TODO: somehow be generalizable
+        self.seed = 1324
+        self.alpha_target = 0.025
+        self.alpha_minus_target = None
         self.null_hypo = lambda p: p[1] <= p[0]
         self.delta = 0.025
+        self.da_dthresh = None
+        self.thresh = None
+        self.thresh_minus = None
 
     @staticmethod
     def sigmoid(x):
@@ -13,59 +20,79 @@ class Binomial2Arm():
     def is_viable(self, theta):
         return self.null_hypo(Binomial2Arm.sigmoid(theta))
 
-    def upper_bd(self, gridpt):
-        # prepare some members of gridpt
-        gridpt.grad = np.zeros(2)
+    def simulate_once(self, gridpt):
+        # generate RNG
+        unifs = np.random.uniform(size=(self.n_sample, 2))
+
         p = Binomial2Arm.sigmoid(gridpt.pt)
+
+        # construct binomials
+        x_control = np.sum(unifs[:,0] < p[0])
+        x_treat = np.sum(unifs[:,1] < p[1])
+
+        # construct z-stat
+        p_control = x_control / self.n_sample
+        p_treat = x_treat / self.n_sample
+        var = (p_control*(1-p_control) + p_treat*(1-p_treat)) / self.n_sample
+        z = p_treat - p_control
+        if var <= 0:
+            z = np.Inf * np.sign(z)
+        else:
+            z /= np.sqrt(var)
+
+        return np.array([x_control, x_treat]), z
+
+    def simulate(self, gridpt):
+        # prepare some members of gridpt
+        p = Binomial2Arm.sigmoid(gridpt.pt)
+        if not self.null_hypo(p):
+            return
 
         # set seed
         np.random.seed(self.seed)
 
-        if not self.null_hypo(p):
-            return
+        gridpt.grad = np.zeros(2)
+        gridpt.grad_minus = np.zeros(2)
 
         # run through each simulation and update upper bound
         for i in range(gridpt.N):
-            # generate RNG
-            unifs = np.random.uniform(size=(self.n_sample, 2))
-
-            # construct binomials
-            x_control = np.sum(unifs[:,0] < p[0])
-            x_treat = np.sum(unifs[:,1] < p[1])
-
-            # construct z-stat
-            p_control = x_control / self.n_sample
-            p_treat = x_treat / self.n_sample
-            var = (p_control*(1-p_control) + p_treat*(1-p_treat)) / self.n_sample
-            z = p_treat - p_control
-            if var <= 0:
-                z = np.Inf * np.sign(z)
-            else:
-                z /= np.sqrt(var)
+            X, z = self.simulate_once(gridpt)
 
             ## accumulate upper bound quantities
 
+            curr_grad = X - self.n_sample*p
+
+            if z > self.thresh_minus:
+                gridpt.delta_0_minus += 1
+                gridpt.grad_minus += curr_grad
+
             # rejected if above thresh and is under null
-            rej = (z > self.thresh)
-
-            if not rej:
-                continue
-
-            gridpt.delta_0 += 1
-            curr_grad = np.array([x_control, x_treat]) - self.n_sample*p
-            gridpt.grad += curr_grad
-            gridpt.kernel_trick += np.outer(curr_grad, curr_grad)
+            if z > self.thresh:
+                gridpt.delta_0 += 1
+                gridpt.grad += curr_grad
+                gridpt.kernel_trick += np.outer(curr_grad, curr_grad)
 
         ## finalize upper bound
         gridpt.delta_0 /= gridpt.N
+        gridpt.delta_0_minus /= gridpt.N
+        gridpt.grad_minus /= gridpt.N
+        gridpt.delta_1_minus = np.dot(gridpt.radius, np.abs(gridpt.grad_minus))
         gridpt.grad /= gridpt.N
+        gridpt.kernel_trick /= gridpt.N
+
+    def upper_bd(self, gridpt):
+        # simulate
+        self.simulate(gridpt)
+
+        # mean parameter
+        p = Binomial2Arm.sigmoid(gridpt.pt)
 
         gridpt.delta_0_u = \
             norm.isf(self.delta/2.) * \
             np.sqrt(gridpt.delta_0 * (1-gridpt.delta_0) / gridpt.N)
 
-        v_star = np.abs(gridpt.grad)
-        gridpt.delta_1 = np.dot(gridpt.radius, v_star)
+        v_star = gridpt.radius * np.sign(gridpt.grad)
+        gridpt.delta_1 = np.dot(gridpt.radius, np.abs(gridpt.grad))
 
         gridpt.delta_1_u = np.sqrt(
             np.dot(gridpt.radius**2, p*(1-p)) *
@@ -98,5 +125,22 @@ class Binomial2Arm():
         # mean = delta_0 + delta_1
         gridpt.sigma = np.sqrt(gridpt.delta_0 \
             + 2*gridpt.delta_1 \
-            + v_star.dot(gridpt.kernel_trick.dot(v)) \
+            + v_star.dot(gridpt.kernel_trick.dot(v_star)) \
             - (gridpt.delta_0 + gridpt.delta_1)**2)
+
+    def initial_thresh(self, gridpt):
+        p = Binomial2Arm.sigmoid(gridpt.pt)
+        if not self.null_hypo(p):
+            return
+
+        # set seed
+        np.random.seed(self.seed)
+
+        z_vec = np.array([self.simulate_once(gridpt)[1] for _ in range(gridpt.N)])
+        np.sort(z_vec)
+        alpha = self.alpha_target
+        self.alpha_minus_target = alpha - 2*np.sqrt(alpha*(1-alpha)/gridpt.N)
+        thr = np.quantile(z_vec, 1-alpha)
+        thr_minus = np.quantile(z_vec, 1-self.alpha_minus_target)
+
+        return thr_minus, thr
