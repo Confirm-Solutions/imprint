@@ -93,6 +93,11 @@ def adagrid(lower, upper, model, alpha, init_size, max_iter, N_init, N_max):
         if model.is_viable(pt):
             grid_q.put(GridPt(pt, radius, root_pt))
 
+    # initialize lambdas
+    grid_q_size = grid_q.qsize()
+    for _ in range(grid_q_size):
+        gridpt = grid_q.get()
+
     # Final list of nodes to actually compute upper bound for.
     # Essentially the leaves of the tree we are building.
     grid_final = list()
@@ -133,7 +138,7 @@ if __name__ == '__main__':
                    upper=np.array([0.02, 0.02]),
                    model=model,
                    alpha=0.025,
-                   init_size=16,
+                   init_size=8,
                    max_iter=8,
                    N_init=1000,
                    N_max=64000)
