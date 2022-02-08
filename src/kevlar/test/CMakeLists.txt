@@ -9,6 +9,8 @@ add_executable(utility_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/util/math_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/serializer_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/progress_bar_unittest.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/util/range/grid_range_unittest.cpp
     )
 
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -38,7 +40,8 @@ add_test(utility_unittest utility_unittest)
 ########################################################################
 
 add_executable(model_unittest
-    ${CMAKE_CURRENT_SOURCE_DIR}/model/binomial_control_k_treatment_unittest.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/model/binomial_control_k_treatment_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/intersum_unittest.cpp
     )
 
 if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

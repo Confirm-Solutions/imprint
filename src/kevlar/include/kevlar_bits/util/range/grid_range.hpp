@@ -1,78 +1,134 @@
 #pragma once
 #include <type_traits>
 #include <kevlar_bits/util/types.hpp>
-#include <kevlar_bits/util/d_ary_int.hpp>
 
 namespace kevlar {
 
-struct rectangular_range;
+template <class ValueType=double
+        , class IntType=uint32_t>
+struct GridRange;
 
-struct rectangular_range
+template <class ValueType=double
+        , class IntType=uint32_t>
+struct GridptViewer
 {
+    using value_t = ValueType;
+    using int_t = IntType;
+
+    GridptViewer(
+        size_t dim,
+        value_t* ptheta,
+        value_t* pradius,
+        int_t* sim_size,
+        int_t* sim_size_rem)
+        : theta_(ptheta, dim)
+        , radius_(pradius, dim)
+        , sim_size_(sim_size)
+        , sim_size_rem_(sim_size_rem)
+    {}
+
+    auto& get_theta() { return theta_; }
+    auto& get_radius() { return radius_; }
+    auto& get_sim_size() { return *sim_size_; }
+    auto& get_sim_size_rem() { return *sim_size_rem_; }
+
+private: 
+    Eigen::Map<colvec_type<value_t> > theta_;
+    Eigen::Map<colvec_type<value_t> > radius_;
+    int_t* sim_size_;
+    int_t* sim_size_rem_;
+};
+
+template <class ValueType
+        , class IntType>
+struct GridRange
+{
+    using value_t = ValueType;
+    using int_t = IntType;
+
     struct iterator_type 
     {
         using difference_type = void;
-        using value_type = dAryInt;
-        using pointer = dAryInt*;
-        using reference = dAryInt&;
+        using value_type = GridptViewer<value_t, int_t>;
+        using pointer = GridptViewer<value_t, int_t>*;
+        using reference = GridptViewer<value_t, int_t>&;
         using iterator_category = std::forward_iterator_tag;
 
-        iterator_type(const rectangular_range& outer,
+        iterator_type(GridRange& outer,
                       size_t cnt)
-            : outer_cref_{outer}, idxer_{outer.idxer_}, cnt_{cnt}
+            : outer_ref_{outer}
+            , viewer_(outer.dim(),
+                      outer.thetas_.data() + cnt*outer.dim(),
+                      outer.radii_.data() + cnt*outer.dim(),
+                      outer.sim_sizes_.data()+cnt,
+                      outer.sim_sizes_rem_.data()+cnt)
+            , cnt_{cnt}
         {}
 
-        iterator_type& operator++() { ++idxer_; ++cnt_; return *this; }
-        reference operator*() { return idxer_; }
-        pointer operator->() { return &idxer_; }
-        
-        friend constexpr bool operator==(
-                const iterator_type&,
-                const iterator_type&);
-        friend constexpr bool operator!=(
-                const iterator_type&,
-                const iterator_type&);
+        iterator_type& operator++() { 
+            ++cnt_; 
+            auto& outer = outer_ref_.get();
+            new (&viewer_) GridptViewer<value_t, int_t>(
+                    outer.dim(),
+                    outer.thetas_.data() + cnt_*outer.dim(),
+                    outer.radii_.data() + cnt_*outer.dim(),
+                    outer.sim_sizes_.data()+cnt_,
+                    outer.sim_sizes_rem_.data()+cnt_
+                    );
+            return *this; 
+        }
+        reference operator*() { return viewer_; }
+        pointer operator->() { return &viewer_; }
+
+        inline constexpr bool 
+        operator==(const iterator_type& it2) const
+        { 
+            return (this->cnt_ == it2.cnt_) &&
+                (&this->outer_ref_.get() == &it2.outer_ref_.get()); 
+        }
+
+        inline constexpr bool 
+        operator!=(const iterator_type& it2) const
+        { 
+            return (this->cnt_ != it2.cnt_) ||
+                (&this->outer_ref_.get() != &it2.outer_ref_.get()); 
+        }
+
     private:
-        std::reference_wrapper<const rectangular_range> outer_cref_;
-        dAryInt idxer_;
+        std::reference_wrapper<GridRange> outer_ref_;
+        GridptViewer<value_t, int_t> viewer_;
         size_t cnt_;
     };
 
-    rectangular_range(size_t base,
-                      size_t n_bits,
-                      size_t size)
-        : idxer_(base, n_bits), size_{size}
-    {}
-    
-    rectangular_range(const dAryInt& idxer,
-                      size_t size)
-        : idxer_{idxer}, size_{size}
-    {}
+    GridRange() =default;
 
-    iterator_type begin() const { return {*this, 0}; }
-    iterator_type end() const { return {*this, size_}; }
-    size_t size() const { return size_; }
+    GridRange(
+        int_t dim,
+        int_t size)
+        : thetas_(dim, size)
+        , radii_(dim, size)
+        , sim_sizes_(size)
+        , sim_sizes_rem_(size)
+    {
+        sim_sizes_.setZero();
+        sim_sizes_rem_.setZero();
+    }
 
-    void set_idxer(const dAryInt& idx) { idxer_ = idx; }
-    void set_size(size_t s) { size_ = s; }
-    dAryInt& get_idxer() { return idxer_; }
+    auto& get_thetas() { return thetas_; }
+    auto& get_radii() { return radii_; }
+    auto& get_sim_sizes() { return sim_sizes_; }
+    auto& get_sim_sizes_rem() { return sim_sizes_rem_; }
+
+    iterator_type begin() { return {*this, 0}; }
+    iterator_type end() { return {*this, size()}; }
+    size_t size() const { return thetas_.cols(); }
+    size_t dim() const { return thetas_.rows(); }
 
 private:
-    dAryInt idxer_;
-    size_t size_ = 0;
+    mat_type<value_t> thetas_;          // matrix of theta vectors
+    mat_type<value_t> radii_;           // matrix of radius vectors
+    colvec_type<int_t> sim_sizes_;      // vector of simulation sizes
+    colvec_type<int_t> sim_sizes_rem_;  // vector of simulation sizes remaining
 };
-
-inline constexpr bool 
-    operator==(const typename rectangular_range::iterator_type& it1,
-               const typename rectangular_range::iterator_type& it2)
-    { return (it1.cnt_ == it2.cnt_) &&
-             (&it1.outer_cref_.get() == &it2.outer_cref_.get()); }
-
-inline constexpr bool 
-    operator!=(const typename rectangular_range::iterator_type& it1,
-               const typename rectangular_range::iterator_type& it2)
-    { return (it1.cnt_ != it2.cnt_) ||
-             (&it1.outer_cref_.get() != &it2.outer_cref_.get()); }
-
 
 } // namespace kevlar
