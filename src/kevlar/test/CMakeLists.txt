@@ -40,7 +40,7 @@ add_test(utility_unittest utility_unittest)
 ########################################################################
 
 add_executable(model_unittest
-    #${CMAKE_CURRENT_SOURCE_DIR}/model/binomial_control_k_treatment_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/model/binomial_control_k_treatment_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/intersum_unittest.cpp
     )
 

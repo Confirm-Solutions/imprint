@@ -36,23 +36,20 @@ struct ControlkTreatmentBase
         , n_samples_(n_samples)
     {}
 
-    size_t n_samples() const { return n_samples_; }
-    size_t n_arms() const { return n_arms_; }
+    constexpr size_t n_samples() const { return n_samples_; }
+    constexpr size_t n_arms() const { return n_arms_; }
 
     /* Helper static interface */
-    template <class FloatType, class GenType, class OutType>
+    template <class GenType, class UnifType, class OutType>
     static void uniform(
-            FloatType min, 
-            FloatType max, 
-            GenType&& gen, 
-            OutType&& out, 
             size_t m, 
-            size_t n) 
+            size_t n,
+            GenType&& gen,
+            UnifType&& unif,
+            OutType&& out) 
     {
-        out.array() = 
-            (out.Random(m, n).array() + 1) 
-            * (static_cast<FloatType>(0.5) * (max-min)) 
-            + min;
+        out.array() = out.NullaryExpr(m, n,
+                [&](auto, auto) { return unif(gen); });
     }
 
 protected:

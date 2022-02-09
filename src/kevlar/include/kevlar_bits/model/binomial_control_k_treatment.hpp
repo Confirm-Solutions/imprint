@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include <set>
+#include <random>
 
 namespace kevlar {
 
@@ -50,6 +51,7 @@ public:
     public:
         StateType(const outer_t& outer)
             : outer_(outer)
+            , unif_dist_(0., 1.)
         {
             for (auto& pu : outer_.probs_unique_) {
                 n_total_uniques_ += pu.size();
@@ -64,9 +66,8 @@ public:
         template <class GenType>
         void gen_rng(GenType&& gen) { 
             static_interface_t::uniform(
-                    static_cast<value_t>(0), 
-                    static_cast<value_t>(1), 
-                    gen, unif_, outer_.n_samples(), outer_.n_arms()); 
+                    outer_.n_samples(), outer_.n_arms(),  
+                    gen, unif_dist_, unif_);
         }
 
         /*
@@ -134,10 +135,12 @@ public:
                 int max_count = -1; // maximum Phase II response count.
                 for (int j = 1; j < bits_i.size(); ++j) {
                     int prev_count = max_count;
-                    Eigen::Map<colvec_type<int_t> > ph2_counts_v(
+                    Eigen::Map<const colvec_type<int_t> > ph2_counts_v(
                             ph2_counts_.data() + outer_.strides_[j] - outer_.strides_[1],
                             outer_.strides_[j+1] - outer_.strides_[j]);
-                    max_count = std::max(prev_count, ph2_counts_v(bits_i[j]));
+                    max_count = std::max(
+                            static_cast<int64_t>(prev_count), 
+                            static_cast<int64_t>(ph2_counts_v(bits_i[j])) );
                     a_star = (max_count != prev_count) ? j : a_star;
                 }
 
@@ -145,10 +148,10 @@ public:
                 
                 // pairwise z-test
                 auto n = outer_.n_samples();
-                Eigen::Map<colvec_type<int_t> > ss_astar(
+                Eigen::Map<const colvec_type<int_t> > ss_astar(
                         suff_stat_.data() + outer_.strides_[a_star],
                         outer_.strides_[a_star+1] - outer_.strides_[a_star]);
-                Eigen::Map<colvec_type<int_t> > ss_0(
+                Eigen::Map<const colvec_type<int_t> > ss_0(
                         suff_stat_.data(),
                         outer_.strides_[1]);
                 auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
@@ -160,7 +163,7 @@ public:
                     z / std::sqrt(var / n); 
 
                 // save rejection for the current model
-                rej_len[i] = (z > outer_.threshold);
+                rej_len[i] = (z > outer_.threshold_);
             }
         }
 
@@ -176,7 +179,7 @@ public:
             Eigen::Map<mat_type<value_t> > grad_m(grad.data(), outer_.n_gridpts(), outer_.n_arms());
             auto& bits = outer_.gbits_;
             for (int j = 0; j < grad_m.cols(); ++j) {
-                Eigen::Map<mat_type<int_t> > ss_a(
+                Eigen::Map<const colvec_type<int_t> > ss_a(
                         suff_stat_.data() + outer_.strides_(j),
                         outer_.strides_(j+1) - outer_.strides_(j));
                 for (int i = 0; i < grad_m.rows(); ++i) {
@@ -186,6 +189,7 @@ public:
         }
 
     private:
+        std::uniform_real_distribution<value_t> unif_dist_;
         mat_type<value_t> unif_;          // uniform rng
         colvec_type<int_t> suff_stat_;    // sufficient statistic table for each arm and prob value
                                           // suff_stat_(i,j) = suff stat at unique prob i at arm j.
@@ -289,8 +293,10 @@ public:
      */
     value_t tr_max_cov(size_t i) const
     {
-        Eigen::Map<mat_type<value_t> > p_lower(probs_.data(), p_.rows(), p_.cols());
-        Eigen::Map<mat_type<value_t> > p_upper(p_.data() + p_.size(), p_.rows(), p_.cols());
+        Eigen::Map<const mat_type<value_t> > p_lower(
+                probs_.data(), p_.rows(), p_.cols());
+        Eigen::Map<const mat_type<value_t> > p_upper(
+                p_.data() + p_.size(), p_.rows(), p_.cols());
         auto pli = p_lower.col(i);
         auto pi = p_.col(i);
         auto pui = p_upper.col(i);
