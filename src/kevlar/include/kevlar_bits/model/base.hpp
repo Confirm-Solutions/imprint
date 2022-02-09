@@ -1,9 +1,20 @@
 #pragma once
-#include <cstddef>
-#include <random>
-#include <Eigen/Core>
+#include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
+
+/*
+ * Base class for all model state classes.
+ */
+template <class ValueType, class IntType>
+struct ModelStateBase
+{
+    using value_t = ValueType;
+    using int_t = IntType;
+
+    virtual void get_rej_len(Eigen::Ref<colvec_type<int_t> >) const =0;
+    virtual void get_grad(Eigen::Ref<colvec_type<value_t> >) const =0;
+};
 
 /*
  * Base class for all control + k treatment designs.
@@ -29,11 +40,19 @@ struct ControlkTreatmentBase
     size_t n_arms() const { return n_arms_; }
 
     /* Helper static interface */
-    template <class GenType, class OutType>
-    static void uniform(double min, double max, GenType&& gen, OutType&& out, size_t m, size_t n) {
-        std::uniform_real_distribution<double> unif(min, max);
-        out = Eigen::MatrixXd::NullaryExpr(m, n, 
-                [&](auto, auto) { return unif(gen); });
+    template <class FloatType, class GenType, class OutType>
+    static void uniform(
+            FloatType min, 
+            FloatType max, 
+            GenType&& gen, 
+            OutType&& out, 
+            size_t m, 
+            size_t n) 
+    {
+        out.array() = 
+            (out.Random(m, n).array() + 1) 
+            * (static_cast<FloatType>(0.5) * (max-min)) 
+            + min;
     }
 
 protected:

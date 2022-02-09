@@ -1,9 +1,18 @@
 #pragma once
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <Eigen/Core>
 
 namespace kevlar {
 namespace details {
+
+template <class ValueType>
+constexpr inline auto sigmoid(ValueType x)
+{ 
+    using std::exp;
+    using Eigen::exp;
+    return 1./(1.+exp(-x)); 
+}
 
 template <class ValueType, class IntType>
 constexpr inline ValueType ipow_pos(ValueType base, IntType exp)
