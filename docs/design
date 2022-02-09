@@ -55,6 +55,14 @@ return intersum
 =============================================================================
 C++ side
 
+ExponentialModel:
+- Nested class for an instance of the model ("State"):
+    - similar to BinomialModel
+- Optimize in the case of diagonal points, but still works in general.
+
+========================================================================================================================
+#### Finished Implementation ####
+
 BinomialModel:
 - Nested class for an instance of the model ("State"):
     - contains object for storing RNG (e.g. uniforms 250 x 3)
@@ -100,10 +108,6 @@ And I need N number of dAryInts, but dAryInt=O(d) => O(Nd) in total memory.
 - std::vector<dAryInt> will allocate all over the place in the heap for each dAryInt (may have to benchmark later)
     - possible fix: create another class SeqdAryInt - internally, store a matrix of integers.
 
-ExponentialModel:
-- Nested class for an instance of the model ("State"):
-    - similar to BinomialModel
-- Optimize in the case of diagonal points, but still works in general.
 
 InterSums:
 - Type I error sums
@@ -122,9 +126,6 @@ InterSums:
         for i in 1:len(p):
             grad_slice_arm.col(i) += model_state.grad_lr(arm, i);
 }
-
-========================================================================================================================
-#### Finished Implementation ####
 
 GridRange:
 - C++ class (later exported to Python)
