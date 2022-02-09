@@ -21,9 +21,14 @@ struct MockModelState
         }
     }
 
-    double grad_lr(size_t k, size_t j) 
+    void get_grad(colvec_type<double>& v) 
     {
-        return static_cast<double>(k) * j - n_params_;
+        Eigen::Map<mat_type<double> > vm(v.data(), n_gridpts_, n_params_);
+        for (int k = 0; k < vm.cols(); ++k) {
+            for (int j = 0; j < vm.rows(); ++j) {
+                vm(j,k) = static_cast<double>(k) * j - n_params_;
+            }
+        }
     }
 
 private:
@@ -71,6 +76,8 @@ TEST_P(test_update_fixture, test_update)
 
     colvec_type<uint32_t> v(n_gridpts);
     mms.get_rej_len(v);
+    colvec_type<double> g(n_gridpts * n_params);
+    mms.get_grad(g);
 
     // check accumulation count
     EXPECT_EQ(is.n_accum(), 1);
@@ -88,13 +95,15 @@ TEST_P(test_update_fixture, test_update)
     // check gradient sums
     auto& gr = is.grad_sum();
     colvec_type<double> expected_gr(n_models * n_gridpts * n_params);
+    Eigen::Map<mat_type<double> > gm(
+            g.data(), n_gridpts, n_params);
     for (size_t k = 0; k < n_params; ++k) {
         Eigen::Map<mat_type<double> > expected_gr_k(
                 expected_gr.data() + k * n_models * n_gridpts,
                 n_models, n_gridpts);
         for (size_t j = 0; j < n_gridpts; ++j) {
             for (size_t i = 0; i < n_models; ++i) {
-                expected_gr_k(i,j) = mms.grad_lr(k, j) * (tis.rows()-i <= v[j]);
+                expected_gr_k(i,j) = gm(j, k) * (tis.rows()-i <= v[j]);
             }
         }
     }

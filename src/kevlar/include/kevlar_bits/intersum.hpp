@@ -16,10 +16,12 @@ struct InterSum
         : type_I_sum_(n_models, n_gridpts)
         , grad_sum_(n_models * n_gridpts * n_params)
         , rej_len_(n_gridpts)
+        , grad_buff_(n_gridpts * n_params)
     {
         type_I_sum_.setZero();
         grad_sum_.setZero();
         rej_len_.setZero();
+        grad_buff_.setZero();
     }
     
     /*
@@ -56,6 +58,8 @@ struct InterSum
         // add (T - nabla_eta A(m)) for each threshold where we have rejection.
         // where T is the sufficient statistic for arm k under mean m,
         // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
+        state.get_grad(grad_buff_);
+        Eigen::Map<mat_type<value_t> > gr(grad_buff_.data(), n_gridpts, n_params);
         for (int k = 0; k < n_params; ++k, slice_offset += slice_size) {
             Eigen::Map<mat_type<value_t> > grad_k_cache(
                     grad_sum_.data() + slice_offset, 
@@ -63,7 +67,7 @@ struct InterSum
                     type_I_sum_.cols());
             for (int j = 0; j < n_gridpts; ++j) {
                 auto grad_k_j = grad_k_cache.col(j);
-                grad_k_j.tail(rej_len_[j]).array() += state.grad_lr(k, j);
+                grad_k_j.tail(rej_len_[j]).array() += gr(j, k);
             }
         }
     }
@@ -87,6 +91,7 @@ struct InterSum
         type_I_sum_.setZero(n_models, n_gridpts);
         grad_sum_.setZero(n_models * n_gridpts * n_params);
         rej_len_.setZero(n_gridpts);
+        grad_buff_.setZero(n_gridpts * n_params);
         n_ = n_acc;
     }
 
@@ -99,12 +104,14 @@ private:
         return grad_sum_.size() / type_I_sum_.size();
     }     
 
-    mat_type<uint32_t> type_I_sum_; // Type I error sums.
-                                    // type_I_sum_(i,j) = rejection accumulation for model i at gridpt j.
-    colvec_type<value_t> grad_sum_; // gradient sums.
-                                    // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at gridpt j.
-    size_t n_=0;                    // number of accumulations
-    colvec_type<uint32_t> rej_len_; // number of models that rejects for each gridpt
+    mat_type<uint32_t> type_I_sum_;     // Type I error sums.
+                                        // type_I_sum_(i,j) = rejection accumulation for model i at gridpt j.
+    colvec_type<value_t> grad_sum_;     // gradient sums.
+                                        // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at gridpt j.
+    size_t n_=0;                        // number of accumulations
+    colvec_type<uint32_t> rej_len_;     // number of models that rejects for each gridpt
+    colvec_type<value_t> grad_buff_;    // gradient buffer for a given model state
+                                        // grad_buff_(j,k) = partial deriv w.r.t. param k at gridpt j
 };
 
 } // namespace kevlar

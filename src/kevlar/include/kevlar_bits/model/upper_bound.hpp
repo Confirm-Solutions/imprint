@@ -74,69 +74,6 @@ private:
 public:
 
     /*
-     * Beginning at the grid point index defined by p_idxer,
-     * and ending upper_bd_.cols() number of coordinates later,
-     * the rejection proportions are updated by incrementing into upper_bd_
-     * and the gradient components into grad_buff_.
-     *
-     * This operation puts the state into Createable.
-     * Assumes that the internals have been initialized properly (e.g. see reset()).
-     *
-     * @param   model               underlying model.
-     * @param   mean_idxer_range    range object for the range of grid points.
-     * @param   thr_vec             vector of thresholds. Must be in decreasing order.
-     *                              See requirements for create().
-     */
-    template <class ModelType
-            , class MeanIdxerRangeType
-            , class ThrVecType>
-    void update(
-            ModelType&& model,
-            const MeanIdxerRangeType& mean_idxer_range,
-            const ThrVecType& thr_vec
-            )
-    {
-        ++n_;
-
-        auto idxer_begin = mean_idxer_range.begin();
-
-        // iterate over each configuration of model parameters
-        for (int j = 0; j < upper_bd_.cols(); ++j, ++idxer_begin) {
-            auto& idxer = *idxer_begin;
-            auto test_stat = model.test_stat(idxer);
-
-            // find first threshold s.d. test_stat > thr
-            auto begin = thr_vec.data();
-            auto end = begin + thr_vec.size();
-            auto it = std::upper_bound(begin, end, test_stat, std::greater<value_t>());
-
-            // update rejection count only in the rows that reject
-            auto rej_length = std::distance(it, end);
-            if (rej_length == 0) continue;
-
-            auto upper_bd_j = upper_bd_.col(j);
-            upper_bd_j.tail(rej_length).array() += 1;
-
-            // update gradient for each dimension
-            const auto slice_size = upper_bd_.size();
-            auto slice_offset = 0;
-            size_t n_arms = this->n_arms();
-            for (size_t k = 0; k < n_arms; ++k, slice_offset += slice_size) {
-                Eigen::Map<mat_t> grad_k_cache(
-                        grad_buff_.data() + slice_offset, 
-                        upper_bd_.rows(),
-                        upper_bd_.cols());
-                auto grad_k_j = grad_k_cache.col(j);
-
-                // add (T - nabla_eta A(m)) for each threshold where we have rejection.
-                // where T is the sufficient statistic for arm k under mean m,
-                // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
-                grad_k_j.tail(rej_length).array() += model.grad_lr(k, idxer);
-            }
-        }
-    }
-
-    /*
      * Pools other upper bound objects into the current object.
      * Must be in state Createable to be a valid call.
      *
@@ -239,7 +176,7 @@ public:
                    value_t grid_radius) 
     {
         if (!serialized_) {
-            uint32_t n_total = model.n_total_params();
+            uint32_t n_total = model.n_gridpts();
             uint32_t n_arms = this->n_arms();
             s << n_total << n_arms;
             serialized_ = true;

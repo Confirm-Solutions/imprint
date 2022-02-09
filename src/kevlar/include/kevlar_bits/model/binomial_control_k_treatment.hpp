@@ -3,15 +3,15 @@
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>
-#include <kevlar_bits/model/control_k_treatment_base.hpp>
-#include <Eigen/Core>
+#include <kevlar_bits/model/base.hpp>
 #include <limits>
 #include <algorithm>
+#include <set>
 
 namespace kevlar {
 
 /* Forward declaration */
-template <class GridType = grid::Arbitrary>
+template <class ValueType, class IntType>
 struct BinomialControlkTreatment;
 
 namespace internal {
@@ -19,90 +19,18 @@ namespace internal {
 template <class T>
 struct traits;
 
-template <class GridType>
-struct traits<BinomialControlkTreatment<GridType> >
+template <class ValueType, class IntType>
+struct traits<BinomialControlkTreatment<ValueType, IntType> >
 {
-    using state_t = typename BinomialControlkTreatment<GridType>::StateType;
+    using value_t = ValueType;
+    using int_t = IntType;
+    using state_t = typename BinomialControlkTreatment<ValueType, IntType>::StateType;
 };
 
 } // namespace internal
 
-/*
- * Binomial control + k Treatment model.
- * For a given point null p = (p_0,..., p_{k}),
- * n responses Y_{ij} for each arm j=0,...,k where Y_{ij} ~ Bern(p_j) iid,
- * Phase II size of ph2_size, it does the following procedure:
- *
- *  - select the treatment arm j* with most responses based on the first ph2_size samples
- *  - construct the paired z-test between p_{j*} and p_0 testing for the null that p_{j*} <= p_0.
- */
-
-/* Specialization declaration: arbitrary grid */
-template <>
-struct BinomialControlkTreatment<grid::Arbitrary>
-    : ControlkTreatmentBase
-{
-private:
-    using base_t = ControlkTreatmentBase;
-
-public:
-    using base_t::base_t;
-
-    /*
-     * Runs the Binomial 3-arm Phase II/III trial simulation.
-     * 
-     * @param   unif            matrix with n_arms columns where column i is the uniform draws of arm i.
-     * @param   p_range         current range of the full p-grid.
-     * @param   thr_grid        Grid of threshold values for tuning. See requirements for UpperBound.
-     * @param   upper_bd        Upper-bound object to update.
-     */
-    template <class UnifType
-            , class PRangeType
-            , class ThrVecType
-            , class UpperBoundType>
-    inline void run(
-            const UnifType& unif,
-            const PRangeType& p_range,
-            const ThrVecType& thr_grid,
-            UpperBoundType& upper_bd
-            ) const
-    {
-        assert(static_cast<size_t>(unif.rows()) == n_samples());
-        assert(static_cast<size_t>(unif.cols()) == n_arms());
-
-        size_t k = unif.cols()-1;
-        size_t n = unif.rows();
-        size_t ph2_size = ph2_size;
-        size_t ph3_size = n - ph2_size;
-
-        // resize cache
-        Eigen::VectorXd a_sum(k);
-
-        auto z_stat = [&](const auto& p) {
-            // phase II
-            for (size_t i = 0; i < a_sum.size(); ++i) {
-                a_sum[i] = (unif.col(i+1).head(ph2_size).array() < p(i+1)).count();
-            }
-
-            // compare and choose arm with more successes
-            Eigen::Index a_star;
-            a_sum.maxCoeff(&a_star);
-
-            // phase III
-            size_t a_star_rest_sum = (unif.col(a_star+1).tail(ph3_size).array() < p(a_star+1)).count();
-            auto p_star = static_cast<double>(a_sum[a_star] + a_star_rest_sum) / n;
-            auto p_0 = (unif.col(0).array() < p(0)).template cast<double>().mean();
-            auto z = (p_star - p_0);
-            auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-            z = (var == 0) ? std::numeric_limits<double>::infinity() : z / sqrt(var / n); 
-            return z;
-        };
-    }
-};
-
-/* Specialization declaration: rectangular grid */
-template <>
-struct BinomialControlkTreatment<grid::Rectangular>
+template <class ValueType, class IntType>
+struct BinomialControlkTreatment
     : ControlkTreatmentBase
 {
 private:
@@ -110,7 +38,10 @@ private:
     using static_interface_t = base_t;
 
 public:
-    struct StateType 
+    using value_t = ValueType;
+    using int_t = IntType;
+
+    struct StateType : ModelStateBase<value_t, int_t>
     {
     private:
         using outer_t = BinomialControlkTreatment;
@@ -119,26 +50,34 @@ public:
     public:
         StateType(const outer_t& outer)
             : outer_(outer)
-        {}
+        {
+            for (auto& pu : outer_.probs_unique_) {
+                n_total_uniques_ += pu.size();
+            }
+        }
 
         /*
          * Generate RNG for the simulation.
          * Generate U(0,1) for each patient in each arm.
+         * TODO: what's the interface?
          */
         template <class GenType>
         void gen_rng(GenType&& gen) { 
-            static_interface_t::uniform(0., 1., gen, unif_, outer_.n_samples(), outer_.n_arms()); 
+            static_interface_t::uniform(
+                    static_cast<value_t>(0), 
+                    static_cast<value_t>(1), 
+                    gen, unif_, outer_.n_samples(), outer_.n_arms()); 
         }
 
         /*
          * Generates sufficient statistic for each arm under all possible grid points.
          */
-        void gen_suff_stat() {
+        void gen_suff_stat() 
+        {
             size_t k = outer_.n_arms()-1;
             size_t n = outer_.n_samples();
             size_t ph2_size = outer_.ph2_size_;
             size_t ph3_size = n - ph2_size;
-            size_t d = outer_.prob_.size();
 
             // grab the block of uniforms associated with Phase II/III for treatments.
             auto ph2_unif = unif_.block(0, 1, ph2_size, k);
@@ -152,53 +91,77 @@ public:
             sort_cols(ph3_unif);
             sort_cols(control_unif);
 
-            suff_stat_.resize(d, k+1);
-            Eigen::Map<Eigen::VectorXi> control_counts(suff_stat_.data(), d);
-            Eigen::Map<Eigen::MatrixXi> ph3_counts(suff_stat_.col(1).data(), d, k);
-            ph2_counts_.resize(d, k);
+            suff_stat_.resize(n_total_uniques_);
+            Eigen::Map<colvec_type<int_t> > control_counts(
+                    suff_stat_.data(), outer_.probs_unique_[0].size());
+            Eigen::Map<colvec_type<int_t> > ph3_counts(
+                    suff_stat_.data() + control_counts.size(), suff_stat_.size() - control_counts.size());
+            ph2_counts_.resize(ph3_counts.size());
 
             // output cumulative count of uniforms < outer_.prob_[k] into counts object.
-            cum_count(ph2_unif, outer_.prob_, ph2_counts_);
-            cum_count(ph3_unif, outer_.prob_, ph3_counts);
-            cum_count(control_unif, outer_.prob_, control_counts);
+            cum_count(control_unif, outer_.probs_unique_[0], control_counts);
+            {
+                size_t n_skip = 0;
+                for (int i = 0; i < k; ++i) {
+                    Eigen::Map<colvec_type<int_t> > ph2_counts_i(
+                            ph2_counts_.data() + n_skip, outer_.probs_unique_[i+1].size());
+                    Eigen::Map<colvec_type<int_t> > ph3_counts_i(
+                            ph3_counts.data() + n_skip, outer_.probs_unique_[i+1].size());
+                    cum_count(ph2_unif.col(i), outer_.probs_unique_[i+1], ph2_counts_i);
+                    cum_count(ph3_unif.col(i), outer_.probs_unique_[i+1], ph3_counts_i);
 
-            suff_stat_.block(0, 1, d, k) += ph2_counts_;
+                    n_skip += ph2_counts_i.size();
+                }
+            }
+
+            // final update on suff_stat
+            suff_stat_.tail(suff_stat_.size()-control_counts.size()) += ph2_counts_;
         }
 
         /*
-         * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+         * @param   rej_len      vector of integers to store number of models that reject.
          */ 
-        template <class MeanIdxerType>
-        auto test_stat(const MeanIdxerType& mean_idxer) const {
-            auto& idx = mean_idxer();
+        void get_rej_len(Eigen::Ref<colvec_type<int_t> > rej_len) const override 
+        {
+            auto& bits = outer_.gbits_;
 
-            // Phase II
-            int a_star = -1;    // selected arm with highest Phase II response count.
-            int max_count = -1; // maximum Phase II response count.
-            for (int j = 1; j < idx.size(); ++j) {
-                int prev_count = max_count;
-                max_count = std::max(prev_count, ph2_counts_(idx[j], j-1));
-                a_star = (max_count != prev_count) ? j : a_star;
+            for (int i = 0; i < outer_.n_gridpts(); ++i) 
+            {
+                auto bits_i = bits.col(i);
+
+                // Phase II
+                int a_star = -1;    // selected arm with highest Phase II response count.
+                int max_count = -1; // maximum Phase II response count.
+                for (int j = 1; j < bits_i.size(); ++j) {
+                    int prev_count = max_count;
+                    Eigen::Map<colvec_type<int_t> > ph2_counts_v(
+                            ph2_counts_.data() + outer_.strides_[j] - outer_.strides_[1],
+                            outer_.strides_[j+1] - outer_.strides_[j]);
+                    max_count = std::max(prev_count, ph2_counts_v(bits_i[j]));
+                    a_star = (max_count != prev_count) ? j : a_star;
+                }
+
+                // Phase III
+                
+                // pairwise z-test
+                auto n = outer_.n_samples();
+                Eigen::Map<colvec_type<int_t> > ss_astar(
+                        suff_stat_.data() + outer_.strides_[a_star],
+                        outer_.strides_[a_star+1] - outer_.strides_[a_star]);
+                Eigen::Map<colvec_type<int_t> > ss_0(
+                        suff_stat_.data(),
+                        outer_.strides_[1]);
+                auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
+                auto p_0 = static_cast<double>(ss_0(bits_i[0])) / n;
+                auto z = (p_star - p_0);
+                auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
+                z = (var <= 0) ? 
+                    std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
+                    z / std::sqrt(var / n); 
+
+                // save rejection for the current model
+                rej_len[i] = (z > outer_.threshold);
             }
-
-            // Phase III
-
-            // Only want false-rejection for Type-I.
-            // Since the test is one-sided (upper), set to -inf if selected arm is not in null.
-            bool is_selected_arm_in_null = outer_.hypos_[a_star-1](mean_idxer);
-            if (!is_selected_arm_in_null) return -std::numeric_limits<double>::infinity();
-
-            // pairwise z-test
-            auto n = outer_.n_samples();
-            auto p_star = static_cast<double>(suff_stat_(idx[a_star], a_star)) / n;
-            auto p_0 = static_cast<double>(suff_stat_(idx[0], 0)) / n;
-            auto z = (p_star - p_0);
-            auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-            z = (var <= 0) ? 
-                std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
-                z / std::sqrt(var / n); 
-
-            return z;
         }
 
         /*
@@ -206,19 +169,29 @@ public:
          *      T - \nabla_\eta A(\eta)
          * where T is the sufficient statistic (vector), A is the log-partition function, and \eta is the natural parameter.
          *
-         * @param   arm             arm index.
-         * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
+         * @param   grad             flattened 2-d array where grad(i,j) = at gridpt i, jth element of (T-\nabla A).
          */
-        template <class MeanIdxerType>
-        auto grad_lr(size_t arm, const MeanIdxerType& mean_idxer) const {
-            auto& bits = mean_idxer();
-            return suff_stat_(bits[arm], arm) - outer_.n_samples() * outer_.prob_[bits[arm]];
+        void get_grad(Eigen::Ref<colvec_type<value_t> > grad) const override
+        {
+            Eigen::Map<mat_type<value_t> > grad_m(grad.data(), outer_.n_gridpts(), outer_.n_arms());
+            auto& bits = outer_.gbits_;
+            for (int j = 0; j < grad_m.cols(); ++j) {
+                Eigen::Map<mat_type<int_t> > ss_a(
+                        suff_stat_.data() + outer_.strides_(j),
+                        outer_.strides_(j+1) - outer_.strides_(j));
+                for (int i = 0; i < grad_m.rows(); ++i) {
+                    grad_m(i,j) = ss_a(bits(j,i)) - outer_.n_samples() * outer_.p_(j,i);
+                }
+            } 
         }
 
     private:
-        Eigen::MatrixXd unif_;              // uniform rng
-        Eigen::MatrixXi suff_stat_;         // sufficient statistic table for each prob_ value and arm
-        Eigen::MatrixXi ph2_counts_;        // sufficient statistic table only looking at phase 2 and treatment arms
+        mat_type<value_t> unif_;          // uniform rng
+        colvec_type<int_t> suff_stat_;    // sufficient statistic table for each arm and prob value
+                                          // suff_stat_(i,j) = suff stat at unique prob i at arm j.
+        colvec_type<int_t> ph2_counts_;   // sufficient statistic table only looking at phase 2 and treatment arms
+                                          // ph2_counts_(i,j) = ph2 suff stat at unique prob i at arm j.
+        size_t n_total_uniques_ = 0;
     };
 
     using state_t = StateType;
@@ -226,80 +199,125 @@ public:
     // @param   n_arms      number of arms.
     // @param   ph2_size    phase II size.
     // @param   n_samples   number of patients in each arm.
-    // @param   prob        vector of (center) probability param to binomial. MUST be sorted ascending.
-    // @param   prob_endpt  each column is lower and upper of the grid centered at prob.
-    // @param   hypos       hypos[i](p) returns true if and only if 
-    //                      ith arm at prob value p is considered "in the null space".
-    template <class ProbType, class ProbEndptType> 
+    // @param   grid_range  Range of gridpts in natural parameter space.
+    template <class GridRangeType> 
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
-            const ProbType& prob,
-            const ProbEndptType& prob_endpt,
-            const std::vector<std::function<bool(const dAryInt&)> >& hypos)
+            const GridRangeType& grid_range,
+            value_t threshold)
         : base_t(n_arms, ph2_size, n_samples)
-        , prob_(prob.data(), prob.size())
-        , prob_endpt_(prob_endpt.data(), prob_endpt.rows(), prob_endpt.cols())
-        , hypos_(hypos)
-    {}
-
-    auto n_means() const { return prob_.size(); }
-
-    constexpr auto n_total_params() const { 
-        return ipow(prob_.size(), n_arms());
-    }
-
-    /*
-     * Computes the trace of the covariance matrix.
-     * TODO: For now, this is all what upper-bound object requires, but may need generalizing.
-     *
-     * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
-     */
-    template <class MeanIdxerType>
-    auto tr_cov(const MeanIdxerType& mean_idxer) const
+        , probs_unique_(n_arms)
+        , strides_(n_arms+1)
+        , probs_(n_arms * grid_range.size() * 3)
+        , p_(probs_.data() + n_arms * grid_range.size(), n_arms, grid_range.size())
+        , gbits_(n_arms, grid_range.size())
+        , threshold_(threshold)
     {
-        const auto& bits = mean_idxer();
-        const auto& p = prob_;
-        double var = 0;
-        std::for_each(bits.data(), bits.data() + bits.size(),
-            [&](auto k) { var += p[k] * (1.-p[k]); });
-        return var * n_samples();
-    }
+        strides_[0] = 0;
 
-    /*
-     * Computes the trace of the supremum (in the grid) of covariance matrix.
-     * TODO: For now, this is all what upper-bound object requires, but may need generalizing.
-     *
-     * @param   mean_idxer      indexer of 1-d grid to get current grid point (usually dAryInt).
-     */
-    template <class MeanIdxerType>
-    auto tr_max_cov(const MeanIdxerType& mean_idxer) const
-    {
-        double hess_bd = 0;
-        const auto& bits = mean_idxer();
-        std::for_each(bits.data(), bits.data() + bits.size(),
-            [&](auto k) {
-                auto col_k = prob_endpt_.col(k);
-                if (col_k[0] <= 0.5 && 0.5 <= col_k[1]) {
-                    hess_bd += 0.25;
-                } else {
-                    auto lower = col_k[0] - 0.5; // shift away center
-                    auto upper = col_k[1] - 0.5; // shift away center
-                    // max of p(1-p) occurs for whichever p is closest to 0.5.
-                    bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                    auto max_endpt = col_k[max_at_upper]; 
-                    hess_bd += max_endpt * (1. - max_endpt);
+        auto& thetas = grid_range.get_thetas();
+
+        // populate prob matrix
+        auto& radii = grid_range.get_radii();
+        Eigen::Map<mat_type<value_t> > pm(probs_.data(), n_arms, grid_range.size());
+        pm = thetas - radii;
+        new (&pm) Eigen::Map<mat_type<value_t> >(pm.data() + pm.size(), pm.rows(), pm.cols());
+        pm = thetas;
+        new (&pm) Eigen::Map<mat_type<value_t> >(pm.data() + pm.size(), pm.rows(), pm.cols());
+        pm = thetas + radii;
+        probs_.array() = sigmoid(probs_.array());
+
+        // populate set of unique theta values for each arm
+        std::unordered_map<value_t, int_t> pu_to_idx;
+        std::set<value_t> prob_set;
+        auto& bits = gbits_;
+
+        for (int i = 0; i < n_arms; ++i) {
+            pu_to_idx.clear();
+            prob_set.clear();
+
+            // insert all prob values in arm i into the set
+            auto prob_row = p_.row(i);
+            for (int j = 0; j < prob_row.size(); ++j) {
+                prob_set.insert(prob_row[j]);
+            }
+
+            // create a mapping from unique prob values to order idx
+            {
+                int j = 0;
+                for (auto p : prob_set) {
+                    pu_to_idx[p] = j++;
                 }
-            });
+            }
+
+            // copy number of uniques
+            strides_[i+1] = strides_[i] + prob_set.size();
+
+            // copy unique prob values into vector
+            probs_unique_[i].resize(prob_set.size());
+            std::copy(prob_set.begin(),
+                      prob_set.end(),
+                      probs_unique_[i].data());
+
+            // populate bits for current arm
+            auto bits_i = bits.row(i);
+            for (int j = 0; j < bits_i.size(); ++j) {
+                bits_i(j) = pu_to_idx[p_(i,j)];
+            }
+        }
+    }
+
+    constexpr auto n_gridpts() const { return p_.cols(); }
+
+    /*
+     * Computes the trace of the covariance matrix at ith gridpoint.
+     *
+     * @param   i      ith gridpoint.
+     */
+    value_t tr_cov(size_t i) const
+    {
+        auto pi = p_.col(i).array();
+        return (pi * (1.0 - pi)).sum() * n_samples();
+    }
+
+    /*
+     * Computes the trace of the supremum (in the grid) of covariance matrix at ith gridpoint.
+     *
+     * @param   i      ith gridpoint.
+     */
+    value_t tr_max_cov(size_t i) const
+    {
+        Eigen::Map<mat_type<value_t> > p_lower(probs_.data(), p_.rows(), p_.cols());
+        Eigen::Map<mat_type<value_t> > p_upper(p_.data() + p_.size(), p_.rows(), p_.cols());
+        auto pli = p_lower.col(i);
+        auto pi = p_.col(i);
+        auto pui = p_upper.col(i);
+
+        value_t hess_bd = 0;
+        for (int j = 0; j < pi.size(); ++j) {
+            if (pli[j] <= 0.5 && 0.5 <= pui[j]) {
+                hess_bd += 0.25;
+            } else {
+                auto lower = pli[j] - 0.5; // shift away center
+                auto upper = pui[j] - 0.5; // shift away center
+                // max of p(1-p) occurs for whichever p is closest to 0.5.
+                bool max_at_upper = (std::abs(upper) < std::abs(lower));
+                auto max_endpt = max_at_upper ? pui[j] : pli[j]; 
+                hess_bd += max_endpt * (1. - max_endpt);
+            }
+        }
         return hess_bd * n_samples();
     }
 
 private:
-    Eigen::Map<const Eigen::VectorXd> prob_;        // sorted (ascending) probability values
-    Eigen::Map<const Eigen::MatrixXd> prob_endpt_;  // each column is endpt (in p-space) of the grid 
-                                                    // centered at the corresponding value in prob_
-    const std::vector<std::function<bool(const dAryInt&)> >& hypos_;    // list of null-hypothesis checker
+    colvec_type<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
+    colvec_type<int_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
+    colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
+    Eigen::Map<mat_type<value_t> > p_;   // viewer of 2nd slice in probs_ (current gridpts)
+    mat_type<int_t> gbits_; // range of gbits
+    value_t threshold_; // critical threshold
 };
 
 } // namespace kevlar
