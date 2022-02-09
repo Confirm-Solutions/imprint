@@ -115,9 +115,13 @@ struct GridRange
     }
 
     auto& get_thetas() { return thetas_; }
+    const auto& get_thetas() const { return thetas_; }
     auto& get_radii() { return radii_; }
+    const auto& get_radii() const { return radii_; }
     auto& get_sim_sizes() { return sim_sizes_; }
+    const auto& get_sim_sizes() const { return sim_sizes_; }
     auto& get_sim_sizes_rem() { return sim_sizes_rem_; }
+    const auto& get_sim_sizes_rem() const { return sim_sizes_rem_; }
 
     iterator_type begin() { return {*this, 0}; }
     iterator_type end() { return {*this, size()}; }

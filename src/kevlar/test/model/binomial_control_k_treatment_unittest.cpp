@@ -1,172 +1,168 @@
 #include <testutil/base_fixture.hpp>
+#include <testutil/model/binomial_control_k_treatment_legacy.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/util/d_ary_int.hpp>   // separately unittested
-#include <kevlar_bits/util/math.hpp>   // separately unittested
-#include <kevlar_bits/util/range/grid_range.hpp>   // separately unittested
+#include <kevlar_bits/util/range/grid_range.hpp>
+#include <random>
 
 namespace kevlar {
 
-template <class GridType>
-struct bckt_upper_bound_fixture
+struct bckt_fixture
     : base_fixture
-    , testing::WithParamInterface<
-        std::tuple<size_t, size_t, size_t> >
 {
-protected:
-    using bckt_t = BinomialControlkTreatment<GridType>;
-
-    Eigen::VectorXd p;
-    Eigen::MatrixXi suff_stat;
-    Eigen::VectorXd thr_vec;
-    size_t ph2_size, k, unif_rows;
-
-    const double alpha = 0.05;
-    const double width = 1.96;
-    const double grid_radius = 0.01;
-
-    bckt_upper_bound_fixture()
+    void SetUp() override 
     {
-        size_t p_size;
-        std::tie(p_size, unif_rows, k) = GetParam();
-        p.setRandom(p_size);        
-        p = (p.array() + 1) / 2;
-        suff_stat.setRandom(p.size(), k);
-        ph2_size = unif_rows/4;
-        thr_vec.setRandom(5); 
-        thr_vec.array() += 1.5;
-        sort_cols(thr_vec, std::greater<double>());
+        // legacy setup
+        theta_1d.setRandom(n_thetas);
+        std::sort(theta_1d.data(), theta_1d.data()+theta_1d.size());
+
+        prob_1d.array() = sigmoid(theta_1d.array());
+        prob_endpt_1d.resize(2, theta_1d.size());
+        prob_endpt_1d.row(0).array() = sigmoid(theta_1d.array()-radius);
+        prob_endpt_1d.row(1).array() = sigmoid(theta_1d.array()+radius);
+
+        // new setup
+        // only thetas and radii need to be populated.
+        
+        // populate theta as the cartesian product of theta_1d
+        auto& thetas = grid_range.get_thetas();
+        dAryInt bits(n_thetas, n_arms);
+        for (size_t j = 0; j < grid_range.size(); ++j) {
+            for (size_t i = 0; i < n_arms; ++i) {
+                thetas(i,j) = theta_1d[bits()[i]];
+            }
+            ++bits;
+        }
+
+        // populate radii as fixed radius
+        grid_range.get_radii().array() = radius;
     }
 
-    // mock out the test statistic function
-    template <class PType>
-    static auto test_stat(
-            const dAryInt& p_idxer,
-            const PType& p) 
+protected:
+    using value_t = double;
+    using int_t = uint32_t;
+    using bckt_legacy = legacy::BinomialControlkTreatment;
+    using bckt = BinomialControlkTreatment<value_t, int_t>;
+
+    // common configuration
+    
+    // configuration that may want to be parametrizations
+    size_t n_arms = 3;
+    size_t ph2_size = 50;
+    size_t n_samples = 250;
+    value_t threshold = 1.96;
+    value_t radius = 0.25;
+    size_t n_thetas = 10;
+
+    // configuration for legacy
+    colvec_type<value_t> theta_1d;
+    colvec_type<value_t> prob_1d;
+    mat_type<value_t> prob_endpt_1d;
+
+    // configuration for new
+    GridRange<value_t, int_t> grid_range;
+
+    bckt_fixture()
+        : theta_1d()
+        , prob_1d()
+        , prob_endpt_1d()
+        , grid_range(n_arms, ipow(n_thetas, n_arms))
+    {}
+};
+
+TEST_F(bckt_fixture, ctor)
+{
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+}
+
+TEST_F(bckt_fixture, tr_cov_test)
+{
+    dAryInt bits(n_thetas, n_arms);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
+        EXPECT_DOUBLE_EQ(b_new.tr_cov(i), b_leg.tr_cov(bits));
+    }
+}
+
+TEST_F(bckt_fixture, tr_max_cov_test)
+{
+    dAryInt bits(n_thetas, n_arms);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
+        EXPECT_DOUBLE_EQ(b_new.tr_max_cov(i), b_leg.tr_max_cov(bits));
+    }
+}
+
+struct bckt_state_fixture
+    : bckt_fixture
+{
+protected:
+    using state_t = bckt::StateType;
+    using state_leg_t = bckt_legacy::StateType;
+
+    size_t seed = 3214;
+    std::mt19937 gen;
+
+    template <class StateType>
+    void state_gen(StateType& s) 
     {
-        auto& bits = p_idxer();
-        return p[bits[bits.size()-1]];
+        gen.seed(seed);
+        s.gen_rng(gen);
+        s.gen_suff_stat();
     }
 };
 
-using bckt_upper_bound_fixture_rect = 
-    bckt_upper_bound_fixture<grid::Rectangular>;
-
-TEST_P(bckt_upper_bound_fixture_rect, update_one_test)
+TEST_F(bckt_state_fixture, test_rej)
 {
-    bckt_t opt(k, ph2_size, unif_rows, p, p);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    state_t s_new(b_new);
+    state_leg_t s_leg(b_leg);
 
-    UpperBound<double> upper_bd;
-    upper_bd.reset(thr_vec.size(), 1, k);
+    state_gen(s_new);
+    state_gen(s_leg);
 
-    rectangular_range p_range(p.size(), k, 1); 
-    upper_bd.update(opt, p_range, thr_vec);
-    auto& upper_bd_raw = upper_bd.get();
-    auto actual = upper_bd_raw.col(0);
-    
-    Eigen::VectorXd expected(thr_vec.size());
-    auto z = test_stat(p_range.get_idxer(), p);
-    expected.array() = (z > thr_vec.array()).template cast<double>();
-
-    expect_double_eq_vec(actual, expected);
-}
-
-TEST_P(bckt_upper_bound_fixture_rect, update_two_test)
-{
-    bckt_t opt(k, ph2_size, unif_rows, );
-
-    auto upper_bd = opt.make_upper_bd();
-    upper_bd.reset(thr_vec.size(), 1);
-
-    rectangular_range p_range(p, k, 2); 
-    auto it = p_range.begin();
-    upper_bd.update(p_range, suff_stat, thr_vec, 
-            [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
-    ++it;
-    p_range.set_idxer(*it);
-    upper_bd.update(p_range, suff_stat, thr_vec, 
-            [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
-    auto& upper_bd_raw = upper_bd.get();
-    auto actual = upper_bd_raw.col(0);
-    
-    rectangular_range p_range_2(p, k, 2);
-    it = p_range_2.begin();
-    Eigen::VectorXd expected(thr_vec.size());
-    auto z = test_stat(*it, p);
-    expected.array() = (z > thr_vec.array()).template cast<double>();
-    ++it;
-    z = test_stat(*it, p);
-    expected.array() += (z > thr_vec.array()).template cast<double>();
-
-    expect_double_eq_vec(actual, expected);
-}
-
-TEST_P(bckt_upper_bound_fixture_rect, create_two_test)
-{
-    bckt_t opt(k, ph2_size, unif_rows);
-
-    // do the actual routine
-    auto upper_bd = opt.make_upper_bd();
-    upper_bd.reset(thr_vec.size(), 1);
-    dAryInt it(p.size(), k); 
-    Eigen::MatrixXd p_endpt(2, p.size());
-    p_endpt.setRandom();
-    sort_cols(p_endpt);
-
-    for (int i = 0; i < 2; ++i, ++it) {
-        upper_bd.update(
-                rectangular_range(p, it, 1), suff_stat, thr_vec, 
-                [&](const dAryInt& p_idxer) { return test_stat(p_idxer, p); });
+    // get legacy rejections
+    colvec_type<int_t> expected(ipow(n_thetas, n_arms));
+    dAryInt bits(n_thetas, n_arms);
+    for (int i = 0; i < expected.size(); ++i, ++bits) {
+        expected[i] = (s_leg.test_stat(bits) > threshold);
     }
-    it.setZero();
-    upper_bd.create(rectangular_range(p, it, 1), p_endpt, alpha, width, grid_radius);
-    auto& upper_bd_raw = upper_bd.get();
-    auto actual = upper_bd_raw.col(0);
 
-    // do the expected routine
-    it.setZero();
-    Eigen::VectorXd expected(thr_vec.size());
-    Eigen::MatrixXd grad_expected(thr_vec.size(), k);
-    expected.setZero();
-    grad_expected.setZero();
+    // get new rejections
+    colvec_type<int_t> actual(expected.size());
+    s_new.get_rej_len(actual);
 
-    // update
-    for (int a = 0; a < 2; ++a, ++it) {
-        auto z = test_stat(it, p);
-        expected.array() += (z > thr_vec.array()).template cast<double>() * 0.5;
-        for (int i = 0; i < grad_expected.cols(); ++i) {
-            auto col = grad_expected.col(i);
-            auto grad = suff_stat(it()[i], i) - unif_rows * p[it()[i]];
-            col.array() += 0.5 * grad * (z > thr_vec.array()).template cast<double>();
+    expect_eq_vec(actual, expected);
+}
+
+TEST_F(bckt_state_fixture, grad_test)
+{
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    state_t s_new(b_new);
+    state_leg_t s_leg(b_leg);
+
+    state_gen(s_new);
+    state_gen(s_leg);
+
+    // get gradient estimates from new
+    colvec_type<value_t> actual(grid_range.size() * n_arms);
+    s_new.get_grad(actual);
+
+    // get gradient estimates from legacy
+    colvec_type<value_t> expected(grid_range.size() * n_arms);
+    Eigen::Map<mat_type<value_t> > expected_m(expected.data(), grid_range.size(), n_arms);
+    for (size_t j = 0; j < n_arms; ++j) {
+        dAryInt bits(n_thetas, n_arms);
+        for (size_t i = 0; i < grid_range.size(); ++i, ++bits) {
+            expected_m(i,j) = s_leg.grad_lr(j, bits);
         }
     }
 
-    // add constant upper bound
-    expected.array() += width / std::sqrt(2) * (expected.array() * (1-expected.array())).sqrt();
-
-    // add grad term
-    for (int a = 0; a < grad_expected.cols(); ++a) {
-        expected.array() += grid_radius * grad_expected.col(a).array().abs();
-    }
-
-    // add grad upper bound
-    expected.array() += 
-        grid_radius * std::sqrt(k * unif_rows * p[0] * (1-p[0]) / 2. * (1/alpha - 1));
-
-    // add hessian upper bound
-    bool is_upper_max = std::abs(p_endpt(0,0)-0.5) > std::abs(p_endpt(1,0)-0.5);
-    auto max_p = p_endpt(is_upper_max, 0);
-    expected.array() += grid_radius * grid_radius * unif_rows / 2. * k * max_p * (1-max_p);
-
-    expect_double_eq_vec(actual, expected);
+    expect_eq_vec(actual, expected);
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    BCKTUpperBoundSuite, bckt_upper_bound_fixture_rect,
-    testing::Combine(
-        testing::Values(1, 2, 3, 4),
-        testing::Values(50, 100, 250, 300),
-        testing::Values(2, 3, 4)
-        )
-);
 
 } // namespace kevlar

@@ -33,5 +33,4 @@ private:
     Eigen::Matrix<unsigned int, Eigen::Dynamic, 1> bits_;
 };
 
-
 } // namespace kevlar
