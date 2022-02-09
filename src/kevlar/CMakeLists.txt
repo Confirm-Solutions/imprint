@@ -4,10 +4,10 @@ project("kevlar" VERSION 1.0.0
                  DESCRIPTION "A bed of simulation tools.")
 
 option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    ON)
-option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      ON)
+option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      OFF)
 option(KEVLAR_ENABLE_BENCHMARK    "Enable benchmarks to be built."    OFF)
 option(KEVLAR_ENABLE_COVERAGE     "Build glmnetpp with coverage"      OFF)
-option(KEVLAR_ENABLE_PYBIND       "Enable pybind build"               ON)
+option(KEVLAR_ENABLE_PYBIND       "Enable pybind build"               OFF)
 
 # Stoopid hack on windows
 if (WIN32)
