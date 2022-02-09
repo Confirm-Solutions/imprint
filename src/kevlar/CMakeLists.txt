@@ -7,14 +7,7 @@ option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    ON)
 option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      ON)
 option(KEVLAR_ENABLE_BENCHMARK    "Enable benchmarks to be built."    OFF)
 option(KEVLAR_ENABLE_COVERAGE     "Build glmnetpp with coverage"      OFF)
-
-# Add global flags
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
-endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
-endif()
+option(KEVLAR_ENABLE_PYBIND       "Enable pybind build"               ON)
 
 # Stoopid hack on windows
 if (WIN32)
@@ -94,6 +87,14 @@ if (NOT DEFINED KEVLAR_HAS_PTHREAD)
         set(KEVLAR_HAS_PTHREAD_MACRO "-DKEVLAR_HAS_PTHREAD")
     endif()
 endif()
+
+# add pybind subdirectory
+if (KEVLAR_ENABLE_PYBIND)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11)
+endif()
+
+# Source subdirectory
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Test subdirectory
 if (KEVLAR_ENABLE_TEST)

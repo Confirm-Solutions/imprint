@@ -114,8 +114,8 @@ struct GridRange
         sim_sizes_rem_.setZero();
     }
 
-    auto& get_thetas() { return thetas_; }
-    const auto& get_thetas() const { return thetas_; }
+    mat_type<value_t>& get_thetas() { return thetas_; }
+    const mat_type<value_t>& get_thetas() const { return thetas_; }
     auto& get_radii() { return radii_; }
     const auto& get_radii() const { return radii_; }
     auto& get_sim_sizes() { return sim_sizes_; }
