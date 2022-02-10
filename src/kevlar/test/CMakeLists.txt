@@ -7,7 +7,6 @@ add_executable(utility_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/util/d_ary_int_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/grid_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/math_unittest.cpp
-#    ${CMAKE_CURRENT_SOURCE_DIR}/util/serializer_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/progress_bar_unittest.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/util/range/grid_range_unittest.cpp
