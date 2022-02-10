@@ -1,0 +1,3 @@
+build/
+pykevlar/*.so
+pykevlar/pykevlar.egg-info/

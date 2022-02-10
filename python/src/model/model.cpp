@@ -1,4 +1,4 @@
-#include <pybind/model/model.hpp>
+#include <model/model.hpp>
 
 namespace kevlar {
 namespace model {
