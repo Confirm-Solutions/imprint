@@ -1,13 +1,14 @@
-#include <pybind/util/util.hpp>
-#include <pybind/util/range/range.hpp>
+#include <util/range/range.hpp>
 
 namespace kevlar {
 namespace util {
+namespace range {
 
 void add_to_module(pybind11::module_& m)
 {
-    range::add_to_module(m);
+    add_grid_range(m);
 }
 
+} // namespace range
 } // namespace util
 } // namespace kevlar

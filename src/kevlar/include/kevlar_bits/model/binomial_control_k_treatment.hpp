@@ -238,7 +238,7 @@ public:
         std::set<value_t> prob_set;
         auto& bits = gbits_;
 
-        for (int i = 0; i < n_arms; ++i) {
+        for (size_t i = 0; i < n_arms; ++i) {
             pu_to_idx.clear();
             prob_set.clear();
 

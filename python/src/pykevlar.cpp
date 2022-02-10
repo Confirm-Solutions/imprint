@@ -1,5 +1,5 @@
-#include <pybind/model/model.hpp>
-#include <pybind/util/util.hpp>
+#include <model/model.hpp>
+#include <util/util.hpp>
 
 PYBIND11_MODULE(pykevlar, m) {
 

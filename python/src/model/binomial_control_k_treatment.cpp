@@ -1,4 +1,4 @@
-#include <pybind/model/model.hpp>
+#include <model/model.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/util/range/grid_range.hpp>
 

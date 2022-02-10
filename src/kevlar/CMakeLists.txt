@@ -7,7 +7,6 @@ option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    ON)
 option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      OFF)
 option(KEVLAR_ENABLE_BENCHMARK    "Enable benchmarks to be built."    OFF)
 option(KEVLAR_ENABLE_COVERAGE     "Build glmnetpp with coverage"      OFF)
-option(KEVLAR_ENABLE_PYBIND       "Enable pybind build"               OFF)
 
 # Stoopid hack on windows
 if (WIN32)
@@ -16,7 +15,8 @@ if (WIN32)
 endif()
 
 # Dependency on Eigen
-find_package(Eigen3 3.3 CONFIG REQUIRED NO_MODULE)
+find_package(Eigen3 3.4 CONFIG REQUIRED
+    HINTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen-3.4.0/build/share/eigen3)
 message(STATUS "Eigen3 found at ${EIGEN3_INCLUDE_DIR}")
 
 # Set include dirs
@@ -87,14 +87,6 @@ if (NOT DEFINED KEVLAR_HAS_PTHREAD)
         set(KEVLAR_HAS_PTHREAD_MACRO "-DKEVLAR_HAS_PTHREAD")
     endif()
 endif()
-
-# add pybind subdirectory
-if (KEVLAR_ENABLE_PYBIND)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11)
-endif()
-
-# Source subdirectory
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Test subdirectory
 if (KEVLAR_ENABLE_TEST)
