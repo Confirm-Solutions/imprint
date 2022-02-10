@@ -1,4 +1,4 @@
-# TODO: need access to pybind exported InterSum
+from pykevlar.pykevlar import InterSum
 
 def fit_thread(model_state,
                sim_size,
