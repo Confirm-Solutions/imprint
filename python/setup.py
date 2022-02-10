@@ -1,5 +1,6 @@
 import os
 import sys
+from glob import glob
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension
 
@@ -32,16 +33,7 @@ else:
 ext_modules = [
     Pybind11Extension(
         "pykevlar",
-        [
-            "src/pykevlar.cpp",
-
-            "src/util/util.cpp",
-            "src/util/range/grid_range.cpp",
-            "src/util/range/range.cpp",
-
-            "src/model/binomial_control_k_treatment.cpp",
-            "src/model/model.cpp",
-        ],
+        sorted(glob(PYKEVLAR_INCLUDE_DIR + '/**/*.cpp', recursive=True)),
         include_dirs=[
             EIGEN_INCLUDE_DIR,
             KEVLAR_INCLUDE_DIR,
