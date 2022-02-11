@@ -2,10 +2,10 @@ import os
 import sys
 from glob import glob
 from setuptools import setup, find_packages
-from pybind11.setup_helpers import Pybind11Extension, ParallelCompile, naive_recompile
+from pybind11.setup_helpers import Pybind11Extension, ParallelCompile
 
 # Optional multithreaded build
-ParallelCompile("NPY_NUM_BUILD_JOBS", needs_recompile=naive_recompile).install()
+ParallelCompile("NPY_NUM_BUILD_JOBS").install()
 
 # Define some variables for ease of interpretation
 CWD = os.path.abspath(os.path.dirname(__file__))

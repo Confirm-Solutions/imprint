@@ -21,7 +21,8 @@ struct MockModelState
         }
     }
 
-    void get_grad(colvec_type<double>& v) 
+    void get_grad(colvec_type<double>& v,
+                  const colvec_type<uint32_t>&) 
     {
         Eigen::Map<mat_type<double> > vm(v.data(), n_gridpts_, n_params_);
         for (int k = 0; k < vm.cols(); ++k) {
@@ -29,6 +30,11 @@ struct MockModelState
                 vm(j,k) = static_cast<double>(k) * j - n_params_;
             }
         }
+    }
+
+    double get_grad(uint32_t j, uint32_t k) 
+    {
+        return static_cast<double>(k) * j - n_params_;
     }
 
 private:
@@ -77,7 +83,7 @@ TEST_P(test_update_fixture, test_update)
     colvec_type<uint32_t> v(n_gridpts);
     mms.get_rej_len(v);
     colvec_type<double> g(n_gridpts * n_params);
-    mms.get_grad(g);
+    mms.get_grad(g, v);
 
     // check accumulation count
     EXPECT_EQ(is.n_accum(), 1);
