@@ -3,10 +3,12 @@
 
 namespace kevlar {
 
-template <class ValueType>
+template <class ValueType
+        , class UIntType>
 struct InterSum
 {
     using value_t = ValueType;
+    using uint_t = UIntType;
 
     InterSum() =default;
     InterSum(
@@ -15,6 +17,7 @@ struct InterSum
         size_t n_params)
         : type_I_sum_(n_models, n_gridpts)
         , grad_sum_(n_models * n_gridpts * n_params)
+        , n_params_(n_params)
         , rej_len_(n_gridpts)
         , grad_buff_(n_gridpts * n_params)
     {
@@ -73,6 +76,19 @@ struct InterSum
     }
 
     /*
+     * Pools quantities from another InterSum object, other,
+     * as if the current object were additionally updated in the same way as in other.
+     *
+     * @param   other       another InterSum to pool into current object.
+     */
+    void pool(const InterSum& other) 
+    {
+        type_I_sum_ += other.type_I_sum_;
+        grad_sum_ += other.grad_sum_;
+        n_ += other.n_;
+    }
+
+    /*
      * Reset the size of internal data structures corresponding
      * to the new configuration n_models, n_gridpts, n_params, n_acc.
      * The first three parameters must be positive.
@@ -90,26 +106,34 @@ struct InterSum
     {
         type_I_sum_.setZero(n_models, n_gridpts);
         grad_sum_.setZero(n_models * n_gridpts * n_params);
+        n_params_ = n_params;
         rej_len_.setZero(n_gridpts);
         grad_buff_.setZero(n_gridpts * n_params);
         n_ = n_acc;
     }
 
-    const auto& type_I_sum() const { return type_I_sum_; }
-    const auto& grad_sum() const { return grad_sum_; }
-    auto n_accum() const { return n_; }
+    mat_type<uint_t>& type_I_sum() { return type_I_sum_; }
+    const mat_type<uint_t>& type_I_sum() const { return type_I_sum_; }
+    colvec_type<value_t>& grad_sum() { return grad_sum_; }
+    const colvec_type<value_t>& grad_sum() const { return grad_sum_; }
+    size_t& n_accum() { return n_; }
+    size_t n_accum() const { return n_; }
+
+    constexpr size_t n_models() const { return type_I_sum_.rows(); }
+    constexpr size_t n_gridpts() const { return type_I_sum_.cols(); }
+    constexpr size_t n_params() const { return n_params_; }     
 
 private:
-    constexpr auto n_params() const {
-        return grad_sum_.size() / type_I_sum_.size();
-    }     
 
-    mat_type<uint32_t> type_I_sum_;     // Type I error sums.
+    mat_type<uint_t> type_I_sum_;       // Type I error sums.
                                         // type_I_sum_(i,j) = rejection accumulation for model i at gridpt j.
     colvec_type<value_t> grad_sum_;     // gradient sums.
                                         // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at gridpt j.
     size_t n_=0;                        // number of accumulations
-    colvec_type<uint32_t> rej_len_;     // number of models that rejects for each gridpt
+    size_t n_params_;
+
+    /* Buffer needed in update for one-time allocation */
+    colvec_type<uint_t> rej_len_;       // number of models that rejects for each gridpt
     colvec_type<value_t> grad_buff_;    // gradient buffer for a given model state
                                         // grad_buff_(j,k) = partial deriv w.r.t. param k at gridpt j
 };

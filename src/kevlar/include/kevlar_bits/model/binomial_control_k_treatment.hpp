@@ -8,11 +8,12 @@
 #include <algorithm>
 #include <set>
 #include <random>
+#include <vector>
 
 namespace kevlar {
 
 /* Forward declaration */
-template <class ValueType, class IntType>
+template <class ValueType, class UIntType>
 struct BinomialControlkTreatment;
 
 namespace internal {
@@ -20,17 +21,17 @@ namespace internal {
 template <class T>
 struct traits;
 
-template <class ValueType, class IntType>
-struct traits<BinomialControlkTreatment<ValueType, IntType> >
+template <class ValueType, class UIntType>
+struct traits<BinomialControlkTreatment<ValueType, UIntType> >
 {
     using value_t = ValueType;
-    using int_t = IntType;
-    using state_t = typename BinomialControlkTreatment<ValueType, IntType>::StateType;
+    using uint_t = UIntType;
+    using state_t = typename BinomialControlkTreatment<ValueType, UIntType>::StateType;
 };
 
 } // namespace internal
 
-template <class ValueType, class IntType>
+template <class ValueType, class UIntType>
 struct BinomialControlkTreatment
     : ControlkTreatmentBase
 {
@@ -40,9 +41,9 @@ private:
 
 public:
     using value_t = ValueType;
-    using int_t = IntType;
+    using uint_t = UIntType;
 
-    struct StateType : ModelStateBase<value_t, int_t>
+    struct StateType : ModelStateBase<value_t, uint_t>
     {
     private:
         using outer_t = BinomialControlkTreatment;
@@ -93,9 +94,9 @@ public:
             sort_cols(control_unif);
 
             suff_stat_.resize(n_total_uniques_);
-            Eigen::Map<colvec_type<int_t> > control_counts(
+            Eigen::Map<colvec_type<uint_t> > control_counts(
                     suff_stat_.data(), outer_.probs_unique_[0].size());
-            Eigen::Map<colvec_type<int_t> > ph3_counts(
+            Eigen::Map<colvec_type<uint_t> > ph3_counts(
                     suff_stat_.data() + control_counts.size(), suff_stat_.size() - control_counts.size());
             ph2_counts_.resize(ph3_counts.size());
 
@@ -103,10 +104,10 @@ public:
             cum_count(control_unif, outer_.probs_unique_[0], control_counts);
             {
                 size_t n_skip = 0;
-                for (int i = 0; i < k; ++i) {
-                    Eigen::Map<colvec_type<int_t> > ph2_counts_i(
+                for (size_t i = 0; i < k; ++i) {
+                    Eigen::Map<colvec_type<uint_t> > ph2_counts_i(
                             ph2_counts_.data() + n_skip, outer_.probs_unique_[i+1].size());
-                    Eigen::Map<colvec_type<int_t> > ph3_counts_i(
+                    Eigen::Map<colvec_type<uint_t> > ph3_counts_i(
                             ph3_counts.data() + n_skip, outer_.probs_unique_[i+1].size());
                     cum_count(ph2_unif.col(i), outer_.probs_unique_[i+1], ph2_counts_i);
                     cum_count(ph3_unif.col(i), outer_.probs_unique_[i+1], ph3_counts_i);
@@ -122,7 +123,7 @@ public:
         /*
          * @param   rej_len      vector of integers to store number of models that reject.
          */ 
-        void get_rej_len(Eigen::Ref<colvec_type<int_t> > rej_len) const override 
+        void get_rej_len(Eigen::Ref<colvec_type<uint_t> > rej_len) const override 
         {
             auto& bits = outer_.gbits_;
 
@@ -135,7 +136,7 @@ public:
                 int max_count = -1; // maximum Phase II response count.
                 for (int j = 1; j < bits_i.size(); ++j) {
                     int prev_count = max_count;
-                    Eigen::Map<const colvec_type<int_t> > ph2_counts_v(
+                    Eigen::Map<const colvec_type<uint_t> > ph2_counts_v(
                             ph2_counts_.data() + outer_.strides_[j] - outer_.strides_[1],
                             outer_.strides_[j+1] - outer_.strides_[j]);
                     max_count = std::max(
@@ -148,10 +149,10 @@ public:
                 
                 // pairwise z-test
                 auto n = outer_.n_samples();
-                Eigen::Map<const colvec_type<int_t> > ss_astar(
+                Eigen::Map<const colvec_type<uint_t> > ss_astar(
                         suff_stat_.data() + outer_.strides_[a_star],
                         outer_.strides_[a_star+1] - outer_.strides_[a_star]);
-                Eigen::Map<const colvec_type<int_t> > ss_0(
+                Eigen::Map<const colvec_type<uint_t> > ss_0(
                         suff_stat_.data(),
                         outer_.strides_[1]);
                 auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
@@ -178,27 +179,35 @@ public:
         {
             Eigen::Map<mat_type<value_t> > grad_m(grad.data(), outer_.n_gridpts(), outer_.n_arms());
             auto& bits = outer_.gbits_;
+            auto p_ = outer_.get_p_();
             for (int j = 0; j < grad_m.cols(); ++j) {
-                Eigen::Map<const colvec_type<int_t> > ss_a(
+                Eigen::Map<const colvec_type<uint_t> > ss_a(
                         suff_stat_.data() + outer_.strides_(j),
                         outer_.strides_(j+1) - outer_.strides_(j));
                 for (int i = 0; i < grad_m.rows(); ++i) {
-                    grad_m(i,j) = ss_a(bits(j,i)) - outer_.n_samples() * outer_.p_(j,i);
+                    grad_m(i,j) = ss_a(bits(j,i)) - outer_.n_samples() * p_(j,i);
                 }
             } 
         }
 
+        constexpr auto n_models() const { return outer_.n_models(); }
+        constexpr auto n_gridpts() const { return outer_.n_gridpts(); }
+        constexpr auto n_params() const { return outer_.n_arms(); }
+
     private:
         std::uniform_real_distribution<value_t> unif_dist_;
         mat_type<value_t> unif_;          // uniform rng
-        colvec_type<int_t> suff_stat_;    // sufficient statistic table for each arm and prob value
+        colvec_type<uint_t> suff_stat_;    // sufficient statistic table for each arm and prob value
                                           // suff_stat_(i,j) = suff stat at unique prob i at arm j.
-        colvec_type<int_t> ph2_counts_;   // sufficient statistic table only looking at phase 2 and treatment arms
+        colvec_type<uint_t> ph2_counts_;   // sufficient statistic table only looking at phase 2 and treatment arms
                                           // ph2_counts_(i,j) = ph2 suff stat at unique prob i at arm j.
         size_t n_total_uniques_ = 0;
     };
 
     using state_t = StateType;
+
+    // default constructor is the base constructor
+    using base_t::base_t;
 
     // @param   n_arms      number of arms.
     // @param   ph2_size    phase II size.
@@ -215,7 +224,6 @@ public:
         , probs_unique_(n_arms)
         , strides_(n_arms+1)
         , probs_(n_arms * grid_range.size() * 3)
-        , p_(probs_.data() + n_arms * grid_range.size(), n_arms, grid_range.size())
         , gbits_(n_arms, grid_range.size())
         , threshold_(threshold)
     {
@@ -234,9 +242,10 @@ public:
         probs_.array() = sigmoid(probs_.array());
 
         // populate set of unique theta values for each arm
-        std::unordered_map<value_t, int_t> pu_to_idx;
+        std::unordered_map<value_t, uint_t> pu_to_idx;
         std::set<value_t> prob_set;
         auto& bits = gbits_;
+        auto p_ = get_p_();
 
         for (size_t i = 0; i < n_arms; ++i) {
             pu_to_idx.clear();
@@ -273,7 +282,17 @@ public:
         }
     }
 
-    constexpr auto n_gridpts() const { return p_.cols(); }
+    /*
+     * Create a state object associated with the current model instance.
+     */
+    StateType make_state() const 
+    {
+        return StateType(*this);
+    }
+
+    // TODO: n_models should output the actual number of models once we have a sequence of lambdas.
+    constexpr auto n_models() const { return 1; }
+    constexpr auto n_gridpts() const { return gbits_.cols(); }
 
     /*
      * Computes the trace of the covariance matrix at ith gridpoint.
@@ -282,6 +301,7 @@ public:
      */
     value_t tr_cov(size_t i) const
     {
+        auto p_ = get_p_();
         auto pi = p_.col(i).array();
         return (pi * (1.0 - pi)).sum() * n_samples();
     }
@@ -293,6 +313,8 @@ public:
      */
     value_t tr_max_cov(size_t i) const
     {
+        auto p_ = get_p_();
+
         Eigen::Map<const mat_type<value_t> > p_lower(
                 probs_.data(), p_.rows(), p_.cols());
         Eigen::Map<const mat_type<value_t> > p_upper(
@@ -317,12 +339,34 @@ public:
         return hess_bd * n_samples();
     }
 
+    /* Getter routines mainly for pickling */
+    auto& get_probs_unique() { return probs_unique_; }
+    auto& get_strides() { return strides_; }
+    auto& get_probs() { return probs_; }
+    auto& get_gbits() { return gbits_; }
+    auto& get_threshold() { return threshold_; }
+    const auto& get_probs_unique() const { return probs_unique_; }
+    const auto& get_strides() const { return strides_; }
+    const auto& get_probs() const { return probs_; }
+    const auto& get_gbits() const { return gbits_; }
+    auto get_threshold() const { return threshold_; }
+
 private:
-    colvec_type<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
-    colvec_type<int_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
+    auto get_p_() {
+        return Eigen::Map<mat_type<value_t> >(
+                probs_.data() + n_arms() * n_gridpts(),
+                n_arms(), n_gridpts());
+    }
+    auto get_p_() const {
+        return Eigen::Map<const mat_type<value_t> >(
+                probs_.data() + n_arms() * n_gridpts(),
+                n_arms(), n_gridpts());
+    }
+
+    std::vector<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
+    colvec_type<uint_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
     colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
-    Eigen::Map<mat_type<value_t> > p_;   // viewer of 2nd slice in probs_ (current gridpts)
-    mat_type<int_t> gbits_; // range of gbits
+    mat_type<uint_t> gbits_; // range of gbits
     value_t threshold_; // critical threshold
 };
 

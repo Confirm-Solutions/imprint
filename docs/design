@@ -24,9 +24,9 @@ FitDriver:
 Fit:
 - Python
 - Inputs: 
-    - batch of gridpts (moderate number)
+    - model state
     - batch simsize
-    - base seed
+    - gen
 - Each node in a cluster will call this function.
 - Spawn k threads (where node has k CPUs) (one for each CPU),
 and divide up the simulations.
@@ -34,23 +34,6 @@ and divide up the simulations.
 - Each thread starts at seed=base seed + i, where i is the index of thread.
 - Pool the return values from each thread by summing them,
 and update into database.
-
-FitThread:
-- Python
-- Inputs:
-    - model_state
-    - batch of gridpts
-    - batch simsize
-    - seed
-- Each thread spawned from Fit will call this routine.
-- Return (TypeIerror, gradient).
-- Pseudocode:
-set_seed(seed)
-for i in 1:batch simsize:
-    model_state.get_rng() # THIS is where we interact with model for the first time.
-    model_state.get_suff_stat()
-    intersum.update(model_state) 
-return intersum
 
 =============================================================================
 C++ side
@@ -62,6 +45,21 @@ ExponentialModel:
 
 ========================================================================================================================
 #### Finished Implementation ####
+
+FitThread:
+- Python
+- Inputs:
+    - model_state
+    - batch simsize
+    - seed
+- Each thread spawned from Fit will call this routine.
+- Return (TypeIerror, gradient).
+- Pseudocode:
+for i in 1:batch simsize:
+    model_state.get_rng() # THIS is where we interact with model for the first time.
+    model_state.get_suff_stat()
+    intersum.update(model_state) 
+return intersum
 
 BinomialModel:
 - Nested class for an instance of the model ("State"):

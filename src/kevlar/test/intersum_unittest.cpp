@@ -45,12 +45,12 @@ protected:
 
 TEST_F(intersum_fixture, default_ctor)
 {
-    InterSum<double> is;
+    InterSum<double, uint32_t> is;
 }
 
 TEST_F(intersum_fixture, ctor)
 {
-    InterSum<double> is(0, 0, 0);
+    InterSum<double, uint32_t> is(0, 0, 0);
 }
 
 struct test_update_fixture
@@ -70,7 +70,7 @@ TEST_P(test_update_fixture, test_update)
     std::tie(n_models, n_gridpts, n_params) = GetParam();
 
     MockModelState mms(n_models, n_gridpts, n_params);
-    InterSum<double> is;
+    InterSum<double, uint32_t> is;
     is.reset(n_models, n_gridpts, n_params);
     is.update(mms);
 

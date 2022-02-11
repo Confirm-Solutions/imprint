@@ -7,6 +7,7 @@ namespace util {
 void add_to_module(pybind11::module_& m)
 {
     range::add_to_module(m);
+    add_gridder(m);
 }
 
 } // namespace util

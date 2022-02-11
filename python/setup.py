@@ -1,8 +1,11 @@
 import os
 import sys
 from glob import glob
-from setuptools import setup
-from pybind11.setup_helpers import Pybind11Extension
+from setuptools import setup, find_packages
+from pybind11.setup_helpers import Pybind11Extension, ParallelCompile, naive_recompile
+
+# Optional multithreaded build
+ParallelCompile("NPY_NUM_BUILD_JOBS", needs_recompile=naive_recompile).install()
 
 # Define some variables for ease of interpretation
 CWD = os.path.abspath(os.path.dirname(__file__))
@@ -32,7 +35,7 @@ else:
 # Add extension module for pykevlar
 ext_modules = [
     Pybind11Extension(
-        "pykevlar",
+        "core",
         sorted(glob(PYKEVLAR_INCLUDE_DIR + '/**/*.cpp', recursive=True)),
         include_dirs=[
             EIGEN_INCLUDE_DIR,
@@ -65,13 +68,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     package_dir={"": "pykevlar"},
-    # TODO: unsure what to do here
-    #packages=find_packages(
-    #    where="pykevlar",
-    #    include=["pykevlar"]
-    #    if os.environ.get("CONDA_BUILD")
-    #    else ["glum", "glum_benchmarks"],
-    #),
+    packages=find_packages(where="pykevlar"),
     # TODO: doesn't seem relevant
     #entry_points=None
     #if os.environ.get("CONDA_BUILD")
