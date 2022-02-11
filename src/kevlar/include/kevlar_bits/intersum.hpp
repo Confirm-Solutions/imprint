@@ -64,7 +64,7 @@ struct InterSum
                         type_I_sum_.rows(),
                         type_I_sum_.cols());
                 auto grad_k_j = grad_k_cache.col(j);
-                grad_k_j.tail(rej_len_[j]).array() += 1;//state.get_grad(j, k);
+                grad_k_j.tail(rej_len_[j]).array() += state.get_grad(j, k);
             }
         }
     }
