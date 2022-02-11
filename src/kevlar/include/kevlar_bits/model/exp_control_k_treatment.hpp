@@ -190,7 +190,7 @@ public:
 
     Eigen::Index n_means() const { return lmda_.size(); }
 
-    constexpr auto n_total_params() const { 
+    auto n_total_params() const { 
         assert(lmda_.size() == hzrd_rate_.size());
         return lmda_.size() * hzrd_rate_.size();
     }
