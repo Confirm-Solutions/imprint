@@ -2,12 +2,13 @@ import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
 import os
+import timeit
 
 n_arms = 3
 ph2_size = 50
 n_samples = 250
 sim_size = 100000
-n_thetas_1d = 32
+n_thetas_1d = 16
 n_thetas = int(n_thetas_1d**n_arms)
 seed = 69
 thresh = 1.96
@@ -34,5 +35,5 @@ thetas[...] = np.transpose(
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, gr, thresh)
 
 # run a mock-call of fit_thread
-is_o = driver.fit_process(bckt, sim_size, seed, n_threads)
-print(is_o.type_I_sum() / is_o.n_accum())
+print(timeit.timeit('driver.fit_process(bckt, sim_size, seed, n_threads)', number=1, globals=globals()))
+#print(is_o.type_I_sum() / is_o.n_accum())
