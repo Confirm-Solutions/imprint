@@ -6,13 +6,14 @@ namespace kevlar {
 /*
  * Base class for all model state classes.
  */
-template <class ValueType, class IntType>
+template <class ValueType, class UIntType>
 struct ModelStateBase
 {
     using value_t = ValueType;
-    using int_t = IntType;
+    using uint_t = UIntType;
 
-    virtual void get_rej_len(Eigen::Ref<colvec_type<int_t> >) const =0;
+    virtual ~ModelStateBase() =default;
+    virtual void get_rej_len(Eigen::Ref<colvec_type<uint_t> >) const =0;
     virtual void get_grad(Eigen::Ref<colvec_type<value_t> >) const =0;
 };
 
@@ -36,8 +37,9 @@ struct ControlkTreatmentBase
         , n_samples_(n_samples)
     {}
 
-    constexpr size_t n_samples() const { return n_samples_; }
     constexpr size_t n_arms() const { return n_arms_; }
+    constexpr size_t ph2_size() const { return ph2_size_; }
+    constexpr size_t n_samples() const { return n_samples_; }
 
     /* Helper static interface */
     template <class GenType, class UnifType, class OutType>
