@@ -2,15 +2,15 @@ library(devtools)
 library(plot3D)
 load_all()
 
-n_sim = 10000
+n_sim = 100000
 alpha = 0.025
 delta = 0.025
 ph2_size = 50
 n_samples = 250
 grid_dim = 3
-lower = -1.5
-upper = 1.5
-p_size = 32
+lower = -0.5
+upper = 0.5
+p_size = 64
 
 radius = grid_radius(p_size, lower, upper)
 p = make_grid(p_size, lower, upper)
@@ -22,24 +22,25 @@ thr_vec = sort(thr_vec, decreasing=T)
 
 f_output_name = "bckt_out"
 
-tune.out = bckt_tune(
-          n_sim=n_sim, 
-          alpha=alpha, 
-          delta=delta, 
-          ph2_size=ph2_size, 
-          n_samples=n_samples, 
-          grid_dim=grid_dim, 
-          grid_radius=radius,
-          p=p, 
-          p_endpt=p_endpt, 
-          lmda_grid=thr_vec, 
-          start_seed=0)
-thr = tune.out$lmda
-print(tune.out$err)
-print(thr)
+#tune.out = bckt_tune(
+#          n_sim=n_sim, 
+#          alpha=alpha, 
+#          delta=delta, 
+#          ph2_size=ph2_size, 
+#          n_samples=n_samples, 
+#          grid_dim=grid_dim, 
+#          grid_radius=radius,
+#          p=p, 
+#          p_endpt=p_endpt, 
+#          lmda_grid=thr_vec, 
+#          start_seed=0)
+#thr = tune.out$lmda
+#print(tune.out$err)
+#print(thr)
 
+thr = 1.96
 # if lmda is within the range, fit at lmda.
-if (thr_vec[length(thr_vec)] <= thr & thr <= thr_vec[1]) {
+#if (thr_vec[length(thr_vec)] <= thr & thr <= thr_vec[1]) {
     bckt_fit(
         n_sim=n_sim,
         delta=delta,
@@ -51,8 +52,10 @@ if (thr_vec[length(thr_vec)] <= thr & thr <= thr_vec[1]) {
         p_endpt=p_endpt,
         lmda=thr,
         f_output_name,
-        start_seed=0)
-}
+        start_seed=69,
+        p_batch_size=p_size**grid_dim
+        )
+#}
 
 # unserialize the output and compute the upper bound
 out = unserialize(f_output_name)

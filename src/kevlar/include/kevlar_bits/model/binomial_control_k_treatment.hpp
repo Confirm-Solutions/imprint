@@ -246,7 +246,7 @@ public:
 
     auto n_means() const { return prob_.size(); }
 
-    constexpr auto n_total_params() const { 
+    auto n_total_params() const { 
         return ipow(prob_.size(), n_arms());
     }
 
