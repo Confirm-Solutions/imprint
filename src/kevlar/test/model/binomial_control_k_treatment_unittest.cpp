@@ -149,8 +149,12 @@ TEST_F(bckt_state_fixture, grad_test)
     state_gen(s_leg);
 
     // get gradient estimates from new
-    colvec_type<value_t> actual(grid_range.size() * n_arms);
-    s_new.get_grad(actual);
+    mat_type<value_t> actual(grid_range.size(), n_arms);
+    for (int j = 0; j < actual.rows(); ++j) {
+        for (int k = 0; k < actual.cols(); ++k) {
+            actual(j,k) = s_new.get_grad(j,k);
+        }
+    }
 
     // get gradient estimates from legacy
     colvec_type<value_t> expected(grid_range.size() * n_arms);
@@ -162,7 +166,7 @@ TEST_F(bckt_state_fixture, grad_test)
         }
     }
 
-    expect_eq_vec(actual, expected);
+    expect_eq_mat(actual, expected_m);
 }
 
 } // namespace kevlar

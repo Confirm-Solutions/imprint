@@ -169,25 +169,21 @@ public:
         }
 
         /*
-         * Computes the gradient of the log-likelihood ratio:
+         * Computes the gradient of the log-likelihood ratio for arm "arm" and gridpoint "gridpt":
          *      T - \nabla_\eta A(\eta)
          * where T is the sufficient statistic (vector), A is the log-partition function, and \eta is the natural parameter.
          *
-         * @param   grad             flattened 2-d array where grad(i,j) = at gridpt i, jth element of (T-\nabla A).
+         * @param   gridpt      gridpoint index.
+         * @param   arm         arm index.
          */
-        void get_grad(Eigen::Ref<colvec_type<value_t> > grad) const override
+        value_t get_grad(uint_t gridpt, uint_t arm) const override
         {
-            Eigen::Map<mat_type<value_t> > grad_m(grad.data(), outer_.n_gridpts(), outer_.n_arms());
             auto& bits = outer_.gbits_;
             auto p_ = outer_.get_p_();
-            for (int j = 0; j < grad_m.cols(); ++j) {
-                Eigen::Map<const colvec_type<uint_t> > ss_a(
-                        suff_stat_.data() + outer_.strides_(j),
-                        outer_.strides_(j+1) - outer_.strides_(j));
-                for (int i = 0; i < grad_m.rows(); ++i) {
-                    grad_m(i,j) = ss_a(bits(j,i)) - outer_.n_samples() * p_(j,i);
-                }
-            } 
+            Eigen::Map<const colvec_type<uint_t> > ss_a(
+                    suff_stat_.data() + outer_.strides_(arm),
+                    outer_.strides_(arm+1) - outer_.strides_(arm));
+            return ss_a(bits(arm,gridpt)) - outer_.n_samples()*p_(arm,gridpt);
         }
 
         constexpr auto n_models() const { return outer_.n_models(); }

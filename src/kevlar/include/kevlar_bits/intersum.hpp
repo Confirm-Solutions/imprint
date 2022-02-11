@@ -19,12 +19,10 @@ struct InterSum
         , grad_sum_(n_models * n_gridpts * n_params)
         , n_params_(n_params)
         , rej_len_(n_gridpts)
-        , grad_buff_(n_gridpts * n_params)
     {
         type_I_sum_.setZero();
         grad_sum_.setZero();
         rej_len_.setZero();
-        grad_buff_.setZero();
     }
     
     /*
@@ -43,34 +41,30 @@ struct InterSum
         // increment accumulation counter
         ++n_;
 
-        // get index of first model that rejects for each gridpt
+        // get number of rejected models per gridpoint
         state.get_rej_len(rej_len_);
 
-        auto n_gridpts = type_I_sum_.cols();
+        uint_t n_gridpts = type_I_sum_.cols();
+        const auto slice_size = type_I_sum_.size();
+        uint_t n_params = this->n_params();
 
         // update type_I_sum
-        for (int j = 0; j < n_gridpts; ++j) {
-            type_I_sum_.col(j).tail(rej_len_[j]).array() += 1;
-        }
-        
-        // update gradient for each dimension
-        const auto slice_size = type_I_sum_.size();
-        auto slice_offset = 0;
-        auto n_params = this->n_params();
+        for (uint_t j = 0; j < n_gridpts; ++j) {
+            if (rej_len_[j] == 0) continue;
 
-        // add (T - nabla_eta A(m)) for each threshold where we have rejection.
-        // where T is the sufficient statistic for arm k under mean m,
-        // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
-        state.get_grad(grad_buff_);
-        Eigen::Map<mat_type<value_t> > gr(grad_buff_.data(), n_gridpts, n_params);
-        for (int k = 0; k < n_params; ++k, slice_offset += slice_size) {
-            Eigen::Map<mat_type<value_t> > grad_k_cache(
-                    grad_sum_.data() + slice_offset, 
-                    type_I_sum_.rows(),
-                    type_I_sum_.cols());
-            for (int j = 0; j < n_gridpts; ++j) {
+            type_I_sum_.col(j).tail(rej_len_[j]).array() += 1;
+        
+            // add (T - nabla_eta A(m)) for each threshold where we have rejection.
+            // where T is the sufficient statistic for arm k under mean m,
+            // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
+            auto slice_offset = 0;
+            for (uint_t k = 0; k < n_params; ++k, slice_offset += slice_size) {
+                Eigen::Map<mat_type<value_t> > grad_k_cache(
+                        grad_sum_.data() + slice_offset, 
+                        type_I_sum_.rows(),
+                        type_I_sum_.cols());
                 auto grad_k_j = grad_k_cache.col(j);
-                grad_k_j.tail(rej_len_[j]).array() += gr(j, k);
+                grad_k_j.tail(rej_len_[j]).array() += 1;//state.get_grad(j, k);
             }
         }
     }
@@ -108,7 +102,6 @@ struct InterSum
         grad_sum_.setZero(n_models * n_gridpts * n_params);
         n_params_ = n_params;
         rej_len_.setZero(n_gridpts);
-        grad_buff_.setZero(n_gridpts * n_params);
         n_ = n_acc;
     }
 
@@ -134,8 +127,6 @@ private:
 
     /* Buffer needed in update for one-time allocation */
     colvec_type<uint_t> rej_len_;       // number of models that rejects for each gridpt
-    colvec_type<value_t> grad_buff_;    // gradient buffer for a given model state
-                                        // grad_buff_(j,k) = partial deriv w.r.t. param k at gridpt j
 };
 
 } // namespace kevlar
