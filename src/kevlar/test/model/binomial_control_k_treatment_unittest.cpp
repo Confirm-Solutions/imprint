@@ -6,6 +6,11 @@
 
 namespace kevlar {
 
+bool null_hypo(uint32_t i, const Eigen::Ref<const colvec_type<double>>& p)
+{
+    return p[i] <= p[0];
+}
+
 struct bckt_fixture
     : base_fixture
 {
@@ -19,6 +24,12 @@ struct bckt_fixture
         prob_endpt_1d.resize(2, theta_1d.size());
         prob_endpt_1d.row(0).array() = sigmoid(theta_1d.array()-radius);
         prob_endpt_1d.row(1).array() = sigmoid(theta_1d.array()+radius);
+
+        for (size_t i = 1; i < n_arms; ++i) {
+            hypos.emplace_back([&, i](const dAryInt& bits) {
+                        return prob_1d[bits()[i]] <= prob_1d[bits()[0]];
+                    });
+        }
 
         // new setup
         // only thetas and radii need to be populated.
@@ -57,6 +68,7 @@ protected:
     colvec_type<value_t> theta_1d;
     colvec_type<value_t> prob_1d;
     mat_type<value_t> prob_endpt_1d;
+    std::vector<std::function<bool(const dAryInt&)> > hypos;
 
     // configuration for new
     GridRange<value_t, int_t> grid_range;
@@ -65,21 +77,22 @@ protected:
         : theta_1d()
         , prob_1d()
         , prob_endpt_1d()
+        , hypos()
         , grid_range(n_arms, ipow(n_thetas, n_arms))
     {}
 };
 
 TEST_F(bckt_fixture, ctor)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 }
 
 TEST_F(bckt_fixture, tr_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         EXPECT_DOUBLE_EQ(b_new.tr_cov(i), b_leg.tr_cov(bits));
     }
@@ -88,8 +101,8 @@ TEST_F(bckt_fixture, tr_cov_test)
 TEST_F(bckt_fixture, tr_max_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         EXPECT_DOUBLE_EQ(b_new.tr_max_cov(i), b_leg.tr_max_cov(bits));
     }
@@ -116,8 +129,8 @@ protected:
 
 TEST_F(bckt_state_fixture, test_rej)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
 
@@ -140,8 +153,8 @@ TEST_F(bckt_state_fixture, test_rej)
 
 TEST_F(bckt_state_fixture, grad_test)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d);
+    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
 

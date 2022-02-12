@@ -47,6 +47,7 @@ public:
     {
     private:
         using outer_t = BinomialControlkTreatment;
+
         const outer_t& outer_;
 
     public:
@@ -147,24 +148,30 @@ public:
 
                 // Phase III
                 
-                // pairwise z-test
-                auto n = outer_.n_samples();
-                Eigen::Map<const colvec_type<uint_t> > ss_astar(
-                        suff_stat_.data() + outer_.strides_[a_star],
-                        outer_.strides_[a_star+1] - outer_.strides_[a_star]);
-                Eigen::Map<const colvec_type<uint_t> > ss_0(
-                        suff_stat_.data(),
-                        outer_.strides_[1]);
-                auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
-                auto p_0 = static_cast<double>(ss_0(bits_i[0])) / n;
-                auto z = (p_star - p_0);
-                auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-                z = (var <= 0) ? 
-                    std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
-                    z / std::sqrt(var / n); 
+                bool rej = false;
+                if (outer_.null_hypo_(a_star, i)) {
+                    // pairwise z-test
+                    auto n = outer_.n_samples();
+                    Eigen::Map<const colvec_type<uint_t> > ss_astar(
+                            suff_stat_.data() + outer_.strides_[a_star],
+                            outer_.strides_[a_star+1] - outer_.strides_[a_star]);
+                    Eigen::Map<const colvec_type<uint_t> > ss_0(
+                            suff_stat_.data(),
+                            outer_.strides_[1]);
+                    auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
+                    auto p_0 = static_cast<double>(ss_0(bits_i[0])) / n;
+                    auto z = (p_star - p_0);
+                    auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
+                    z = (var <= 0) ? 
+                        std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
+                        z / std::sqrt(var / n); 
+
+                    // TODO: this must be generalized once we have a sequence of thresholds
+                    rej = (z > outer_.threshold_);
+                }
 
                 // save rejection for the current model
-                rej_len[i] = (z > outer_.threshold_);
+                rej_len[i] = rej;
             }
         }
 
@@ -209,17 +216,19 @@ public:
     // @param   ph2_size    phase II size.
     // @param   n_samples   number of patients in each arm.
     // @param   grid_range  Range of gridpts in natural parameter space.
-    template <class GridRangeType> 
+    template <class GridRangeType, class NullHypoType> 
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
             const GridRangeType& grid_range,
-            value_t threshold)
+            value_t threshold,
+            const NullHypoType& null_hypo)
         : base_t(n_arms, ph2_size, n_samples)
         , probs_unique_(n_arms)
         , strides_(n_arms+1)
         , probs_(n_arms * grid_range.size() * 3)
+        , null_hypo_(n_arms, grid_range.size())
         , gbits_(n_arms, grid_range.size())
         , threshold_(threshold)
     {
@@ -274,6 +283,14 @@ public:
             auto bits_i = bits.row(i);
             for (int j = 0; j < bits_i.size(); ++j) {
                 bits_i(j) = pu_to_idx[p_(i,j)];
+            }
+        }
+
+        // populate null_hypo_
+        for (int j = 0; j < null_hypo_.cols(); ++j) {
+            auto p_j = p_.col(j);
+            for (int i = 0; i < null_hypo_.rows(); ++i) {
+                null_hypo_(i,j) = null_hypo(i, p_j);
             }
         }
     }
@@ -341,11 +358,13 @@ public:
     auto& get_probs() { return probs_; }
     auto& get_gbits() { return gbits_; }
     auto& get_threshold() { return threshold_; }
+    auto& get_null_hypo() { return null_hypo_; }
     const auto& get_probs_unique() const { return probs_unique_; }
     const auto& get_strides() const { return strides_; }
     const auto& get_probs() const { return probs_; }
     const auto& get_gbits() const { return gbits_; }
     auto get_threshold() const { return threshold_; }
+    const auto& get_null_hypo() const { return null_hypo_; }
 
 private:
     auto get_p_() {
@@ -362,6 +381,7 @@ private:
     std::vector<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
     colvec_type<uint_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
     colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
+    mat_type<bool> null_hypo_;      // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
     mat_type<uint_t> gbits_; // range of gbits
     value_t threshold_; // critical threshold
 };

@@ -2,7 +2,6 @@
 requires = [
     'setuptools>=42',
     'wheel',
-    'pybind11~=2.9',
-    'numpy',
+    'pybind11~=2.9'
 ]
 build-backend = "setuptools.build_meta"

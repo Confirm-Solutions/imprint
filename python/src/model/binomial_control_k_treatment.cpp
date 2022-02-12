@@ -1,6 +1,7 @@
 #include <model/model.hpp>
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
+#include <pybind11/functional.h>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/util/range/grid_range.hpp>
 #include <random>
@@ -21,7 +22,9 @@ void add_binomial_control_k_treatment(py::module_& m)
                 size_t,
                 size_t,
                 const kevlar::GridRange<double, uint32_t>&,
-                double>())
+                double,
+                std::function<bool(uint32_t, Eigen::Ref<colvec_type<double>>)> 
+            >())
         .def("make_state", &bckt_t::make_state)
         .def("n_gridpts", &bckt_t::n_gridpts)
         .def("tr_cov", &bckt_t::tr_cov)
@@ -35,20 +38,21 @@ void add_binomial_control_k_treatment(py::module_& m)
                         p.get_probs(),
                         p.get_gbits(),
                         p.get_threshold(),
+                        p.get_null_hypo(),
                         p.n_arms(),
                         p.ph2_size(),
                         p.n_samples()
                         );
             },
             [](py::tuple t) { // __setstate__
-                if (t.size() != 8) {
+                if (t.size() != 9) {
                     throw std::runtime_error("Invalid state!");
                 }
 
                 /* Create a new C++ instance */
-                bckt_t p(t[5].cast<size_t>(),
-                         t[6].cast<size_t>(),
-                         t[7].cast<size_t>());
+                bckt_t p(t[6].cast<size_t>(),
+                         t[7].cast<size_t>(),
+                         t[8].cast<size_t>());
                 p.get_probs_unique() = t[0].cast<
                     std::decay_t<decltype(std::declval<bckt_t>().get_probs_unique())>
                     >();
@@ -63,6 +67,9 @@ void add_binomial_control_k_treatment(py::module_& m)
                     >();
                 p.get_threshold() = t[4].cast<
                     std::decay_t<decltype(std::declval<bckt_t>().get_threshold())>
+                    >();
+                p.get_null_hypo() = t[5].cast<
+                    std::decay_t<decltype(std::declval<bckt_t>().get_null_hypo())>
                     >();
                 return p;
             }))
