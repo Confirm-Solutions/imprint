@@ -84,14 +84,15 @@ protected:
 
 TEST_F(bckt_fixture, ctor)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt b_new(n_arms, ph2_size, n_samples, threshold);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 }
 
 TEST_F(bckt_fixture, tr_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         EXPECT_DOUBLE_EQ(b_new.tr_cov(i), b_leg.tr_cov(bits));
@@ -101,7 +102,8 @@ TEST_F(bckt_fixture, tr_cov_test)
 TEST_F(bckt_fixture, tr_max_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         EXPECT_DOUBLE_EQ(b_new.tr_max_cov(i), b_leg.tr_max_cov(bits));
@@ -129,8 +131,11 @@ protected:
 
 TEST_F(bckt_state_fixture, test_rej)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt b_new(n_arms, ph2_size, n_samples, threshold);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+
+    b_new.set_grid_range(grid_range, null_hypo);
+
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
 
@@ -153,8 +158,11 @@ TEST_F(bckt_state_fixture, test_rej)
 
 TEST_F(bckt_state_fixture, grad_test)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, grid_range, threshold, null_hypo);
+    bckt b_new(n_arms, ph2_size, n_samples, threshold);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+
+    b_new.set_grid_range(grid_range, null_hypo);
+
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
 
