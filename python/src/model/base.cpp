@@ -11,7 +11,7 @@ void add_model_state_base(pybind11::module_& m)
 {
     using msb_t = ModelStateBase<double, uint32_t>;
     py::class_<msb_t>(m, "ModelStateBase")
-        .def("get_rej_len", &msb_t::get_rej_len, py::arg().noconvert())
+        .def("get_rej_len", &msb_t::get_rej_len)
         .def("get_grad", &msb_t::get_grad)
         ;
 }

@@ -1,5 +1,6 @@
 #include <core.hpp>
 #include <pybind11/eigen.h>
+#include <pybind11/functional.h>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/intersum.hpp>
 

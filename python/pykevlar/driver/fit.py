@@ -1,8 +1,7 @@
 from pykevlar.core import InterSum, mt19937
 import os
-import copy
 from multiprocessing.pool import Pool
-import numpy as np
+
 
 def fit_thread(model,
                sim_size,
@@ -15,26 +14,28 @@ def fit_thread(model,
 
     Parameters
     ----------
-    model       :   model object.
-    sim_size    :   number of simulations for each grid-point.
-    seed        :   seed to random number generator.
-    thread_id   :   thread ID number.
+    model           :   model object.
+    sim_size        :   number of simulations for each grid-point.
+    seed            :   seed to random number generator.
+    thread_id       :   thread ID number.
 
     Returns
     -------
     InterSum
     '''
-    if not (thread_id is None):
-        print("Enter thread {tid}".format(tid = thread_id))
 
-    model = copy.deepcopy(model)
+    # ================ TODO: REMOVE LATER ================
+    if not (thread_id is None):
+        print("Enter thread {tid}".format(tid=thread_id))
+    # ================ TODO: END REMOVE LATER ================
+
     model_state = model.make_state()
 
     is_o = InterSum(model_state.n_models(),
                     model_state.n_gridpts(),
                     model_state.n_params())
 
-    gen = mt19937() # TODO: maybe generalize this?
+    gen = mt19937()     # TODO: maybe generalize this?
     gen.seed(seed)
 
     for _ in range(sim_size):
@@ -44,6 +45,7 @@ def fit_thread(model,
 
     return is_o
 
+
 def fit_process(model,
                 sim_size,
                 base_seed,
@@ -51,7 +53,8 @@ def fit_process(model,
     '''
     Runs simulations for a given range of grid-points and a model.
     Splits the workload evenly across n_threads number of threads
-    where each thread fits with sim_size /= n_threads (some threads have an additional simulation).
+    where each thread fits with sim_size /= n_threads
+    (some threads have an additional simulation).
 
     NOTE: it is implementation-specific how we spawn/manage threads.
 
@@ -61,7 +64,9 @@ def fit_process(model,
     model       :   model object.
     sim_size    :   number of simulations for each grid-point.
     base_seed   :   each thread will receive a seed of base_seed + thread_id.
-    n_threads   :   number of threads to spawn. Must be a positive integer. Default is os.cpu_count().
+    n_threads   :   number of threads to spawn.
+                    Must be a positive integer.
+                    Default is os.cpu_count().
 
     Returns
     -------
@@ -91,7 +96,7 @@ def fit_process(model,
 
     # ========= END THREAD LOGIC ============
 
-    is_final = is_os[0] # valid since len(is_os) > 0 always.
+    is_final = is_os[0]     # valid since len(is_os) > 0 always.
     for other in is_os[1:]:
         is_final.pool(other)
 

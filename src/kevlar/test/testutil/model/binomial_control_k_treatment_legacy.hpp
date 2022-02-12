@@ -98,6 +98,11 @@ public:
             }
 
             // Phase III
+            
+            // Only want false-rejection for Type-I.
+            // Since the test is one-sided (upper), set to -inf if selected arm is not in null.
+            bool is_selected_arm_in_null = outer_.hypos_[a_star-1](mean_idxer);
+            if (!is_selected_arm_in_null) return -std::numeric_limits<double>::infinity();
 
             // pairwise z-test
             auto n = outer_.n_samples();
@@ -148,10 +153,12 @@ public:
             size_t ph2_size,
             size_t n_samples,
             const ProbType& prob,
-            const ProbEndptType& prob_endpt)
+            const ProbEndptType& prob_endpt,
+            const std::vector<std::function<bool(const dAryInt&)> >& hypos)
         : base_t(n_arms, ph2_size, n_samples)
         , prob_(prob.data(), prob.size())
         , prob_endpt_(prob_endpt.data(), prob_endpt.rows(), prob_endpt.cols())
+        , hypos_(hypos)
     {}
 
     auto n_means() const { return prob_.size(); }
@@ -209,6 +216,7 @@ private:
     Eigen::Map<const Eigen::VectorXd> prob_;        // sorted (ascending) probability values
     Eigen::Map<const Eigen::MatrixXd> prob_endpt_;  // each column is endpt (in p-space) of the grid 
                                                     // centered at the corresponding value in prob_
+    const std::vector<std::function<bool(const dAryInt&)> >& hypos_;    // list of null-hypothesis checker
 };
 
 } // namespace legacy

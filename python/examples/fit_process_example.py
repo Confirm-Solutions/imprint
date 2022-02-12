@@ -19,21 +19,27 @@ upper = 0.5
 # set numpy random seed
 np.random.seed(seed)
 
+# define null hypos
+def null_hypo(i, p):
+    return p[i] <= p[0]
+
 # create current batch of grid points
 # Note that at the thread-level, we only need to know theta gridpoints.
 # We technically don't need any valid radii.
 # sim_sizes also are not read/written.
-gr = core.GridRange(n_arms, n_thetas)
-thetas = gr.get_thetas()
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
-thetas[...] = np.transpose(
-    np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
+grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
         .reshape(-1, n_arms)
-)
+grid_null = np.array([
+    p for p in grid if null_hypo(1, p) or null_hypo(2, p)
+])
+gr = core.GridRange(n_arms, grid_null.shape[0])
+thetas = gr.get_thetas()
+thetas[...] = np.transpose(grid_null)
 
 # create BCKT
-bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, gr, thresh)
+bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, gr, thresh, null_hypo)
 
 # run a mock-call of fit_thread
-print(timeit.timeit('driver.fit_process(bckt, sim_size, seed, n_threads)', number=1, globals=globals()))
-#print(is_o.type_I_sum() / is_o.n_accum())
+is_o = driver.fit_process(bckt, sim_size, seed, n_threads)
+print(is_o.type_I_sum() / is_o.n_accum())

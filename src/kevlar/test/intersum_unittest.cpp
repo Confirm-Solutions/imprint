@@ -43,6 +43,8 @@ private:
     size_t n_params_;
 };
 
+bool null_hypo() { return true; }
+
 struct intersum_fixture
     : base_fixture
 {
