@@ -4,6 +4,17 @@ UpperBoundComputer:
 - Do the corner cases to compute sup bound
 - Save the delta_0^u, delta_1^u, delta_2^u and also the combined upper-bound in the database
 
+=============================================================================
+C++ side
+
+ExponentialModel:
+- Nested class for an instance of the model ("State"):
+    - similar to BinomialModel
+- Optimize in the case of diagonal points, but still works in general.
+
+========================================================================================================================
+#### Finished Implementation ####
+
 FitDriver:
 - Python
 - Create batches of the gridpoints.
@@ -34,17 +45,6 @@ and divide up the simulations.
 - Each thread starts at seed=base seed + i, where i is the index of thread.
 - Pool the return values from each thread by summing them,
 and update into database.
-
-=============================================================================
-C++ side
-
-ExponentialModel:
-- Nested class for an instance of the model ("State"):
-    - similar to BinomialModel
-- Optimize in the case of diagonal points, but still works in general.
-
-========================================================================================================================
-#### Finished Implementation ####
 
 FitThread:
 - Python

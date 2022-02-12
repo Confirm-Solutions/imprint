@@ -212,33 +212,44 @@ public:
     // default constructor is the base constructor
     using base_t::base_t;
 
-    // @param   n_arms      number of arms.
-    // @param   ph2_size    phase II size.
-    // @param   n_samples   number of patients in each arm.
-    // @param   grid_range  Range of gridpts in natural parameter space.
-    template <class GridRangeType, class NullHypoType> 
+    /*
+     * Constructs the model object with configuration parameters.
+     *
+     * @param   n_arms      number of arms.
+     * @param   ph2_size    phase II size.
+     * @param   n_samples   number of patients in each arm.
+     * @param   threshold   critical threshold.
+     */
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
-            const GridRangeType& grid_range,
-            value_t threshold,
-            const NullHypoType& null_hypo)
+            value_t threshold)
         : base_t(n_arms, ph2_size, n_samples)
-        , probs_unique_(n_arms)
-        , strides_(n_arms+1)
-        , probs_(n_arms * grid_range.size() * 3)
-        , null_hypo_(n_arms, grid_range.size())
-        , gbits_(n_arms, grid_range.size())
         , threshold_(threshold)
+    {}
+
+    /*
+     * Sets the grid range and caches any results
+     * to speed-up the simulations.
+     */
+    template <class GridRangeType, class NullHypoType>
+    void set_grid_range(
+            const GridRangeType& grid_range,
+            const NullHypoType& null_hypo) 
     {
-        strides_[0] = 0;
+        // resize all other internal quantities
+        probs_unique_.resize(n_arms());
+        strides_.resize(n_arms() + 1);
+        probs_.resize(n_arms() * grid_range.size() * 3);
+        null_hypo_.resize(n_arms(), grid_range.size());
+        gbits_.resize(n_arms(), grid_range.size());
 
         auto& thetas = grid_range.get_thetas();
 
         // populate prob matrix
         auto& radii = grid_range.get_radii();
-        Eigen::Map<mat_type<value_t> > pm(probs_.data(), n_arms, grid_range.size());
+        Eigen::Map<mat_type<value_t> > pm(probs_.data(), n_arms(), grid_range.size());
         pm = thetas - radii;
         new (&pm) Eigen::Map<mat_type<value_t> >(pm.data() + pm.size(), pm.rows(), pm.cols());
         pm = thetas;
@@ -252,7 +263,9 @@ public:
         auto& bits = gbits_;
         auto p_ = get_p_();
 
-        for (size_t i = 0; i < n_arms; ++i) {
+        strides_[0] = 0;    // initialize stride to arm 0.
+
+        for (size_t i = 0; i < n_arms(); ++i) {
             pu_to_idx.clear();
             prob_set.clear();
 

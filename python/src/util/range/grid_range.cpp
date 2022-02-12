@@ -14,6 +14,8 @@ void add_grid_range(py::module_& m)
     py::class_<gr_t>(m, "GridRange")
         .def(py::init<>())
         .def(py::init<uint32_t, uint32_t>())
+        .def("size", &gr_t::size)
+        .def("dim", &gr_t::dim)
         .def("get_thetas", 
                 py::overload_cast<>(&gr_t::get_thetas), 
                 py::return_value_policy::reference_internal)

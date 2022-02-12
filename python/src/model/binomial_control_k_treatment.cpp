@@ -21,10 +21,12 @@ void add_binomial_control_k_treatment(py::module_& m)
                 size_t,
                 size_t,
                 size_t,
-                const kevlar::GridRange<double, uint32_t>&,
-                double,
-                std::function<bool(uint32_t, Eigen::Ref<colvec_type<double>>)> 
+                double
             >())
+        .def("set_grid_range", &bckt_t::set_grid_range<
+                const kevlar::GridRange<double, uint32_t>&,
+                const std::function<bool(uint32_t, Eigen::Ref<colvec_type<double>>)>&
+                >)
         .def("make_state", &bckt_t::make_state)
         .def("n_gridpts", &bckt_t::n_gridpts)
         .def("tr_cov", &bckt_t::tr_cov)

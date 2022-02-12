@@ -5,10 +5,10 @@ from multiprocessing.pool import Pool
 
 def fit_thread(model,
                sim_size,
-               seed,
-               thread_id=None):
+               seed):
     '''
     Runs simulations for a given range of grid-points and a model.
+    Returns the updated InterSum object.
 
     This method uses mt19937 as the RNG.
 
@@ -17,17 +17,12 @@ def fit_thread(model,
     model           :   model object.
     sim_size        :   number of simulations for each grid-point.
     seed            :   seed to random number generator.
-    thread_id       :   thread ID number.
 
     Returns
     -------
-    InterSum
+    InterSum object updated with sim_size
+    number of simulations under the given model.
     '''
-
-    # ================ TODO: REMOVE LATER ================
-    if not (thread_id is None):
-        print("Enter thread {tid}".format(tid=thread_id))
-    # ================ TODO: END REMOVE LATER ================
 
     model_state = model.make_state()
 
@@ -55,8 +50,11 @@ def fit_process(model,
     Splits the workload evenly across n_threads number of threads
     where each thread fits with sim_size /= n_threads
     (some threads have an additional simulation).
+    Stores the (pooled) output in a SQL database.
 
     NOTE: it is implementation-specific how we spawn/manage threads.
+    TODO: currently we're just returning the output instead of
+    storing in a database.
 
     Parameters
     ----------
@@ -70,7 +68,8 @@ def fit_process(model,
 
     Returns
     -------
-    InterSum
+    InterSum object updated with sim_size
+    number of simulations under the given model.
     '''
 
     if n_threads <= 0:
@@ -86,8 +85,7 @@ def fit_process(model,
     inputs = [
         (model,
          sim_size_thr + (i < sim_size_rem),
-         base_seed + i,
-         i)
+         base_seed + i)
         for i in range(n_threads)
     ]
 
@@ -96,8 +94,57 @@ def fit_process(model,
 
     # ========= END THREAD LOGIC ============
 
+    # Pool output from each thread (don't change!)
     is_final = is_os[0]     # valid since len(is_os) > 0 always.
     for other in is_os[1:]:
         is_final.pool(other)
 
+    # TODO: later remove and store in database instead of returning.
+    # TODO: update SQL with the rest of the upper bound quantities.
     return is_final
+
+
+def fit_driver(batcher,
+               null_hypo,
+               model,
+               base_seed,
+               n_threads=os.cpu_count()):
+    '''
+    Batches grid points using batcher
+    and simulates each batch on a node in a cluster.
+
+    TODO: for PoC, we're currently just sequentially
+    processing each batch and yielding each result.
+    Eventually, once fit_process stores into SQL,
+    fit_driver doesn't need to yield or output anything.
+
+    Parameters
+    ----------
+
+    batcher     :   object that batches grid points.
+                    Must be iterable where each iterator
+                    returns the next batch of grid points
+                    as a GridRange and the number
+                    of simulation size to run.
+    model       :   model object.
+    base_seed   :   base seed for each node (process).
+    n_threads   :   number of threads to spawn in each node.
+
+    Returns
+    -------
+
+    Yields each InterSum output for each batch
+    '''
+
+    for batch, sim_size in batcher:
+        # set the grid range to current batch (don't change!)
+        # and provide the null-hypothesis region.
+        model.set_grid_range(batch, null_hypo)
+
+        # TODO: fit_process won't output anything later
+        is_o = fit_process(model=model,
+                           sim_size=sim_size,
+                           base_seed=base_seed,
+                           n_threads=n_threads)
+        # TODO: no need to yield anything later
+        yield is_o
