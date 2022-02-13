@@ -2,11 +2,14 @@ import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
 
-n_arms = 3
+# ========== Toggleable ===============
+n_arms = 3      # prioritize 3 first, then do 4
+sim_size = 100000
+n_thetas_1d = 64
+# ========== End Toggleable ===============
+
 ph2_size = 50
 n_samples = 250
-n_thetas = 100
-sim_size = 10000
 n_thetas_1d = 16
 seed = 69
 thresh = 1.96
