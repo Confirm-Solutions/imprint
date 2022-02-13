@@ -5,17 +5,20 @@ import numpy as np
 import os
 import timeit
 
-n_arms = 3
-ph2_size = 50
-n_samples = 250
+# ========== Toggleable ===============
+n_arms = 3      # prioritize 3 first, then do 4
 sim_size = 100000
 n_thetas_1d = 64
+n_threads = os.cpu_count()
+max_batch_size = 64000
+# ========== End Toggleable ===============
+
+ph2_size = 50
+n_samples = 250
 seed = 69
 thresh = 1.96
-n_threads = os.cpu_count()
 lower = -0.5
 upper = 0.5
-max_batch_size = 64000
 
 # set numpy random seed
 np.random.seed(seed)
