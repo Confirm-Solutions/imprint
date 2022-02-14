@@ -1,5 +1,6 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
+#include <kevlar_bits/util/macros.hpp>
 
 namespace kevlar {
 
@@ -50,7 +51,7 @@ struct InterSum
 
         // update type_I_sum
         for (uint_t j = 0; j < n_gridpts; ++j) {
-            if (rej_len_[j] == 0) continue;
+            if (likely(rej_len_[j] == 0)) continue;
 
             type_I_sum_.col(j).tail(rej_len_[j]).array() += 1;
         

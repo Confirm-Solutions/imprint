@@ -13,8 +13,8 @@ struct ModelStateBase
     using uint_t = UIntType;
 
     virtual ~ModelStateBase() =default;
-    virtual void get_rej_len(Eigen::Ref<colvec_type<uint_t> >) const =0;
-    virtual value_t get_grad(uint_t, uint_t) const =0;
+    virtual void get_rej_len(Eigen::Ref<colvec_type<uint_t> >) =0;
+    virtual value_t get_grad(uint_t, uint_t) =0;
 };
 
 /*

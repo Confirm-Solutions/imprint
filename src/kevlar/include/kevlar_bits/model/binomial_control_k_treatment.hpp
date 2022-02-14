@@ -47,7 +47,6 @@ public:
     {
     private:
         using outer_t = BinomialControlkTreatment;
-
         const outer_t& outer_;
 
     public:
@@ -124,7 +123,7 @@ public:
         /*
          * @param   rej_len      vector of integers to store number of models that reject.
          */ 
-        void get_rej_len(Eigen::Ref<colvec_type<uint_t> > rej_len) const override 
+        void get_rej_len(Eigen::Ref<colvec_type<uint_t> > rej_len) override 
         {
             auto& bits = outer_.gbits_;
 
@@ -183,7 +182,7 @@ public:
          * @param   gridpt      gridpoint index.
          * @param   arm         arm index.
          */
-        value_t get_grad(uint_t gridpt, uint_t arm) const override
+        value_t get_grad(uint_t gridpt, uint_t arm) override
         {
             auto& bits = outer_.gbits_;
             auto p_ = outer_.get_p_();
@@ -311,10 +310,7 @@ public:
     /*
      * Create a state object associated with the current model instance.
      */
-    StateType make_state() const 
-    {
-        return StateType(*this);
-    }
+    state_t make_state() const { return state_t(*this); }
 
     // TODO: n_models should output the actual number of models once we have a sequence of lambdas.
     constexpr auto n_models() const { return 1; }
@@ -365,13 +361,26 @@ public:
         return hess_bd * n_samples();
     }
 
+    /*
+     * Sets the internal structure with the parameters.
+     * Users should not interact with this method.
+     * It is exposed purely for internal purposes (pickling).
+     */
+    void set_internal(
+            const std::vector<colvec_type<value_t> >& probs_unique,
+            const colvec_type<uint_t>& strides,
+            const colvec_type<value_t>& probs,
+            const mat_type<bool>& null_hypo,
+            const mat_type<uint_t>& gbits)
+    {
+        probs_unique_ = probs_unique;
+        strides_ = strides;
+        probs_ = probs;
+        null_hypo_ = null_hypo;
+        gbits_ = gbits;
+    }
+
     /* Getter routines mainly for pickling */
-    auto& get_probs_unique() { return probs_unique_; }
-    auto& get_strides() { return strides_; }
-    auto& get_probs() { return probs_; }
-    auto& get_gbits() { return gbits_; }
-    auto& get_threshold() { return threshold_; }
-    auto& get_null_hypo() { return null_hypo_; }
     const auto& get_probs_unique() const { return probs_unique_; }
     const auto& get_strides() const { return strides_; }
     const auto& get_probs() const { return probs_; }
@@ -396,7 +405,7 @@ private:
     colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
     mat_type<bool> null_hypo_;      // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
     mat_type<uint_t> gbits_; // range of gbits
-    value_t threshold_; // critical threshold
+    const value_t threshold_; // critical threshold
 };
 
 } // namespace kevlar
