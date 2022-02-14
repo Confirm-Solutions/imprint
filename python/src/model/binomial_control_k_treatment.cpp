@@ -25,7 +25,7 @@ void add_binomial_control_k_treatment(py::module_& m)
             >())
         .def("set_grid_range", &bckt_t::set_grid_range<
                 const kevlar::GridRange<double, uint32_t>&,
-                const std::function<bool(uint32_t, Eigen::Ref<colvec_type<double>>)>&
+                const std::function<bool(uint32_t, const Eigen::Ref<const colvec_type<double>>&)>&
                 >)
         .def("make_state", &bckt_t::make_state)
         .def("n_gridpts", &bckt_t::n_gridpts)
@@ -52,27 +52,29 @@ void add_binomial_control_k_treatment(py::module_& m)
                 }
 
                 /* Create a new C++ instance */
-                bckt_t p(t[6].cast<size_t>(),
-                         t[7].cast<size_t>(),
-                         t[8].cast<size_t>());
-                p.get_probs_unique() = t[0].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().get_probs_unique())>
-                    >();
-                p.get_strides() = t[1].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().get_strides())>
-                    >();
-                p.get_probs() = t[2].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().get_probs())>
-                    >();
-                p.get_gbits() = t[3].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().get_gbits())>
-                    >();
-                p.get_threshold() = t[4].cast<
+                auto thresh = t[4].cast<
                     std::decay_t<decltype(std::declval<bckt_t>().get_threshold())>
                     >();
-                p.get_null_hypo() = t[5].cast<
+                bckt_t p(t[6].cast<size_t>(),
+                         t[7].cast<size_t>(),
+                         t[8].cast<size_t>(),
+                         thresh);
+                auto&& probs_unique = t[0].cast<
+                    std::decay_t<decltype(std::declval<bckt_t>().get_probs_unique())>
+                    >();
+                auto&& strides = t[1].cast<
+                    std::decay_t<decltype(std::declval<bckt_t>().get_strides())>
+                    >();
+                auto&& probs = t[2].cast<
+                    std::decay_t<decltype(std::declval<bckt_t>().get_probs())>
+                    >();
+                auto&& gbits = t[3].cast<
+                    std::decay_t<decltype(std::declval<bckt_t>().get_gbits())>
+                    >();
+                auto&& null_hypo = t[5].cast<
                     std::decay_t<decltype(std::declval<bckt_t>().get_null_hypo())>
                     >();
+                p.set_internal(probs_unique, strides, probs, null_hypo, gbits);
                 return p;
             }))
         ;
