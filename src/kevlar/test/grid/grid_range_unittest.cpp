@@ -1,5 +1,5 @@
 #include <testutil/base_fixture.hpp>
-#include <kevlar_bits/util/range/grid_range.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 
 namespace kevlar {
 

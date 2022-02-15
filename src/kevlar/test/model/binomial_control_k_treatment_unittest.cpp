@@ -1,7 +1,7 @@
 #include <testutil/base_fixture.hpp>
 #include <testutil/model/binomial_control_k_treatment_legacy.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/util/range/grid_range.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 #include <random>
 
 namespace kevlar {
@@ -65,6 +65,7 @@ protected:
     size_t n_thetas = 10;
 
     // configuration for legacy
+    colvec_type<value_t> thresholds;
     colvec_type<value_t> theta_1d;
     colvec_type<value_t> prob_1d;
     mat_type<value_t> prob_endpt_1d;
@@ -74,39 +75,46 @@ protected:
     GridRange<value_t, int_t> grid_range;
 
     bckt_fixture()
-        : theta_1d()
-        , prob_1d()
-        , prob_endpt_1d()
-        , hypos()
+        : thresholds(1) 
         , grid_range(n_arms, ipow(n_thetas, n_arms))
-    {}
+    {
+        thresholds[0] = threshold;
+    }
 };
 
 TEST_F(bckt_fixture, ctor)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 }
 
 TEST_F(bckt_fixture, tr_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
     b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        EXPECT_DOUBLE_EQ(b_new.tr_cov(i), b_leg.tr_cov(bits));
+        value_t b_new_tr_cov_i = 0.0;
+        for (size_t k = 0; k < n_arms; ++k) {
+            b_new_tr_cov_i += b_new.cov(i,k);
+        }
+        EXPECT_DOUBLE_EQ(b_new_tr_cov_i, b_leg.tr_cov(bits));
     }
 }
 
 TEST_F(bckt_fixture, tr_max_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
     b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        EXPECT_DOUBLE_EQ(b_new.tr_max_cov(i), b_leg.tr_max_cov(bits));
+        value_t b_new_tr_max_cov_i = 0.0;
+        for (size_t k = 0; k < n_arms; ++k) {
+            b_new_tr_max_cov_i += b_new.max_cov(i,k);
+        }
+        EXPECT_DOUBLE_EQ(b_new_tr_max_cov_i, b_leg.tr_max_cov(bits));
     }
 }
 
@@ -131,7 +139,7 @@ protected:
 
 TEST_F(bckt_state_fixture, test_rej)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 
     b_new.set_grid_range(grid_range, null_hypo);
@@ -158,7 +166,7 @@ TEST_F(bckt_state_fixture, test_rej)
 
 TEST_F(bckt_state_fixture, grad_test)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, threshold);
+    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 
     b_new.set_grid_range(grid_range, null_hypo);

@@ -1,5 +1,5 @@
 #include <testutil/base_fixture.hpp>
-#include <kevlar_bits/util/grid.hpp>
+#include <kevlar_bits/grid/gridder.hpp>
 
 namespace kevlar {
 

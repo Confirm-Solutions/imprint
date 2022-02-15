@@ -53,7 +53,7 @@ sim_sizes[...] = sim_size
 batcher = SimpleBatch(gr, max_batch_size)
 
 # create ECKT
-eckt = core.ExpControlkTreatment(n_samples, censor_time, thresh)
+eckt = core.ExpControlkTreatment(n_samples, censor_time, [thresh])
 
 # run a mock-call of fit_driver
 # Currently, it will yield each batched result.
