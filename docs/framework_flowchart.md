@@ -1,8 +1,11 @@
+# Flowchart
+
 ```mermaid
 flowchart LR;
     user[User];  
     style user fill:#006666,stroke:#f66,stroke-width:2px
     SQL[(SQL)];
+    ubcomp(Compute UpperBound);
     
     user -->|model| driver;
     subgraph subg_sim [Simulation];
@@ -14,17 +17,21 @@ flowchart LR;
     driver --> Node4((Node4));
     end;
     Node1 --> SQL;
-    Node2 --> |store UpperBound| SQL;
+    Node2 --> |update InterSum| SQL;
     Node3 --> SQL;
     Node4 --> SQL;
     
     user --> |request plot| visproc;
     subgraph subg_vis [Visualization];
-    visproc(Process request and create UpperBound);
+    visproc(Process request);
     visualizer(Visualizer);
     visproc -->|UpperBound| visualizer;
     end;
-    visproc --> |request data| SQL;
-    SQL --> |send data| visproc;
+    visproc --> |database ID| ubcomp;
+    ubcomp --> |get UpperBound| visproc;
     visualizer --> |send plots| user;
+    
+    ubcomp --> |request data| SQL;
+    SQL --> |send data| ubcomp;
+    
 ```
