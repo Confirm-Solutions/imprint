@@ -18,6 +18,19 @@ struct ModelStateBase
 };
 
 /*
+ * Base class for all model classes.
+ */
+template <class ValueType>
+struct ModelBase
+{
+    using value_t = ValueType;
+
+    virtual ~ModelBase() =default;
+    virtual value_t cov(size_t, size_t) const =0;
+    virtual value_t max_cov(size_t, size_t) const =0;
+};
+
+/*
  * Base class for all control + k treatment designs.
  */
 struct ControlkTreatmentBase

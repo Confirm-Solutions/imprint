@@ -39,9 +39,6 @@ struct InterSum
     template <class ModelStateType>
     void update(ModelStateType&& state)
     {
-        // increment accumulation counter
-        ++n_;
-
         // get number of rejected models per gridpoint
         state.get_rej_len(rej_len_);
 
@@ -80,7 +77,6 @@ struct InterSum
     {
         type_I_sum_ += other.type_I_sum_;
         grad_sum_ += other.grad_sum_;
-        n_ += other.n_;
     }
 
     /*
@@ -91,27 +87,23 @@ struct InterSum
      * @param   n_models        number of models.
      * @param   n_gridpts       number of gridpts.
      * @param   n_params        number of parameters.
-     * @param   n_acc           number of accumulations.
      */
     void reset(
         size_t n_models,
         size_t n_gridpts,
-        size_t n_params,
-        size_t n_acc=0)
+        size_t n_params)
     {
         type_I_sum_.setZero(n_models, n_gridpts);
         grad_sum_.setZero(n_models * n_gridpts * n_params);
         n_params_ = n_params;
         rej_len_.setZero(n_gridpts);
-        n_ = n_acc;
     }
 
     mat_type<uint_t>& type_I_sum() { return type_I_sum_; }
     const mat_type<uint_t>& type_I_sum() const { return type_I_sum_; }
     colvec_type<value_t>& grad_sum() { return grad_sum_; }
     const colvec_type<value_t>& grad_sum() const { return grad_sum_; }
-    size_t& n_accum() { return n_; }
-    size_t n_accum() const { return n_; }
+
 
     constexpr size_t n_models() const { return type_I_sum_.rows(); }
     constexpr size_t n_gridpts() const { return type_I_sum_.cols(); }
@@ -123,8 +115,7 @@ private:
                                         // type_I_sum_(i,j) = rejection accumulation for model i at gridpt j.
     colvec_type<value_t> grad_sum_;     // gradient sums.
                                         // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at gridpt j.
-    size_t n_=0;                        // number of accumulations
-    size_t n_params_;
+    size_t n_params_;                   // dimension of a gridpoint.
 
     /* Buffer needed in update for one-time allocation */
     colvec_type<uint_t> rej_len_;       // number of models that rejects for each gridpt

@@ -144,15 +144,12 @@ def adagrid(lower, upper, model, alpha, init_size, max_iter, N_init, N_max):
             gridpt = grid_q.get()
             adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max)
 
-            if gridpt.delta_0 + gridpt.delta_1 > alpha_hat:
-                #alpha_hat = max(gridpt.delta_0 + gridpt.delta_1, alpha_hat)
+            if gridpt.delta_0 > alpha_hat:
                 alpha_hat = max(gridpt.delta_0, alpha_hat)
                 N_crit = gridpt.N
-
-            alpha_minus_hat = max(
-                #gridpt.delta_0_minus + gridpt.delta_1_minus,
-                gridpt.delta_0_minus,
-                alpha_minus_hat)
+                alpha_minus_hat = max(
+                    gridpt.delta_0_minus,
+                    alpha_minus_hat)
 
             # TODO
             grid_plt.append(gridpt)

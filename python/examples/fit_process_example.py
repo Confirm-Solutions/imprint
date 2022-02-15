@@ -40,9 +40,9 @@ radii = gr.get_radii()
 radii[...] = core.Gridder.radius(n_thetas_1d, lower, upper)
 
 # create BCKT
-bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, thresh)
+bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 bckt.set_grid_range(gr, null_hypo)
 
 # run a mock-call of fit_process
 is_o = driver.fit_process(bckt, sim_size, seed, n_threads)
-print((is_o.type_I_sum() / is_o.n_accum())[0,:20])
+print((is_o.type_I_sum() / sim_size)[0,:20])

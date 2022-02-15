@@ -3,6 +3,4 @@
 
 namespace kevlar {
 
-void add_intersum(pybind11::module_& m);
-
 } // namespace kevlar

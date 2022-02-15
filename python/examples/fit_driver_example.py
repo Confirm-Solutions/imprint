@@ -47,10 +47,10 @@ sim_sizes[...] = sim_size
 batcher = SimpleBatch(gr, max_batch_size)
 
 # create BCKT
-bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, thresh)
+bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 
 # run a mock-call of fit_driver
 # Currently, it will yield each batched result.
 # TODO: once this doesn't yield anymore, modify this part.
 for is_o in driver.fit_driver(batcher, null_hypo, bckt, seed, n_threads):
-    print(is_o.type_I_sum() / is_o.n_accum())
+    print(is_o.type_I_sum() / sim_size)
