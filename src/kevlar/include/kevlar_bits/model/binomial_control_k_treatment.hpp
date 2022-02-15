@@ -225,7 +225,7 @@ public:
      * @param   ph2_size    phase II size.
      * @param   n_samples   number of patients in each arm.
      * @param   thresholds  critical thresholds.
-     *                      Must be in decreasing order.
+     *                      Internally, a copy is made in decreasing order.
      */
     BinomialControlkTreatment(
             size_t n_arms,
@@ -234,7 +234,11 @@ public:
             const Eigen::Ref<const colvec_type<value_t> >& thresholds)
         : base_t(n_arms, ph2_size, n_samples)
         , thresholds_(thresholds)
-    {}
+    {
+        /* One-time const cast to sort the thresholds. */
+        auto& thr = const_cast<colvec_type<value_t>&>(thresholds_);
+        std::sort(thr.data(), thr.data()+thr.size(), std::greater<value_t>());
+    }
 
     /*
      * Sets the grid range and caches any results
@@ -406,12 +410,17 @@ private:
                 n_arms(), n_gridpts());
     }
 
-    std::vector<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
-    colvec_type<uint_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
-    colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
-    mat_type<bool> null_hypo_;      // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
-    mat_type<uint_t> gbits_; // range of gbits
-    const Eigen::Ref<const colvec_type<value_t> > thresholds_; // critical thresholds
+    using vec_t = colvec_type<value_t>;
+    using uvec_t = colvec_type<uint_t>;
+    using mat_t = mat_type<value_t>;
+    using umat_t = mat_type<uint_t>;
+
+    std::vector<vec_t> probs_unique_;   // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
+    uvec_t strides_;                    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
+    vec_t probs_;                       // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
+    mat_type<bool> null_hypo_;          // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
+    umat_t gbits_;                      // range of gbits
+    const vec_t thresholds_;            // critical thresholds 
 };
 
 } // namespace kevlar

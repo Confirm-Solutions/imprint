@@ -211,7 +211,11 @@ public:
         : base_t(2, 0, n_samples)
         , censor_time_(censor_time)
         , thresholds_(thresholds)
-    {}
+    {
+        /* One-time const cast to sort the thresholds. */
+        auto& thr = const_cast<colvec_type<value_t>&>(thresholds_);
+        std::sort(thr.data(), thr.data()+thr.size(), std::greater<value_t>());
+    }
 
     /*
      * Sets the grid range and caches any results
@@ -321,7 +325,7 @@ private:
     auto lmda_control_lower(size_t j) const { return get_params_lower()(0,j); }
 
     const value_t censor_time_;
-    const Eigen::Ref<const colvec_type<value_t> > thresholds_;
+    const colvec_type<value_t> thresholds_;
     uint_t n_gridpts_ = 0;
     colvec_type<value_t> buff_;     // buff_(0,j,0) = lower lambda of control at jth gridpoint.
                                     // buff_(1,j,0) = lower hazard rate at jth gridpoint.
