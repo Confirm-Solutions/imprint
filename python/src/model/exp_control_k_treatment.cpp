@@ -3,7 +3,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 #include <kevlar_bits/model/exp_control_k_treatment.hpp>
-#include <kevlar_bits/util/range/grid_range.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 #include <random>
 #include <iostream>
 
@@ -14,13 +14,14 @@ namespace py = pybind11;
 
 void add_exp_control_k_treatment(py::module_& m)
 {
+    using mb_t = kevlar::ModelBase<double>;
     using ckt_t = kevlar::ControlkTreatmentBase;
     using eckt_t = kevlar::ExpControlkTreatment<double, uint32_t>;
-    py::class_<eckt_t, ckt_t>(m, "ExpControlkTreatment")
+    py::class_<eckt_t, ckt_t, mb_t>(m, "ExpControlkTreatment")
         .def(py::init<
                 size_t,
                 double,
-                double
+                Eigen::Ref<const colvec_type<double> >
             >())
         .def("set_grid_range", &eckt_t::set_grid_range<
                 const kevlar::GridRange<double, uint32_t>&,
@@ -28,15 +29,13 @@ void add_exp_control_k_treatment(py::module_& m)
                 >)
         .def("make_state", &eckt_t::make_state)
         .def("n_gridpts", &eckt_t::n_gridpts)
-        .def("tr_cov", &eckt_t::tr_cov)
-        .def("tr_max_cov", &eckt_t::tr_max_cov)
         .def(py::pickle(
             [](const eckt_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
                 return py::make_tuple(
                         p.n_samples(),
                         p.get_censor_time(),
-                        p.get_threshold(),
+                        p.get_thresholds(),
                         p.get_n_gridpts(),
                         p.get_buff(),
                         p.get_null_hypo()
@@ -50,7 +49,7 @@ void add_exp_control_k_treatment(py::module_& m)
                 /* Create a new C++ instance */
                 eckt_t p(t[0].cast<size_t>(),
                          t[1].cast<double>(),
-                         t[2].cast<double>());
+                         t[2].cast<Eigen::Ref<const colvec_type<double> >>());
                 auto n_gridpts = t[3].cast<
                     std::decay_t<decltype(std::declval<eckt_t>().get_n_gridpts())>
                     >();

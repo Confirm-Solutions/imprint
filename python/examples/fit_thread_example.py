@@ -35,9 +35,9 @@ thetas = gr.get_thetas()
 thetas[...] = np.transpose(grid_null)
 
 # create BCKT
-bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, thresh)
+bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 bckt.set_grid_range(gr, null_hypo)
 
 # run a mock-call of fit_thread
 is_o = driver.fit_thread(bckt, sim_size, seed)
-print(is_o.type_I_sum() / is_o.n_accum())
+print(is_o.type_I_sum() / sim_size)

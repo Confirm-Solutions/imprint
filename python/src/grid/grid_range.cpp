@@ -1,10 +1,10 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h> // must enable for automatic conversion of Eigen
-#include <kevlar_bits/util/range/grid_range.hpp>
+#include <grid/grid.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 
 namespace kevlar {
-namespace util {
-namespace range {
+namespace grid {
 
 namespace py = pybind11;
 
@@ -43,6 +43,5 @@ void add_grid_range(py::module_& m)
         ;
 }
 
-} // namespace range
-} // namespace util
+} // namespace grid
 } // namespace kevlar

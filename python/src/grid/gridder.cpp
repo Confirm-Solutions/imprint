@@ -1,9 +1,9 @@
-#include <util/util.hpp>
+#include <grid/grid.hpp>
 #include <pybind11/eigen.h>
-#include <kevlar_bits/util/grid.hpp>
+#include <kevlar_bits/grid/gridder.hpp>
 
 namespace kevlar {
-namespace util {
+namespace grid {
 
 namespace py = pybind11;
 
@@ -22,5 +22,5 @@ void add_gridder(pybind11::module_& m)
         ;
 }
 
-} // namespace util
+} // namespace grid
 } // namespace kevlar

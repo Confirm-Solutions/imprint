@@ -4,14 +4,16 @@ from scipy.stats import norm
 class Binomial2Arm():
     def __init__(self):
         self.n_sample = 250
-        self.seed = 1324
-        self.alpha_target = 0.025
         self.alpha_minus_target = None
-        self.null_hypo = lambda p: p[1] <= p[0]
-        self.delta = 0.025
+
         self.da_dthresh = None
         self.thresh = None
         self.thresh_minus = None
+
+        self.null_hypo = lambda p: p[1] <= p[0]
+        self.seed = 1324
+        self.alpha_target = 0.025
+        self.delta = 0.025
 
     @staticmethod
     def sigmoid(x):
