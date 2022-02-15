@@ -3,14 +3,27 @@ import pykevlar.driver as driver
 from pykevlar.batcher import SimpleBatch
 import numpy as np
 import os
-import timeit
+#import timeit
+
+from logging import basicConfig, getLogger
+from logging import DEBUG as log_level
+#from logging import INFO as log_level
+basicConfig(level = log_level,
+            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
+            datefmt ='%Y-%m-%d %H:%M:%S')
+logger = getLogger(__name__)
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 100000
+sim_size = 1E5
 n_thetas_1d = 64
 n_threads = os.cpu_count()
 max_batch_size = 64000
+
+logger.info("n_arms: %d, sim_size %d, n_thetas_1d: "
+            "%d, n_threads: %d, max_batch_size: %d" %
+            (n_arms, sim_size, n_thetas_1d,
+             n_threads, max_batch_size))
 # ========== End Toggleable ===============
 
 ph2_size = 50
@@ -23,9 +36,11 @@ upper = 0.5
 # set numpy random seed
 np.random.seed(seed)
 
+
 # define null hypos
 def null_hypo(i, p):
     return p[i] <= p[0]
+
 
 # Create full grid.
 # At the driver-level, we need to know theta, radii, sim_sizes.
@@ -53,4 +68,4 @@ bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 # Currently, it will yield each batched result.
 # TODO: once this doesn't yield anymore, modify this part.
 for is_o in driver.fit_driver(batcher, null_hypo, bckt, seed, n_threads):
-    print(is_o.type_I_sum() / sim_size)
+    logger.info(is_o.type_I_sum() / sim_size)

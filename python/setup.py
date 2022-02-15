@@ -29,6 +29,10 @@ else:
         "-O3",
         "-ffast-math",
         "--std=c++17",
+        # "-march=native",
+        # "-Ofast",
+        # "-frename-registers",
+        # "-funroll-loops"
     ]
     extra_link_args = ["-fopenmp"]
 
