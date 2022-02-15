@@ -14,7 +14,7 @@ flowchart LR;
     driver --> Node4((Node4));
     end;
     Node1 --> SQL;
-    Node2 --> |store InterSum| SQL;
+    Node2 --> |store UpperBound| SQL;
     Node3 --> SQL;
     Node4 --> SQL;
     
