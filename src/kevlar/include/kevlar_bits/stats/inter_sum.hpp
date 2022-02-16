@@ -104,7 +104,6 @@ struct InterSum
     colvec_type<value_t>& grad_sum() { return grad_sum_; }
     const colvec_type<value_t>& grad_sum() const { return grad_sum_; }
 
-
     constexpr size_t n_models() const { return type_I_sum_.rows(); }
     constexpr size_t n_gridpts() const { return type_I_sum_.cols(); }
     constexpr size_t n_params() const { return n_params_; }     

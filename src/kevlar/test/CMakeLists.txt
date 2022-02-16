@@ -64,5 +64,6 @@ kevlar_add_test(model_unittest)
 
 add_executable(stats_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/stats/inter_sum_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/stats/upper_bound_unittest.cpp
     )
 kevlar_add_test(stats_unittest)

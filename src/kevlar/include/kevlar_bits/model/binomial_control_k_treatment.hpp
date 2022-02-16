@@ -328,25 +328,30 @@ public:
     constexpr auto n_gridpts() const { return gbits_.cols(); }
 
     /*
-     * Computes the covariance matrix at jth gridpoint of kth parameter.
+     * Computes the quadratic form of covariance matrix
+     *  v^T Cov v
+     * at jth gridpoint.
      *
      * @param   j      jth gridpoint.
-     * @param   k      kth parameter.
+     * @param   v      vector to take quadratic form.
      */
-    value_t cov(size_t j, size_t k) const override
+    value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto p_ = get_p_();
-        return p_(k,j) * (1.0-p_(k,j)) * n_samples(); 
+        auto p_j = get_p_().col(j);
+        return n_samples() * 
+            v.array().square().matrix().dot(
+                (p_j.array() * (1.0-p_j.array())).matrix() );
     }
 
     /*
-     * Computes the supremum (in the grid) of 
-     * covariance matrix at jth gridpoint of kth parameter.
+     * Computes the supremum (in the grid) of covariance matrix 
+     *  v^T max_{grid} C v
+     * at jth gridpoint.
      *
      * @param   j      jth gridpoint.
-     * @param   k      kth parameter.
+     * @param   v      vector to take quadratic form.
      */
-    value_t max_cov(size_t j, size_t k) const override
+    value_t max_cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
         auto p_ = get_p_();
 
@@ -358,15 +363,18 @@ public:
         auto pui = p_upper.col(j);
 
         value_t hess_bd = 0;
-        if (pli[k] <= 0.5 && 0.5 <= pui[k]) {
-            hess_bd = 0.25;
-        } else {
-            auto lower = pli[k] - 0.5; // shift away center
-            auto upper = pui[k] - 0.5; // shift away center
-            // max of p(1-p) occurs for whichever p is closest to 0.5.
-            bool max_at_upper = (std::abs(upper) < std::abs(lower));
-            auto max_endpt = max_at_upper ? pui[k] : pli[k]; 
-            hess_bd = max_endpt * (1. - max_endpt);
+        for (int k = 0; k < v.size(); ++k) {
+            auto v_sq = v[k] * v[k];
+            if (pli[k] <= 0.5 && 0.5 <= pui[k]) {
+                hess_bd += 0.25 * v_sq;
+            } else {
+                auto lower = pli[k] - 0.5; // shift away center
+                auto upper = pui[k] - 0.5; // shift away center
+                // max of p(1-p) occurs for whichever p is closest to 0.5.
+                bool max_at_upper = (std::abs(upper) < std::abs(lower));
+                auto max_endpt = max_at_upper ? pui[k] : pli[k]; 
+                hess_bd += max_endpt * (1. - max_endpt) * v_sq;
+            }
         }
         return hess_bd * n_samples();
     }
