@@ -21,7 +21,6 @@ Adagrid:
             - seed
             - max_iter (iterations for creating new points)
             - init_grid_range (GridRange object)
-            - [lower, upper] for each arm (matrix of d x 2 for d arms)
         - Output:
             - GridRange object of last selected set of points
 - C++ side needs:
@@ -29,30 +28,17 @@ Adagrid:
     - GridRangeView that views existing memory storage (accept row or column major format)
     - 
 
+========================================================================================================================
+#### Finished Implementation ####
+
 UpperBound:
-- Q: python or C++?
-    A: Python if we don't need to interact with it in any C++ routines,
-        C++ otherwise.
--
-
-=============================================================================
-
-UpperBoundComputer:
-- Python
-- Require list of functions to check null-hypo space.
 - Do the corner cases to compute sup bound
-- Save the delta_0^u, delta_1^u, delta_2^u and also the combined upper-bound in the database
-
-=============================================================================
-C++ side
+- Store the delta_0, delta_0^u, delta_1, delta_1^u, delta_2^u.
 
 ExponentialModel:
 - Nested class for an instance of the model ("State"):
     - similar to BinomialModel
 - Optimize in the case of diagonal points, but still works in general.
-
-========================================================================================================================
-#### Finished Implementation ####
 
 FitDriver:
 - Python
