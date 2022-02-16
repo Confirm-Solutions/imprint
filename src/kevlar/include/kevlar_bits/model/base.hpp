@@ -26,8 +26,8 @@ struct ModelBase
     using value_t = ValueType;
 
     virtual ~ModelBase() =default;
-    virtual value_t cov(size_t, size_t) const =0;
-    virtual value_t max_cov(size_t, size_t) const =0;
+    virtual value_t cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
+    virtual value_t max_cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
 };
 
 /*

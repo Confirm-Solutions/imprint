@@ -80,18 +80,14 @@ struct UpperBound
         delta_1_u_.resize(n_gridpts);
         delta_2_u_.resize(n_gridpts);
         for (int j = 0; j < delta_1_u_.size(); ++j) {
-            value_t var = 0.0;
-            value_t hess_bd = 0.0;
-            for (size_t k = 0; k < n_params; ++k) {
-                auto radii_sq = radii(k,j) * radii(k,j);
-                var += model.cov(j,k) * radii_sq;
-                hess_bd += model.max_cov(j,k) * radii_sq;
-            }
+            value_t var = model.cov_quad(j, radii.col(j));
+            value_t hess_bd = model.max_cov_quad(j, radii.col(j));
             var /= sim_sizes[j];
             delta_1_u_[j] = var;
-            delta_2_u_[j] = hess_bd * 0.5;
+            delta_2_u_[j] = hess_bd;
         }
         delta_1_u_.array() = delta_1_u_.array().sqrt() * correction;
+        delta_2_u_.array() *= 0.5;
     }
 
     mat_type<value_t>& get_delta_0() { return delta_0_; }

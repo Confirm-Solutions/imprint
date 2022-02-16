@@ -11,8 +11,8 @@ void add_model_base(py::module_& m)
 {
     using mb_t = ModelBase<double>;
     py::class_<mb_t>(m, "ModelBase")
-        .def("cov", &mb_t::cov)
-        .def("max_cov", &mb_t::max_cov)
+        .def("cov_quad", &mb_t::cov_quad)
+        .def("max_cov_quad", &mb_t::max_cov_quad)
         ;
 }
 

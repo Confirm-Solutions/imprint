@@ -95,10 +95,8 @@ TEST_F(bckt_fixture, tr_cov_test)
     b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_cov_i = 0.0;
-        for (size_t k = 0; k < n_arms; ++k) {
-            b_new_tr_cov_i += b_new.cov(i,k);
-        }
+        value_t b_new_tr_cov_i = 
+            b_new.cov_quad(i, Eigen::VectorXd::Ones(n_arms));
         EXPECT_DOUBLE_EQ(b_new_tr_cov_i, b_leg.tr_cov(bits));
     }
 }
@@ -110,10 +108,8 @@ TEST_F(bckt_fixture, tr_max_cov_test)
     b_new.set_grid_range(grid_range, null_hypo);
     bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_max_cov_i = 0.0;
-        for (size_t k = 0; k < n_arms; ++k) {
-            b_new_tr_max_cov_i += b_new.max_cov(i,k);
-        }
+        value_t b_new_tr_max_cov_i = 
+            b_new.max_cov_quad(i, Eigen::VectorXd::Ones(n_arms));
         EXPECT_DOUBLE_EQ(b_new_tr_max_cov_i, b_leg.tr_max_cov(bits));
     }
 }

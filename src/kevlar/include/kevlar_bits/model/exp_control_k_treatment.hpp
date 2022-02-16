@@ -257,23 +257,21 @@ public:
     constexpr auto n_models() const { return thresholds_.size(); }
     constexpr auto n_gridpts() const { return n_gridpts_; }
 
-    value_t cov(size_t j, size_t k) const override
+    value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
         auto hr = hzrd_rate(j);
         auto mean_1 = 1./lmda_control(j);
-        auto var = (k == 1) ? mean_1 : mean_1/hr;
-        var *= var;
-        return n_samples() * var;
+        return n_samples() * mean_1 * mean_1 *
+            (v[1]*v[1] + v[0]*v[0]/(hr * hr));
     }
 
-    value_t max_cov(size_t j, size_t k) const override
+    value_t max_cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
         auto lmda_lower = lmda_control_lower(j);
         auto hr_lower = hzrd_rate_lower(j);
         auto mean_1 = 1./lmda_lower;
-        auto var = (k == 1) ? mean_1 : mean_1/hr_lower;
-        var *= var;
-        return n_samples() * var;
+        return n_samples() * mean_1 * mean_1 *
+            (v[1]*v[1] + v[0]*v[0]/(hr_lower*hr_lower));
     }
 
     /*

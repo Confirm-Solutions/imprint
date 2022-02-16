@@ -21,7 +21,13 @@ void add_upper_bound(py::module_& m)
         .def("create", &ub_t::create<
                 model_base_t,
                 is_t,
-                grid_range_t>)
+                grid_range_t>,
+                "Create and store the components of upper bound.",
+                py::arg("model"), 
+                py::arg("inter_sum"),
+                py::arg("grid_range"),
+                py::arg("delta"),
+                py::arg("delta_prop_0to1")=0.5)
         .def("get_delta_0", 
                 py::overload_cast<>(&ub_t::get_delta_0),
                 py::return_value_policy::reference_internal)
