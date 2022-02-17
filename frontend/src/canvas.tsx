@@ -1,18 +1,27 @@
 import React from 'react';
 import Plotly from 'plotly.js-dist';
 
+export type PlotType = "surface" | "scatter3d"
 
-interface CanvasState {
+export interface CanvasState {
+    plotType: PlotType
 }
 
-interface Coordinates3D {
+interface SurfaceCoordinates3D {
     x: number[]
     y: number[]
     z: number[][]
 }
 
+interface ScatterCoordinates3D {
+    x: number[]
+    y: number[]
+    z: number[]
+}
+
+
 // Fetch a static geometry for testing
-async function getTestGeometry(): Promise<Coordinates3D> {
+async function getTestGeometry(type: PlotType): Promise<SurfaceCoordinates3D | ScatterCoordinates3D> {
     let br = fetch('./B-55f3294ffc7ed8152742b504bc0001bdb0d0a0d8.csv')
     let pr = fetch('./P-55f3294ffc7ed8152742b504bc0001bdb0d0a0d8.csv')
     await Promise.all([br, pr])
@@ -27,6 +36,13 @@ async function getTestGeometry(): Promise<Coordinates3D> {
     let coords = bmat_sum.map((z, i) => [pmat[0][i], pmat[1][i], z])
 
     coords.sort()
+    if (type === 'scatter3d') {
+        return {
+            x: coords.map(a => a[0]),
+            y: coords.map(a => a[1]),
+            z: coords.map(a => a[2]),
+        }
+    }
     let x = coords.map(c => c[0])
     let y = coords.map(c => c[1])
     x = Array.from((new Set(x)).keys())
@@ -58,19 +74,26 @@ async function getTestGeometry(): Promise<Coordinates3D> {
     return { x: x, y: y, z: z_mat }
 }
 
-async function plot(context: HTMLDivElement, height: number, width: number) {
+async function plot(context: HTMLDivElement, height: number, width: number, plotType: PlotType = 'surface',) {
 
-    let coords = await getTestGeometry()
+    let coords = await getTestGeometry(plotType)
 
     // Create a Plotly 3D surface plot
     // https://plotly.com/javascript/3d-surface-plots/
     // https://plotly.com/javascript/reference/surface/
     var data: Plotly.Data[] = [
         {
-            type: 'surface',
-            x: coords.x,
-            y: coords.y,
-            z: coords.z,
+            type: plotType,
+            mode: 'markers',
+            marker: {
+                size: 6,
+                line: {
+                    color: 'rgba(217, 217, 217, 0.14)',
+                    width: 0.5
+                },
+                opacity: 0.8
+            },
+            ...coords,
         }
     ];
     const layout: Partial<Plotly.Layout> = {
@@ -92,6 +115,10 @@ class Canvas extends React.Component<CanvasState> {
     }
 
     componentDidMount() {
+        this.componentDidUpdate()
+    }
+
+    componentDidUpdate() {
         if (this.canvas.current) {
             const main = document.getElementsByTagName("main")[0]
             // Using JS for layout is necessary because canvas is not
@@ -99,12 +126,8 @@ class Canvas extends React.Component<CanvasState> {
             let height = main.clientHeight - 20
             let width = main.clientWidth - 5
             console.log('plot dims', height, width)
-            plot(this.canvas.current, height, width)
+            plot(this.canvas.current, height, width, this.props.plotType)
         }
-        // this.componentDidUpdate()
-    }
-
-    componentDidUpdate() {
     }
 
     render() {
