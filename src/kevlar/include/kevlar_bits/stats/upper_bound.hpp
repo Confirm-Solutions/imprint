@@ -90,6 +90,20 @@ struct UpperBound
         delta_2_u_.array() *= 0.5;
     }
 
+    /*
+     * Returns the total upper bound computed from the components.
+     */
+    mat_type<value_t> get() const 
+    {
+        mat_type<value_t> out = 
+            delta_0_ + delta_0_u_ + delta_1_;
+        for (int j = 0; j < out.cols(); ++j) {
+            auto out_j = out.col(j);
+            out_j.array() += delta_1_u_[j] + delta_2_u_[j]; 
+        }
+        return out;
+    }
+
     mat_type<value_t>& get_delta_0() { return delta_0_; }
     mat_type<value_t>& get_delta_0_u() { return delta_0_u_; }
     mat_type<value_t>& get_delta_1() { return delta_1_; }

@@ -29,6 +29,7 @@ void add_exp_control_k_treatment(py::module_& m)
                 >)
         .def("make_state", &eckt_t::make_state)
         .def("n_gridpts", &eckt_t::n_gridpts)
+        .def("set_thresholds", &eckt_t::set_thresholds)
         .def(py::pickle(
             [](const eckt_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

@@ -30,6 +30,7 @@ void add_binomial_control_k_treatment(py::module_& m)
                 >)
         .def("make_state", &bckt_t::make_state)
         .def("n_gridpts", &bckt_t::n_gridpts)
+        .def("set_thresholds", &bckt_t::set_thresholds)
         .def(py::pickle(
             [](const bckt_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

@@ -7,6 +7,7 @@ void add_to_module(pybind11::module_& m)
 {
     add_grid_range(m);
     add_gridder(m);
+    add_adagrid_internal(m);
 }
 
 } // namespace grid

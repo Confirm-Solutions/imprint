@@ -1,4 +1,5 @@
 from pykevlar.core import GridRange
+import numpy as np
 
 
 class SimpleBatchIter():
@@ -34,7 +35,7 @@ class SimpleBatchIter():
         #   so just grab one of the elements.
         # - each batch will process the full sim_size.
         #   so no need to do anything special for sim_size_rem.
-        sim_size = sb.grid_range.get_sim_sizes_const()[0]
+        sim_size = np.max(sb.grid_range.get_sim_sizes_const())
 
         self.pos += size
 
@@ -43,12 +44,23 @@ class SimpleBatchIter():
 
 class SimpleBatch():
 
-    def __init__(self, grid_range, max_size):
+    def __init__(self, grid_range=None, max_size=None):
         if max_size == 0:
             raise ValueError("max_size must be either positive or negative.")
 
-        self.grid_range = grid_range
-        self.max_size = max_size if max_size > 0 else grid_range.size()
+        self.grid_range = None
+        self.max_size = None
+
+        self.reset(grid_range, max_size)
+
+
+    def reset(self, grid_range=None, max_size=None):
+        if not (grid_range is None):
+            self.grid_range = grid_range
+        if not (max_size is None):
+            self.max_size = max_size \
+                if max_size > 0 \
+                else grid_range.size()
 
     def __iter__(self):
         return SimpleBatchIter(self)

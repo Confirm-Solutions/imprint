@@ -233,11 +233,8 @@ public:
             size_t n_samples,
             const Eigen::Ref<const colvec_type<value_t> >& thresholds)
         : base_t(n_arms, ph2_size, n_samples)
-        , thresholds_(thresholds)
     {
-        /* One-time const cast to sort the thresholds. */
-        auto& thr = const_cast<colvec_type<value_t>&>(thresholds_);
-        std::sort(thr.data(), thr.data()+thr.size(), std::greater<value_t>());
+        set_thresholds(thresholds);
     }
 
     /*
@@ -380,6 +377,17 @@ public:
     }
 
     /*
+     * Set the critical thresholds.
+     */
+    void set_thresholds(const Eigen::Ref<const colvec_type<value_t>>& thrs) 
+    {
+        thresholds_ = thrs;
+        std::sort(thresholds_.data(), 
+                  thresholds_.data()+thresholds_.size(), 
+                  std::greater<value_t>());
+    }
+
+    /*
      * Sets the internal structure with the parameters.
      * Users should not interact with this method.
      * It is exposed purely for internal purposes (pickling).
@@ -428,7 +436,7 @@ private:
     vec_t probs_;                       // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
     mat_type<bool> null_hypo_;          // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
     umat_t gbits_;                      // range of gbits
-    const vec_t thresholds_;            // critical thresholds 
+    vec_t thresholds_;                  // critical thresholds 
 };
 
 } // namespace kevlar

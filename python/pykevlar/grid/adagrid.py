@@ -1,18 +1,33 @@
-class Adagrid():
+from pykevlar.driver import fit_driver
+from pykevlar.core import (
+    AdaGridInternal,
+    UpperBound,
+    GridRange,
+)
+import copy
+import os
+import numpy as np
+
+class AdaGrid(AdaGridInternal):
     '''
-    Adagrid (adaptive gridding) is a strategy for
+    AdaGrid (adaptive gridding) is a strategy for
     sampling grid-points in a grid in a way that samples
     more near the points of interest (large Type I error),
     and less in the other regions.
     '''
 
     def __init__(self):
-        self.alpha_hat = None       # estimate of alpha
-        self.alpha_minus_hat = None # estimate of alpha_minus
-        self.thr_ = None            # threshold aiming for alpha
-        self.thr_minus_ = None      # threshold aiming for alpha_minus
+        AdaGridInternal.__init__(self)
 
-    def init_thresh__(self,):
+    # TODO: This is totally incomplete for now.
+    # For now, we let the users pass in initial thresholds.
+    def init_thresh__(self,
+                      model,
+                      grid_range,
+                      null_hypo,
+                      alpha,
+                      seed,
+                      n_threads):
         '''
         Initializes threshold estimates.
 
@@ -23,20 +38,122 @@ class Adagrid():
         at all initial grid points,
         alpha_hat, alpha_minus_hat <= true alpha, true alpha_minus.
         '''
-        thr_minus = -np.Inf
-        thr = -np.Inf
-        for pt in grid_q.queue:
-            thr_minus_new, thr_new = model.initial_thresh(pt)
-            thr_minus = max(thr_minus_new, thr_minus)
-            thr = max(thr_new, thr)
-        model.da_dthresh = (model.alpha_target - model.alpha_minus_target) / (thr - thr_minus)
-        model.thresh = thr
-        model.thresh_minus = thr_minus
-        print('da_dthresh={dd}, alpha_t={at}, alpha_minus_t={amt}'.format(
-            dd=model.da_dthresh, at=model.alpha_target, amt=model.alpha_minus_target))
+
+        #model.set_grid_range(grid_range, null_hypo)
+        #model_state = model.make_state()
+
+        #sim_sizes = grid_range.get_sim_sizes()
+        #it_o = InitThresh(alpha)
+        #gen = mt19937()
+
+        #for j in range(grid_range.size()):
+        #    gen.seed(seed)
+        #    sim_size_j = sim_sizes[j]
+        #    it_o.reset(sim_size_j)
+        #    for i in range(sim_size_j):
+        #        model_state.get_rng(gen)
+        #        model_state.get_suff_stat()
+        #        it_o.update(model_state, j)
+        #    it_o.create(model_state, j)
+
+        #thresh = it_o.get_thresh()
+        #alpha_minus = it_o.get_alpha_minus()
+
+        #i_star = np.argmax(thresh[0,:]) # argmax of thresh
+
+        #self.alpha_target = alpha
+        #self.alpha_minus_target = alpha_minus[i_star]
+        #self.thr = thresh[0,i_star]
+        #self.thr_minus = thresh[1,i_star]
+        #self.da_dthr = (self.alpha_target - self.alpha_minus_target) /
+        #        (self.thr-self.thr_minus)
+
+        #print('da_dthresh={dd}, alpha_t={at}, alpha_minus_t={amt}'.format(
+        #    dd=self.da_dthr, at=self.alpha_target, amt=self.alpha_minus_target))
+
+    def fit_internal__(self,
+                       batcher,
+                       model,
+                       null_hypo,
+                       is_not_alt,
+                       grid_range,
+                       grid_final,
+                       thr,
+                       thr_minus,
+                       alpha,
+                       delta,
+                       N_max,
+                       base_seed,
+                       n_threads,
+                       finalize_thr):
+        '''
+        Simulates the model for the current grid range.
+        Based on the upper bound object,
+        it appends finalized points into grid_final,
+        and resets grid_range with the new set of points.
+
+        '''
+
+        # set thresholds for model
+        model.set_thresholds(np.array([thr_minus, thr]))
+
+        # attach batcher to current grid range
+        batcher.reset(grid_range=grid_range)
+
+        # TODO: THIS ASSUMES EACH BATCH FINISHES ALL SIMS.
+        # Later do a SQL query instead of getting yields,
+        # which will remove this problem
+        # because by the time the driver is finished
+        # the updates are all done regardless of how sims were divided up.
+        # For now, we'll just create one big InterSum from all InterSums.
+        is_os = [ is_o
+            for is_o in
+            fit_driver(
+            batcher=batcher,
+            null_hypo=null_hypo,
+            model=model,
+            base_seed=base_seed,
+            n_threads=n_threads
+        )]
+        is_o = type(is_os[0])(
+            is_os[0].n_models(),
+            grid_range.size(),
+            is_os[0].n_params(),
+        )
+        tis = is_o.type_I_sum()
+        gs = is_o.grad_sum()
+        tis[...] = np.hstack([i.type_I_sum() for i in is_os])
+        gs[...] = np.concatenate([i.grad_sum() for i in is_os])
+
+        # create upper bound
+        ub = UpperBound()
+        ub.create(model, is_o, grid_range, delta)
+
+        # extract estimates of alpha, alpha_minus, N_crit
+        d0 = ub.get_delta_0_const()
+        N = grid_range.get_sim_sizes_const()
+
+        i_star = np.argmax(d0[1,:])
+        alpha_hat = d0[1,i_star]
+        alpha_minus_hat = d0[0,i_star]
+        N_crit = N[i_star]
+
+        # call internal C++ routine to update grid ranges
+        self.update(
+            ub,
+            grid_range,
+            grid_final,
+            is_not_alt,
+            N_max,
+            alpha,
+            finalize_thr,
+        )
+
+        return alpha_hat, alpha_minus_hat, N_crit
 
 
     def fit(self,
+            batcher,
             model,
             null_hypo,
             is_not_alt,
@@ -45,23 +162,141 @@ class Adagrid():
             delta,
             seed,
             max_iter,
-            N_max):
+            N_max,
+            alpha_minus,
+            thr,
+            thr_minus,
+            finalize_thr=None,
+            n_threads=os.cpu_count(),
+            rand_iter=True,
+            debug=False):
         '''
         Samples grid-points by piloting the given model
         under the given configuration.
 
         Parameters
         ----------
+        batcher     :   grid-range batch object.
         model       :   model object.
         null_hypo   :   functor whose input is unspecified and is model-specific.
                         Must satisfy model.set_grid_range(..., null_hypo).
         is_not_alt  :   functor whose input is a grid-point.
-                        Returns True if grid-point is not in alterantive space.
+                        Returns True if grid-point is not in alternative space.
         init_grid   :   initial GridRange object.
         alpha       :   desired nominal level of model test.
         delta       :   1-confidence bound for provable upper bound.
         seed        :   seed for RNG internally.
         max_iter    :   max iteration of splitting grid-points.
         N_max       :   max simulation size.
+        finalize_thr:   threshold to determine when a gridpoint is finalized.
+                        A gridpoint is finalized if
+                        its upper bound value is less than finalize_thr.
+                        Default is alpha * 0.9.
+        n_threads   :   number of threads for simulation.
+        rand_iter   :   True if change seed at every iteration.
+                        At iteration i, seed will be seed + i.
+                        Note that i=0 is the fit to the initial grid
+                        to get an estimate of the thresholds.
+                        Otherwise, each iteration will use seed as seed.
+                        Default is True.
+        debug       :   prints debug messages if True.
+
+        TODO: temporary parameters
+        alpha_minus :   target for lower nominal level from alpha.
+        thr         :   threshold for test associated with level alpha.
+        thr_minus   :   threshold for test associated with level alpha_minus.
         '''
 
+        if finalize_thr is None:
+            finalize_thr = alpha * 0.9
+
+        # prune out grid points based on is_not_alt
+        # and create the first grid range
+        thetas = init_grid.get_thetas()
+        slicer = np.array([is_not_alt(p) for p in thetas.T])
+
+        grid_range = GridRange(thetas.shape[0], np.sum(slicer))
+        thetas = grid_range.get_thetas()
+        thetas[...] = init_grid.get_thetas()[:,slicer]
+        radii = grid_range.get_radii()
+        radii[...] = init_grid.get_thetas()[:,slicer]
+        sim_sizes = grid_range.get_sim_sizes()
+        sim_sizes[...] = init_grid.get_sim_sizes()[slicer]
+
+        # list of grid ranges for each iteration that were finalized points.
+        grid_finals = []
+
+        # TODO: eventually we want to compute these quantities
+        # For now, we get them from user.
+        # Initialization is just to get good starting estimates
+        # of thr and thr_minus.
+        alpha = alpha
+        alpha_minus = alpha_minus
+        thr = thr
+        thr_minus = thr_minus
+
+        itr = 0
+        while (grid_range.size() > 0) and (itr < max_iter):
+
+            if rand_iter:
+                # TODO: how do we ensure that the seed change
+                # won't correlate the simulations across iterations?
+                # Currently, we are assuming that fit_driver
+                # passes the base seed and each process creates
+                # base seed + thread-id for each thread.
+                # So, the following implementation guarantees uncorrelated data.
+                # Possible solution: mangle the seed.
+                seed += n_threads
+
+            if debug:
+                print("thr={thr}, thr_minus={thr_minus}".format(
+                    thr=thr, thr_minus=thr_minus))
+
+            grid_range_old = copy.deepcopy(grid_range)
+            grid_final = GridRange()
+
+            # get estimates for alpha_hat, alpha_minus_hat, N_crit, upper bound
+            # updates in-place:
+            #   - grid_range as the next set of grid-range.
+            #   - grid_final is appended with points.
+            alpha_hat, alpha_minus_hat, N_crit = \
+                self.fit_internal__(
+                    batcher=batcher,
+                    model=model,
+                    null_hypo=null_hypo,
+                    is_not_alt=is_not_alt,
+                    grid_range=grid_range,
+                    grid_final=grid_final,
+                    thr=thr,
+                    thr_minus=thr_minus,
+                    alpha=alpha,
+                    delta=delta,
+                    N_max=N_max,
+                    base_seed=seed,
+                    n_threads=n_threads,
+                    finalize_thr=finalize_thr,
+                )
+
+            # append current iteration of final grid-points
+            # TODO: eventually, all final points should be stored in SQL.
+            grid_finals.append(grid_final)
+
+            if debug:
+                print("alpha={alpha}, alpha_minus={alpha_minus}".format(
+                    alpha=alpha_hat, alpha_minus=alpha_minus_hat
+                ))
+
+            # update invariants
+            alpha_minus = max(
+                alpha/2,    # just in case the latter becomes too small (or negative)
+                alpha-2*np.sqrt(alpha*(1.-alpha)/N_crit))
+            da_dthr = (alpha_hat - alpha_minus_hat) / (thr - thr_minus)
+            thr += (alpha - alpha_hat) / da_dthr
+            thr_minus += (alpha_minus - alpha_minus_hat) / da_dthr
+
+            # increment iteration idx
+            itr += 1
+
+            # yield current set of grid points we would have returned
+            # if this were the last iteration.
+            yield grid_range_old, grid_finals
