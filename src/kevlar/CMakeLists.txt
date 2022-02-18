@@ -52,8 +52,6 @@ configure_package_config_file(
     INSTALL_DESTINATION
     ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATAROOTDIR}/${PROJECT_NAME}/cmake)
 
-link_libraries(stdc++fs)
-
 install(EXPORT ${PROJECT_NAME}_Targets
         FILE ${PROJECT_NAME}Targets.cmake
         NAMESPACE ${PROJECT_NAME}::
