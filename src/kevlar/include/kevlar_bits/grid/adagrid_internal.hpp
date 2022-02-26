@@ -40,7 +40,6 @@ public:
                 GridFinalType&& grid_final,
                 IsNotAltType is_not_alt,
                 uint32_t N_max,
-                value_t alpha,
                 value_t finalize_thr) const
     {
         using gr_t = std::decay_t<GridRangeType>;
@@ -89,16 +88,15 @@ public:
             auto N_new = compute_new_sim_size(N[j], N_factor, N_max);
             auto N_ratio = static_cast<value_t>(N[j])/N_new;
 
-            auto d0d1 = d0(1,j) + d1(1,j);
-            auto mu_dN = d0d1 
+            auto mu_dN = d0(1,j) + d1(1,j) 
                 + (d0_u(1,j) + d1_u(1,j)) * std::sqrt(N_ratio) 
                 + d2_u(1,j);
 
             // Compute Gaussian mean approximation of upper bound
             // if eps changed to eps/2
-            auto mu_deps = d0d1 
+            auto mu_deps = d0(1,j) 
                 + d0_u(1,j) 
-                + d1_u(1,j) / 2. 
+                + (d1(1,j) + d1_u(1,j)) / 2. 
                 + d2_u(1,j) / 4.;
 
             // Compare Gaussian mean approximations:

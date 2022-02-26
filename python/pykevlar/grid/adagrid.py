@@ -145,7 +145,6 @@ class AdaGrid(AdaGridInternal):
             grid_final,
             is_not_alt,
             N_max,
-            alpha,
             finalize_thr,
         )
 
@@ -191,7 +190,7 @@ class AdaGrid(AdaGridInternal):
         finalize_thr:   threshold to determine when a gridpoint is finalized.
                         A gridpoint is finalized if
                         its upper bound value is less than finalize_thr.
-                        Default is alpha * 0.9.
+                        Default is alpha * 1.1.
         n_threads   :   number of threads for simulation.
         rand_iter   :   True if change seed at every iteration.
                         At iteration i, seed will be seed + i.
@@ -208,7 +207,7 @@ class AdaGrid(AdaGridInternal):
         '''
 
         if finalize_thr is None:
-            finalize_thr = alpha * 0.9
+            finalize_thr = alpha * 1.1
 
         # prune out grid points based on is_not_alt
         # and create the first grid range
@@ -219,7 +218,7 @@ class AdaGrid(AdaGridInternal):
         thetas = grid_range.get_thetas()
         thetas[...] = init_grid.get_thetas()[:,slicer]
         radii = grid_range.get_radii()
-        radii[...] = init_grid.get_thetas()[:,slicer]
+        radii[...] = init_grid.get_radii()[:,slicer]
         sim_sizes = grid_range.get_sim_sizes()
         sim_sizes[...] = init_grid.get_sim_sizes()[slicer]
 
@@ -288,7 +287,7 @@ class AdaGrid(AdaGridInternal):
 
             # update invariants
             alpha_minus = max(
-                alpha/2,    # just in case the latter becomes too small (or negative)
+                1E-8,    # just in case the latter becomes too small (or negative)
                 alpha-2*np.sqrt(alpha*(1.-alpha)/N_crit))
             da_dthr = (alpha_hat - alpha_minus_hat) / (thr - thr_minus)
             thr += (alpha - alpha_hat) / da_dthr

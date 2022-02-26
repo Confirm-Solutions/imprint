@@ -1,4 +1,11 @@
-from pykevlar.core import GridRange, BinomialControlkTreatment
+from pykevlar.core import (
+    GridRange,
+    BinomialControlkTreatment,
+    ExpControlkTreatment,
+)
+from pykevlar.driver import (
+    fit_process
+)
 from pykevlar.grid import AdaGrid
 from pykevlar.batcher import SimpleBatch
 from scipy.stats import norm
@@ -7,17 +14,17 @@ import os
 
 from logging import basicConfig, getLogger
 from logging import DEBUG as log_level
-basicConfig(level = log_level,
-            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
-            datefmt ='%Y-%m-%d %H:%M:%S')
+#basicConfig(level = log_level,
+#            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
+#            datefmt ='%Y-%m-%d %H:%M:%S')
 logger = getLogger(__name__)
 
 # ========== Toggleable ===============
-n_arms = 3          # prioritize 2 first, then do 3, 4
+n_arms = 2          # prioritize 2 first, then do 3, 4
 max_iter = 15        # max iterations into adagrid
-N_max = int(5E5)    # max simulation size
+N_max = int(1E5)    # max simulation size
 n_threads = os.cpu_count()
-max_batch_size = 100000
+max_batch_size = 2000000
 
 logger.info("n_arms: %d, max_iter: %d, N_max: %d, "
             "n_threads: %d, max_batch_size: %d" %
@@ -25,11 +32,13 @@ logger.info("n_arms: %d, max_iter: %d, N_max: %d, "
              N_max, n_threads, max_batch_size))
 # ========== End Toggleable ===============
 
-init_sim_size = 1E3 # initial simulation size
+init_sim_size = int(1E3) # initial simulation size
                     # (for simplicity, fixed for all points)
-init_size = 4       # initial number of points along each direction
-lower = np.array([-0.5, -0.5, -0.5])  # lower bound for each direction
-upper = np.array([0.5, 0.5, 0.5])    # upper bound for each direction
+init_size = 8       # initial number of points along each direction
+#lower = np.array([-1] * n_arms)  # lower bound for each direction
+#upper = np.array([1] * n_arms)    # upper bound for each direction
+lower = np.array([-0.1/4, -1])
+upper = np.array([1/4, 0])
 alpha = 0.025
 delta = 0.025
 seed = 21324
@@ -43,12 +52,15 @@ thr = norm.isf(alpha)
 thr_minus = norm.isf(alpha_minus)
 
 # define null-hypo
-def null_hypo(i, p):
-    return p[i] <= p[0]
+#def null_hypo(i, p):
+#    return p[i] <= p[0]
+def null_hypo(p):
+    return p[1] <= 1
 
 # define is_not_alt
 def is_not_alt(p):
-    return np.any(np.array([null_hypo(i, p) for i in range(1,n_arms)]))
+    #return np.any(np.array([null_hypo(i, p) for i in range(1,n_arms)]))
+    return p[1] <= 0
 
 # make initial 1d grid
 rnge = upper-lower
@@ -76,7 +88,13 @@ sim_sizes = gr.get_sim_sizes()
 sim_sizes[...] = init_sim_size
 
 # create model
-model = BinomialControlkTreatment(n_arms, ph2_size, n_samples, [])
+#model = BinomialControlkTreatment(n_arms, ph2_size, n_samples, [])
+model = ExpControlkTreatment(n_samples, 2.0, [thr_minus, thr])
+model.set_grid_range(gr, null_hypo)
+
+is_o = fit_process(model=model, sim_size=init_sim_size, base_seed=seed)
+print(is_o.type_I_sum())
+
 
 # create batcher
 batcher = SimpleBatch(max_size=max_batch_size)
@@ -105,39 +123,42 @@ import matplotlib.pyplot as plt
 
 finals = None
 curr = None
-do_plot = False
+do_plot = True
 
 i = 0
 while 1:
     try:
         curr, finals = next(gr_new)
     except StopIteration:
-        curr = None
         break
 
     if do_plot:
-        thetas = curr.get_thetas()
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:],
+        thetas = curr.get_thetas_const()
+
+        #fig = plt.figure()
+        #ax = fig.add_subplot(projection='3d')
+        #ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:],
+        #            marker='.',
+        #            c=curr.get_sim_sizes(),
+        #            cmap='plasma')
+        #ax.set_title('Iter={i}'.format(i=i))
+
+        plt.scatter(thetas[0,:], thetas[1,:],
                     marker='.',
                     c=curr.get_sim_sizes(),
                     cmap='plasma')
-        ax.set_title('Iter={i}'.format(i=i))
+
         plt.show()
+
         #plt.savefig('ada_iter_{i}.png'.format(i=i))
         #plt.close()
-
-    print("Finalized gridpoints:")
-    for final in finals:
-        print(final.get_thetas())
 
     i += 1
 
 
 n_pts = 0
 s_max = 0
-if curr:
+if not (curr is None):
     finals.append(curr)
 for final in finals:
     n_pts += final.get_thetas().shape[1]

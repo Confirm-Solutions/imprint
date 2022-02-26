@@ -219,8 +219,8 @@ public:
      * to speed-up the simulations.
      *
      * @param   grid_range      range of grid points.
-     *                          0th dim = hazard rate (log(lambda_treatment / lambda_control))
-     *                          1st dim = log(lambda_treatment)
+     *                          0th dim = log(lambda_control)
+     *                          1st dim = hazard rate (log(lambda_treatment / lambda_control))
      * @param   null_hypo       functor that checks if the ith arm is in 
      *                          its null-hypothesis given a gridpoint.
      *
