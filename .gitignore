@@ -48,3 +48,4 @@ build/
 *_out
 *.png
 /python/dist/
+.spyproject/
