@@ -40,7 +40,6 @@ TEST_F(grid_range_fixture, iteration)
     gr.get_thetas().setRandom();
     gr.get_radii().setRandom();
     gr.get_sim_sizes().setRandom();
-    gr.get_sim_sizes_rem().setRandom();
 
     auto it = gr.begin();
     for (size_t i = 0; i < n; ++i, ++it) {
@@ -49,7 +48,6 @@ TEST_F(grid_range_fixture, iteration)
         expect_eq_vec(it->get_theta(), true_theta_i);
         expect_eq_vec(it->get_radius(), true_radius_i);
         EXPECT_EQ((*it).get_sim_size(), gr.get_sim_sizes()[i]);
-        EXPECT_EQ((*it).get_sim_size_rem(), gr.get_sim_sizes_rem()[i]);
 
         // Just to check if operator!= works
         EXPECT_NE(it, gr.end());
