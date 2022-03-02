@@ -1,5 +1,5 @@
 import Canvas from './canvas';
-import { PlotType } from './canvas';
+import { getTestMatrices, MatrixData, PlotType } from './data';
 import React from 'react';
 import './App.css';
 import { FormControl, FormLabel, FormControlLabel, Radio, RadioGroup, Checkbox } from '@mui/material';
@@ -9,12 +9,23 @@ const layerNames = ["Monte Carlo Type I error estimates", "0th order upper bound
 
 function App() {
   const [plotType, setPlotType] = React.useState<PlotType>("surface");
+  const [data, setData] = React.useState<MatrixData>();
+
   const getDefaultState = () => {
-    let s = new Array(numLayers).fill(false)
+    let s: boolean[] = new Array(numLayers).fill(false)
     s[numLayers - 1] = true;
     return s
   }
   const [checkboxStates, setCheckboxStates] = React.useState<boolean[]>(getDefaultState())
+  const fetchData = React.useCallback(
+    async function () {
+      setData(await getTestMatrices())
+    }, []
+  )
+
+  React.useEffect(() => {
+    fetchData()
+  }, [plotType, checkboxStates, fetchData])
 
   const checkboxes = checkboxStates.map((value, i) => {
     return <FormControlLabel key={i} label={layerNames[i]} control={<Checkbox checked={value} onChange={(_, v) => {
@@ -60,7 +71,14 @@ function App() {
             <h1>Simulated Family-Wise Error Rates</h1>
           </header>
           <main>
-            <Canvas plotType={plotType} checkboxStates={checkboxStates}></Canvas>
+            {data ?
+              <Canvas
+                data={data}
+                plotType={plotType}
+                checkboxStates={checkboxStates}
+                layerNames={layerNames}
+              ></Canvas>
+              : null}
           </main>
           <footer>
           </footer>
