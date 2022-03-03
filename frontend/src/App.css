@@ -89,3 +89,10 @@ canvas {
     border-color: lightgrey;
     border-style: solid;
 }
+
+.buttonContainer {
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+}
