@@ -1,0 +1,5 @@
+#include <kevlar_bits/util/math.hpp>    // order might be necessary on some machines
+#include <kevlar_bits/util/grid.hpp> 
+#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
+#include <kevlar_bits/model/exp_control_k_treatment.hpp>
+#include <kevlar_bits/model/driver.hpp>
