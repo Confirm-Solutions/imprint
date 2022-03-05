@@ -39,7 +39,7 @@ struct HyperPlane
      * otherwise returns 0.
      */
     template <class VType, class DType>
-    value_t intersect(const VType& v, const DType& d)
+    value_t intersect(const VType& v, const DType& d) const
     {
         auto ntd = normal_.dot(d);
         if (ntd == 0) return 0;

@@ -34,8 +34,8 @@ struct Tile
         {
             if (cnt_ < bits_.n_unique()) {
                 for (size_t i = 0; i < cnt_; ++i, ++bits_); 
-                auto dir = (2*bits_().array() - 1).
-                    template cast<value_t>().matrix();
+                auto&& dbits = bits_().template cast<value_t>();
+                auto&& dir = (2*dbits.array() - 1).matrix();
                 v_ = outer_ref_.get().regular_vertex(dir);
             }
         }
@@ -43,8 +43,8 @@ struct Tile
         FullVertexIterator& operator++() { 
             ++cnt_;
             ++bits_; 
-            auto dir = (2*bits_().array() - 1).
-                template cast<value_t>().matrix();
+            auto&& dbits = bits_().template cast<value_t>();
+            auto&& dir = (2*dbits.array() - 1).matrix();
             v_ = outer_ref_.get().regular_vertex(dir);
             return *this; 
         }
@@ -79,6 +79,20 @@ struct Tile
         : center_(center.data(), center.size())
         , radius_(radius.data(), radius.size())
     {}
+
+    Tile(const Tile&) =default;
+    Tile(Tile&&) =default;
+    Tile& operator=(const Tile& t) 
+    {
+        bits_ = t.bits_;
+        vertices_ = t.vertices_;
+        new (&center_) Eigen::Map<const colvec_type<value_t>>(
+                t.center_.data(), t.center_.size());
+        new (&radius_) Eigen::Map<const colvec_type<value_t>>(
+                t.radius_.data(), t.radius_.size());
+        return *this;
+    }
+    Tile& operator=(Tile&&) =default;
 
     /*
      * Returns true if the null-hypothesis H_{hypo} is true.
@@ -116,12 +130,14 @@ struct Tile
      * Return iterators iterating through the vertices 
      * of the full rectangular tile defined by the center and radius.
      */
-    auto full_begin() const { return FullVertexIterator(*this, 0); }
-    auto full_end() const { return FullVertexIterator(*this, ipow(2, n_params())); }
+    auto begin_full() const { return FullVertexIterator(*this, 0); }
+    auto end_full() const { return FullVertexIterator(*this, ipow(2, n_params())); }
 
     auto n_params() const { return center_.size(); }
+    auto radius() const { return radius_; }
 
     void make_regular() { vertices_.clear(); }
+    void clear() { vertices_.clear(); }
     bool is_regular() const { return (vertices_.size() == 0); }
 
 private:

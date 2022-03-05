@@ -88,12 +88,12 @@ TEST_F(tile_fixture, full_iter)
     dAryInt bits(2, d);
     colvec_type<value_t> expected(d);
 
-    for (auto it = tile.full_begin();
-            it != tile.full_end();
+    for (auto it = tile.begin_full();
+            it != tile.end_full();
             ++it, ++bits)
     {
         expected = center + 
-            ((2*bits().array()-1).template cast<value_t>()
+            ((2*bits().template cast<value_t>().array()-1)
                 * radius.array()).matrix();
         auto& v = *it;
         expect_double_eq_vec(v, expected);

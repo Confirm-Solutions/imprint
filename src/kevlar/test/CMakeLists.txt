@@ -35,6 +35,7 @@ add_executable(utility_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/util/d_ary_int_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/math_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/progress_bar_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/util/types_unittest.cpp
     )
 kevlar_add_test(utility_unittest)
 
@@ -44,7 +45,10 @@ kevlar_add_test(utility_unittest)
 
 add_executable(grid_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/grid/gridder_unittest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/grid/grid_range_unittest.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/grid/grid_range_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/tile_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/hyperplane_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/utils_unittest.cpp
     )
 kevlar_add_test(grid_unittest)
 
