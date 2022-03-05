@@ -17,3 +17,17 @@
 #define unlikely(x) (x)
 #endif
 #endif
+
+/*
+ * KEVLAR_STRONG_INLINE is a stronger version of the inline, 
+ * using __forceinline on MSVC, always_inline on GCC/clang, and otherwise just use inline.
+ */
+#ifndef KEVLAR_STRONG_INLINE
+#if defined(_MSC_VER)
+#define KEVLAR_STRONG_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define KEVLAR_STRONG_INLINE __attribute__((always_inline)) inline
+#else
+#define KEVLAR_STRONG_INLINE inline
+#endif
+#endif
