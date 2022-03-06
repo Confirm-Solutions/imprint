@@ -200,7 +200,7 @@ private:
                 // and d1, d1u, d2u that achieve that max.
                 for (const auto& v : tile) {
                     v_diff = v - thetas.col(gp);
-                    value_t d1u = std::sqrt(model.cov_quad(gp, v_diff) / sim_sizes[gp]) * d1u_factor;
+                    value_t d1u = std::sqrt(model.cov_quad(gp, v_diff)) * (d1u_factor/sqrt_ss);
                     value_t d2u = 0.5 * model.max_cov_quad(gp, v_diff);
 
                     for (int m = 0; m < n_models; ++m) {
@@ -215,7 +215,7 @@ private:
                                     n_tiles);
                             d1 += v_diff[k] * grad_k(m, pos);
                         }
-                        d1 /= sim_sizes[gp];
+                        d1 /= ss;
 
                         // check if we have new maximum
                         value_t new_max = d1 + d1u + d2u;
