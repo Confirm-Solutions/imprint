@@ -12,7 +12,7 @@
 namespace kevlar {
 
 /* Forward declaration */
-template <class ValueType, class UIntType>
+template <class ValueType, class UIntType, class GridRangeType>
 struct BinomialControlkTreatment;
 
 namespace internal {
@@ -20,30 +20,33 @@ namespace internal {
 template <class T>
 struct traits;
 
-template <class ValueType, class UIntType>
-struct traits<BinomialControlkTreatment<ValueType, UIntType> >
+template <class ValueType, class UIntType, class GridRangeType>
+struct traits<BinomialControlkTreatment<ValueType, UIntType, GridRangeType> >
 {
     using value_t = ValueType;
     using uint_t = UIntType;
-    using state_t = typename BinomialControlkTreatment<ValueType, UIntType>::StateType;
+    using state_t = typename BinomialControlkTreatment<
+        ValueType, UIntType, GridRangeType>::StateType;
 };
 
 } // namespace internal
 
-template <class ValueType, class UIntType>
+template <class ValueType, class UIntType, class GridRangeType>
 struct BinomialControlkTreatment
     : ControlkTreatmentBase
-    , ModelBase<ValueType>
+    , ModelBase<ValueType, UIntType, GridRangeType>
 {
 private:
     using base_t = ControlkTreatmentBase;
+    using mbase_t = ModelBase<ValueType, UIntType, GridRangeType>;
     using static_interface_t = base_t;
 
 public:
     using value_t = ValueType;
     using uint_t = UIntType;
+    using gr_t = GridRangeType;
 
-    struct StateType : ModelStateBase<value_t, uint_t>
+    struct StateType : ModelStateBase<value_t, uint_t, gr_t>
     {
     private:
         using outer_t = BinomialControlkTreatment;
@@ -122,10 +125,37 @@ public:
         /*
          * @param   rej_len      vector of integers to store number of models that reject.
          */ 
-        void get_rej_len(Eigen::Ref<colvec_type<uint_t> > rej_len) override 
+        void rej_len(Eigen::Ref<colvec_type<uint_t> > rej_len) override 
         {
             auto& bits = outer_.gbits_;
+            auto& gr_view = outer_.grid_range();
 
+            auto ph3_f = [&](size_t a_star, auto& bits_i) {
+                // pairwise z-test
+                auto n = outer_.n_samples();
+                Eigen::Map<const colvec_type<uint_t> > ss_astar(
+                        suff_stat_.data() + outer_.strides_[a_star],
+                        outer_.strides_[a_star+1] - outer_.strides_[a_star]);
+                Eigen::Map<const colvec_type<uint_t> > ss_0(
+                        suff_stat_.data(),
+                        outer_.strides_[1]);
+                auto p_star = static_cast<value_t>(ss_astar(bits_i[a_star])) / n;
+                auto p_0 = static_cast<value_t>(ss_0(bits_i[0])) / n;
+                auto z = (p_star - p_0);
+                auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
+                z = (var <= 0) ? 
+                    std::copysign(1.0, z) * std::numeric_limits<value_t>::infinity() : 
+                    z / std::sqrt(var / n); 
+
+                auto it = std::find_if(
+                        outer_.thresholds_.data(),
+                        outer_.thresholds_.data()+outer_.thresholds_.size(),
+                        [&](auto t) { return z > t; });
+
+                return outer_.n_models() - std::distance(outer_.thresholds_.data(), it);
+            };
+
+            int pos = 0;
             for (int i = 0; i < outer_.n_gridpts(); ++i) 
             {
                 auto bits_i = bits.col(i);
@@ -145,35 +175,28 @@ public:
                 }
 
                 // Phase III
-                
+
                 size_t rej = 0;
-                if (outer_.null_hypo_(a_star, i)) {
-                    // pairwise z-test
-                    auto n = outer_.n_samples();
-                    Eigen::Map<const colvec_type<uint_t> > ss_astar(
-                            suff_stat_.data() + outer_.strides_[a_star],
-                            outer_.strides_[a_star+1] - outer_.strides_[a_star]);
-                    Eigen::Map<const colvec_type<uint_t> > ss_0(
-                            suff_stat_.data(),
-                            outer_.strides_[1]);
-                    auto p_star = static_cast<double>(ss_astar(bits_i[a_star])) / n;
-                    auto p_0 = static_cast<double>(ss_0(bits_i[0])) / n;
-                    auto z = (p_star - p_0);
-                    auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-                    z = (var <= 0) ? 
-                        std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
-                        z / std::sqrt(var / n); 
 
-                    auto it = std::find_if(
-                            outer_.thresholds_.data(),
-                            outer_.thresholds_.data()+outer_.thresholds_.size(),
-                            [&](auto t) { return z > t; });
-
-                    rej = outer_.n_models() - std::distance(outer_.thresholds_.data(), it);
+                // if current gridpt is regular, do an optimized routine.
+                if (gr_view.is_regular(i)) {
+                    if (gr_view.check_null(pos, a_star-1)) {
+                        rej = ph3_f(a_star, bits_i);
+                    }
+                    rej_len[pos] = rej;
+                    ++pos;
+                    continue;
                 }
+                
+                // else, do a slightly different routine:
+                // compute the ph3 test statistic first and loop through each tile
+                // to check if it's a false rejection.
+                rej = ph3_f(a_star, bits_i);
 
-                // save rejection for the current model
-                rej_len[i] = rej;
+                for (int n_t = 0; n_t < gr_view.n_tiles(i); ++n_t, ++pos) 
+                {
+                    rej_len[pos] = gr_view.check_null(pos, a_star-1) ? rej : 0;
+                }
             }
         }
 
@@ -185,19 +208,17 @@ public:
          * @param   gridpt      gridpoint index.
          * @param   arm         arm index.
          */
-        value_t get_grad(uint_t gridpt, uint_t arm) override
+        value_t grad(uint_t gridpt, uint_t arm) override
         {
             auto& bits = outer_.gbits_;
-            auto p_ = outer_.get_p_();
+            auto p_ = outer_.p_();
             Eigen::Map<const colvec_type<uint_t> > ss_a(
                     suff_stat_.data() + outer_.strides_(arm),
                     outer_.strides_(arm+1) - outer_.strides_(arm));
             return ss_a(bits(arm,gridpt)) - outer_.n_samples()*p_(arm,gridpt);
         }
 
-        constexpr auto n_models() const { return outer_.n_models(); }
-        constexpr auto n_gridpts() const { return outer_.n_gridpts(); }
-        constexpr auto n_params() const { return outer_.n_arms(); }
+        const gr_t& grid_range() const override { return outer_.grid_range(); }
 
     private:
         std::uniform_real_distribution<value_t> unif_dist_;
@@ -241,23 +262,21 @@ public:
      * Sets the grid range and caches any results
      * to speed-up the simulations.
      */
-    template <class GridRangeType, class NullHypoType>
-    void set_grid_range(
-            const GridRangeType& grid_range,
-            const NullHypoType& null_hypo) 
+    void set_grid_range(const gr_t& grid_range) 
     {
+        mbase_t::set_grid_range(grid_range);
+
         // resize all other internal quantities
         probs_unique_.resize(n_arms());
         strides_.resize(n_arms() + 1);
-        probs_.resize(n_arms() * grid_range.size() * 3);
-        null_hypo_.resize(n_arms(), grid_range.size());
-        gbits_.resize(n_arms(), grid_range.size());
+        probs_.resize(n_arms() * grid_range.n_gridpts() * 3);
+        gbits_.resize(n_arms(), grid_range.n_gridpts());
 
-        auto& thetas = grid_range.get_thetas();
+        auto& thetas = grid_range.thetas();
 
         // populate prob matrix
-        auto& radii = grid_range.get_radii();
-        Eigen::Map<mat_type<value_t> > pm(probs_.data(), n_arms(), grid_range.size());
+        auto& radii = grid_range.radii();
+        Eigen::Map<mat_type<value_t> > pm(probs_.data(), n_arms(), grid_range.n_gridpts());
         pm = thetas - radii;
         new (&pm) Eigen::Map<mat_type<value_t> >(pm.data() + pm.size(), pm.rows(), pm.cols());
         pm = thetas;
@@ -269,7 +288,7 @@ public:
         std::unordered_map<value_t, uint_t> pu_to_idx;
         std::set<value_t> prob_set;
         auto& bits = gbits_;
-        auto p_ = get_p_();
+        auto prob_view = p_();
 
         strides_[0] = 0;    // initialize stride to arm 0.
 
@@ -278,7 +297,7 @@ public:
             prob_set.clear();
 
             // insert all prob values in arm i into the set
-            auto prob_row = p_.row(i);
+            auto prob_row = prob_view.row(i);
             for (int j = 0; j < prob_row.size(); ++j) {
                 prob_set.insert(prob_row[j]);
             }
@@ -303,15 +322,7 @@ public:
             // populate bits for current arm
             auto bits_i = bits.row(i);
             for (int j = 0; j < bits_i.size(); ++j) {
-                bits_i(j) = pu_to_idx[p_(i,j)];
-            }
-        }
-
-        // populate null_hypo_
-        for (int j = 0; j < null_hypo_.cols(); ++j) {
-            auto p_j = p_.col(j);
-            for (int i = 0; i < null_hypo_.rows(); ++i) {
-                null_hypo_(i,j) = null_hypo(i, p_j);
+                bits_i(j) = pu_to_idx[prob_view(i,j)];
             }
         }
     }
@@ -322,7 +333,6 @@ public:
     state_t make_state() const { return state_t(*this); }
 
     constexpr auto n_models() const { return thresholds_.size(); }
-    constexpr auto n_gridpts() const { return gbits_.cols(); }
 
     /*
      * Computes the quadratic form of covariance matrix
@@ -334,7 +344,7 @@ public:
      */
     value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto p_j = get_p_().col(j);
+        auto p_j = p_().col(j);
         return n_samples() * 
             v.array().square().matrix().dot(
                 (p_j.array() * (1.0-p_j.array())).matrix() );
@@ -350,12 +360,12 @@ public:
      */
     value_t max_cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto p_ = get_p_();
+        auto p = p_();
 
         Eigen::Map<const mat_type<value_t> > p_lower(
-                probs_.data(), p_.rows(), p_.cols());
+                probs_.data(), p.rows(), p.cols());
         Eigen::Map<const mat_type<value_t> > p_upper(
-                p_.data() + p_.size(), p_.rows(), p_.cols());
+                p.data() + p.size(), p.rows(), p.cols());
         auto pli = p_lower.col(j);
         auto pui = p_upper.col(j);
 
@@ -396,31 +406,30 @@ public:
             const std::vector<colvec_type<value_t> >& probs_unique,
             const colvec_type<uint_t>& strides,
             const colvec_type<value_t>& probs,
-            const mat_type<bool>& null_hypo,
             const mat_type<uint_t>& gbits)
     {
         probs_unique_ = probs_unique;
         strides_ = strides;
         probs_ = probs;
-        null_hypo_ = null_hypo;
         gbits_ = gbits;
     }
 
     /* Getter routines mainly for pickling */
-    const auto& get_probs_unique() const { return probs_unique_; }
-    const auto& get_strides() const { return strides_; }
-    const auto& get_probs() const { return probs_; }
-    const auto& get_gbits() const { return gbits_; }
-    const auto& get_thresholds() const { return thresholds_; }
-    const auto& get_null_hypo() const { return null_hypo_; }
+    const auto& probs_unique() const { return probs_unique_; }
+    const auto& strides() const { return strides_; }
+    const auto& probs() const { return probs_; }
+    const auto& gbits() const { return gbits_; }
+    const auto& thresholds() const { return thresholds_; }
 
 private:
-    auto get_p_() {
+    constexpr auto n_gridpts() const { return gbits_.cols(); }
+
+    auto p_() {
         return Eigen::Map<mat_type<value_t> >(
                 probs_.data() + n_arms() * n_gridpts(),
                 n_arms(), n_gridpts());
     }
-    auto get_p_() const {
+    auto p_() const {
         return Eigen::Map<const mat_type<value_t> >(
                 probs_.data() + n_arms() * n_gridpts(),
                 n_arms(), n_gridpts());
@@ -434,7 +443,6 @@ private:
     std::vector<vec_t> probs_unique_;   // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
     uvec_t strides_;                    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
     vec_t probs_;                       // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
-    mat_type<bool> null_hypo_;          // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
     umat_t gbits_;                      // range of gbits
     vec_t thresholds_;                  // critical thresholds 
 };

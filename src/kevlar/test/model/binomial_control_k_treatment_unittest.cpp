@@ -2,13 +2,40 @@
 #include <testutil/model/binomial_control_k_treatment_legacy.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/grid/hyperplane.hpp>
+#include <kevlar_bits/grid/gridder.hpp>
 #include <random>
 
 namespace kevlar {
 
-bool null_hypo(uint32_t i, const Eigen::Ref<const colvec_type<double>>& p)
+/*
+ * To keep consistent with previous implementation,
+ * the hyperplane object must identify whether
+ * the tile is oriented w.r.t. the hyperplane if and only if
+ * the center is in the positive orientation.
+ */
+struct MockHyperPlane
+    : HyperPlane<double>
 {
-    return p[i] <= p[0];
+    using base_t = HyperPlane<double>;
+    using base_t::base_t;
+};
+
+template <class TileType>
+inline bool
+is_oriented(const TileType& tile,
+            const MockHyperPlane& hp,
+            orient_type& ori)
+{
+    const auto& center = tile.center();
+    ori = hp.find_orient(center);
+    if (ori <= orient_type::non_neg) {
+        ori = orient_type::non_neg;
+    } else {
+        ori = orient_type::non_pos;
+    }     
+    return true;
 }
 
 struct bckt_fixture
@@ -17,8 +44,10 @@ struct bckt_fixture
     void SetUp() override 
     {
         // legacy setup
-        theta_1d.setRandom(n_thetas);
-        std::sort(theta_1d.data(), theta_1d.data()+theta_1d.size());
+        // MUST BE EVENLY SPACED TO BE COMPATIBLE WITH
+        // MockHyperPlane and legacy version
+        theta_1d = Gridder::make_grid(n_thetas, -1., 1.);
+        radius = Gridder::radius(n_thetas, -1., 1.);
 
         prob_1d.array() = sigmoid(theta_1d.array());
         prob_endpt_1d.resize(2, theta_1d.size());
@@ -32,12 +61,17 @@ struct bckt_fixture
         }
 
         // new setup
+        
+        colvec_type<value_t> normal(n_arms);
+        normal << 1, -1; // H_0: p[1] <= p[0]
+        hps.emplace_back(normal, 0);
+
         // only thetas and radii need to be populated.
         
         // populate theta as the cartesian product of theta_1d
-        auto& thetas = grid_range.get_thetas();
+        auto& thetas = grid_range.thetas();
         dAryInt bits(n_thetas, n_arms);
-        for (size_t j = 0; j < grid_range.size(); ++j) {
+        for (size_t j = 0; j < grid_range.n_gridpts(); ++j) {
             for (size_t i = 0; i < n_arms; ++i) {
                 thetas(i,j) = theta_1d[bits()[i]];
             }
@@ -45,23 +79,34 @@ struct bckt_fixture
         }
 
         // populate radii as fixed radius
-        grid_range.get_radii().array() = radius;
+        grid_range.radii().array() = radius;
+
+        // create tile information
+        grid_range.create_tiles(hps);
+
+        EXPECT_EQ(grid_range.n_tiles(0), 1);
+        EXPECT_EQ(grid_range.n_tiles(1), 1);
+        EXPECT_EQ(grid_range.n_tiles(2), 1);
+        EXPECT_EQ(grid_range.n_tiles(3), 1);
     }
 
 protected:
     using value_t = double;
-    using int_t = uint32_t;
-    using bckt_legacy = legacy::BinomialControlkTreatment;
-    using bckt = BinomialControlkTreatment<value_t, int_t>;
+    using uint_t = uint32_t;
+    using tile_t = Tile<value_t>;
+    using hp_t = MockHyperPlane;
+    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using bckt_legacy_t = legacy::BinomialControlkTreatment;
+    using bckt_t = BinomialControlkTreatment<value_t, uint_t, gr_t>;
 
     // common configuration
     
     // configuration that may want to be parametrizations
-    size_t n_arms = 3;
+    size_t n_arms = 2;
     size_t ph2_size = 50;
     size_t n_samples = 250;
     value_t threshold = 1.96;
-    value_t radius = 0.25;
+    value_t radius;
     size_t n_thetas = 10;
 
     // configuration for legacy
@@ -72,7 +117,8 @@ protected:
     std::vector<std::function<bool(const dAryInt&)> > hypos;
 
     // configuration for new
-    GridRange<value_t, int_t> grid_range;
+    std::vector<hp_t> hps;
+    gr_t grid_range;
 
     bckt_fixture()
         : thresholds(1) 
@@ -84,16 +130,16 @@ protected:
 
 TEST_F(bckt_fixture, ctor)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 }
 
 TEST_F(bckt_fixture, tr_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
-    b_new.set_grid_range(grid_range, null_hypo);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    b_new.set_grid_range(grid_range);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         value_t b_new_tr_cov_i = 
             b_new.cov_quad(i, Eigen::VectorXd::Ones(n_arms));
@@ -104,9 +150,9 @@ TEST_F(bckt_fixture, tr_cov_test)
 TEST_F(bckt_fixture, tr_max_cov_test)
 {
     dAryInt bits(n_thetas, n_arms);
-    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
-    b_new.set_grid_range(grid_range, null_hypo);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    b_new.set_grid_range(grid_range);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
     for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
         value_t b_new_tr_max_cov_i = 
             b_new.max_cov_quad(i, Eigen::VectorXd::Ones(n_arms));
@@ -118,8 +164,8 @@ struct bckt_state_fixture
     : bckt_fixture
 {
 protected:
-    using state_t = bckt::StateType;
-    using state_leg_t = bckt_legacy::StateType;
+    using state_t = bckt_t::StateType;
+    using state_leg_t = bckt_legacy_t::StateType;
 
     size_t seed = 3214;
     std::mt19937 gen;
@@ -135,10 +181,10 @@ protected:
 
 TEST_F(bckt_state_fixture, test_rej)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 
-    b_new.set_grid_range(grid_range, null_hypo);
+    b_new.set_grid_range(grid_range);
 
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
@@ -147,25 +193,25 @@ TEST_F(bckt_state_fixture, test_rej)
     state_gen(s_leg);
 
     // get legacy rejections
-    colvec_type<int_t> expected(ipow(n_thetas, n_arms));
+    colvec_type<uint_t> expected(ipow(n_thetas, n_arms));
     dAryInt bits(n_thetas, n_arms);
     for (int i = 0; i < expected.size(); ++i, ++bits) {
         expected[i] = (s_leg.test_stat(bits) > threshold);
     }
 
     // get new rejections
-    colvec_type<int_t> actual(expected.size());
-    s_new.get_rej_len(actual);
+    colvec_type<uint_t> actual(grid_range.n_tiles());
+    s_new.rej_len(actual);
 
     expect_eq_vec(actual, expected);
 }
 
 TEST_F(bckt_state_fixture, grad_test)
 {
-    bckt b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
+    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d, hypos);
 
-    b_new.set_grid_range(grid_range, null_hypo);
+    b_new.set_grid_range(grid_range);
 
     state_t s_new(b_new);
     state_leg_t s_leg(b_leg);
@@ -174,19 +220,19 @@ TEST_F(bckt_state_fixture, grad_test)
     state_gen(s_leg);
 
     // get gradient estimates from new
-    mat_type<value_t> actual(grid_range.size(), n_arms);
+    mat_type<value_t> actual(grid_range.n_tiles(), n_arms);
     for (int j = 0; j < actual.rows(); ++j) {
         for (int k = 0; k < actual.cols(); ++k) {
-            actual(j,k) = s_new.get_grad(j,k);
+            actual(j,k) = s_new.grad(j,k);
         }
     }
 
     // get gradient estimates from legacy
-    colvec_type<value_t> expected(grid_range.size() * n_arms);
-    Eigen::Map<mat_type<value_t> > expected_m(expected.data(), grid_range.size(), n_arms);
+    colvec_type<value_t> expected(grid_range.n_tiles() * n_arms);
+    Eigen::Map<mat_type<value_t> > expected_m(expected.data(), grid_range.n_tiles(), n_arms);
     for (size_t j = 0; j < n_arms; ++j) {
         dAryInt bits(n_thetas, n_arms);
-        for (size_t i = 0; i < grid_range.size(); ++i, ++bits) {
+        for (size_t i = 0; i < grid_range.n_tiles(); ++i, ++bits) {
             expected_m(i,j) = s_leg.grad_lr(j, bits);
         }
     }
