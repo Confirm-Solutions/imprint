@@ -310,4 +310,74 @@ TEST_F(utils_fixture, test_intersect_d3)
     run_test();
 }
 
+TEST_F(utils_fixture, test_intersect_d2_non_reg)
+{
+    size_t d = 2;
+    center.setZero(d);
+    radius.resize(d);
+    radius.fill(1);
+    normal.setOnes(d);
+    shift = 0;
+
+    colvec_type<value_t> buff(d);
+    std::vector<colvec_type<value_t>> n_expected;
+    std::vector<colvec_type<value_t>> p_expected;
+
+    tile_t p_tile(center, radius);
+    tile_t n_tile(center, radius);
+
+    auto run_test = [&]() {
+        tile_t tile(center, radius);
+        for (auto it = tile.begin_full();
+                it != tile.end_full();
+                ++it)
+        {
+            tile.emplace_back(*it);
+        }
+        hp_t hp(normal, shift);
+        intersect(tile, hp, p_tile, n_tile);
+        is_vertices_same(n_tile, n_expected);
+        is_vertices_same(p_tile, p_expected);
+    };
+
+    // test when shift = 0
+    for (auto it = p_tile.begin_full();
+            it != p_tile.end_full();
+            ++it)
+    {
+        n_expected.push_back(*it);
+    }
+    p_expected = n_expected;
+
+    run_test();
+
+    // test slightly more non-trivial shift
+    shift = 0.5 * normal.squaredNorm();
+
+    run_test();
+}
+
+// EXAMPLES THAT FAILED IN APPLICATION
+
+TEST_F(utils_fixture, test_is_oriented_full_issue1)
+{
+    size_t d = 2;
+    center.resize(d);
+    center << -0.5, -0.5;
+    radius.resize(d);
+    radius << 0.5, 0.5;
+    normal.resize(d);
+    normal << 1, -1;
+    normal /= normal.norm();
+    shift = 0;
+
+    tile_t tile(center, radius);
+    hp_t hp(normal, shift);
+
+    orient_type ori;
+    bool actual = is_oriented(tile, hp, ori);
+    EXPECT_FALSE(actual);
+    EXPECT_EQ(ori, orient_type::none);
+}
+
 } // namespace kevlar

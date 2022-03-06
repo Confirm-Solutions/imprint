@@ -45,7 +45,7 @@ kevlar_add_test(utility_unittest)
 
 add_executable(grid_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/grid/gridder_unittest.cpp
-    #${CMAKE_CURRENT_SOURCE_DIR}/grid/grid_range_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/grid_range_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/grid/tile_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/grid/hyperplane_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/grid/utils_unittest.cpp

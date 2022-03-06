@@ -1,4 +1,7 @@
 #include <testutil/base_fixture.hpp>
+#include <testutil/grid/tile.hpp>
+#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 
 namespace kevlar {
@@ -7,52 +10,150 @@ struct grid_range_fixture:
     base_fixture
 {
 protected:
+    using value_t = double;
+    using uint_t = uint32_t;
+    using tile_t = Tile<value_t>;
+    using hp_t = HyperPlane<value_t>;
+    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using vec_surf_t = std::vector<hp_t>;
 };
 
 TEST_F(grid_range_fixture, default_ctor)
 {
-    GridRange gr;
-
-    EXPECT_EQ(gr.begin(), gr.end());
+    gr_t gr;
 }
 
 TEST_F(grid_range_fixture, ctor)
 {
     size_t d = 3, n = 10;
-    GridRange gr(d, n);
+    gr_t gr(d, n);
 
     // make sure internal metadata is stored correctly
-    EXPECT_EQ(gr.size(), n);
-    EXPECT_EQ(gr.dim(), d);
-
-    // make sure iterating ends at the right place
-    auto it = gr.begin();
-    for (size_t i = 0; i < n; ++i, ++it);
-    EXPECT_EQ(it, gr.end());
+    EXPECT_EQ(gr.n_gridpts(), n);
+    EXPECT_EQ(gr.n_params(), d);
 }
 
-TEST_F(grid_range_fixture, iteration)
+TEST_F(grid_range_fixture, create_tiles)
 {
-    size_t d = 3, n = 2;
-    GridRange gr(d, n);
+    size_t d = 2, n = 4;
+    gr_t gr(d, n);
+    gr.thetas().col(0) << -0.5, -0.5;
+    gr.thetas().col(1) << -0.5,  0.5;
+    gr.thetas().col(2) <<  0.5, -0.5;
+    gr.thetas().col(3) <<  0.5,  0.5;
+    gr.radii().fill(0.5);
 
-    // set underlying values to random 
-    gr.get_thetas().setRandom();
-    gr.get_radii().setRandom();
-    gr.get_sim_sizes().setRandom();
+    colvec_type<value_t> normal(d);
 
-    auto it = gr.begin();
-    for (size_t i = 0; i < n; ++i, ++it) {
-        auto true_theta_i = gr.get_thetas().col(i);
-        auto true_radius_i = gr.get_radii().col(i);
-        expect_eq_vec(it->get_theta(), true_theta_i);
-        expect_eq_vec(it->get_radius(), true_radius_i);
-        EXPECT_EQ((*it).get_sim_size(), gr.get_sim_sizes()[i]);
+    vec_surf_t vs;
+    normal << 1, -1;
+    normal /= normal.norm();
+    vs.emplace_back(normal, 0);
+    normal << 1, 1;
+    normal /= normal.norm();
+    vs.emplace_back(normal, -1);
 
-        // Just to check if operator!= works
-        EXPECT_NE(it, gr.end());
+    gr.create_tiles(vs);
+
+    size_t pos = 0;
+
+    const auto& tiles = gr.tiles();
+    colvec_type<value_t> buff(d);
+    std::vector<tile_t> expected;
+
+    // check tiles for bottom left gridpt
+    EXPECT_EQ(gr.n_tiles(0), 4);
+
+    // lower left tile splits:
+    
+    // (T, F)
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
+    buff << -1, -1;
+    expected.back().emplace_back(buff);
+    buff << 0, -1;
+    expected.back().emplace_back(buff);
+    buff << 0, 0;
+    expected.back().emplace_back(buff);
+    expected.back().set_null(0, true);
+
+    // (T, T)
+    expected.push_back(expected.back());
+    expected.back().set_null(1, true);
+
+    // (F, T)
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
+    buff << -1, -1;
+    expected.back().emplace_back(buff);
+    buff << -1, 0;
+    expected.back().emplace_back(buff);
+    buff << 0, 0;
+    expected.back().emplace_back(buff);
+    expected.back().set_null(1, true);
+
+    // (F, F)
+    expected.push_back(expected.back());
+    expected.back().set_null(1, false);
+
+    // check each of the expected tiles
+    for (auto it = tiles.begin();
+            it != std::next(tiles.begin(), gr.n_tiles(0)); 
+                ++it)
+    {
+        EXPECT_NE(std::find(expected.begin(), expected.end(), *it),
+                  expected.end());
     }
-    EXPECT_EQ(it, gr.end());
+
+    // check tiles for top left gridpt
+    pos += gr.n_tiles(0);
+    EXPECT_EQ(gr.n_tiles(1), 1);
+    EXPECT_TRUE(tiles[pos].is_regular());
+
+    // check tiles for bottom right gridpt
+    pos += gr.n_tiles(1);
+    EXPECT_EQ(gr.n_tiles(2), 1);
+    EXPECT_TRUE(tiles[pos].is_regular());
+
+    // check tiles for top right gridpt
+    pos += gr.n_tiles(2);
+    EXPECT_EQ(gr.n_tiles(3), 2);
+    expected.clear();
+
+    // (T) tile
+    expected.emplace_back(
+            gr.thetas().col(3),
+            gr.radii().col(3));
+    buff << 0, 0;
+    expected.back().emplace_back(buff);
+    buff << 1, 0;
+    expected.back().emplace_back(buff);
+    buff << 1, 1;
+    expected.back().emplace_back(buff);
+    expected.back().set_null(0, true);
+
+    // (F) tile
+    expected.emplace_back(
+            gr.thetas().col(3),
+            gr.radii().col(3));
+    buff << 0, 0;
+    expected.back().emplace_back(buff);
+    buff << 0, 1;
+    expected.back().emplace_back(buff);
+    buff << 1, 1;
+    expected.back().emplace_back(buff);
+
+    // check each of the expected tiles
+    auto beg = std::next(tiles.begin(), pos);
+    for (auto it = beg;
+            it != std::next(beg, gr.n_tiles(3)); 
+                ++it)
+    {
+        EXPECT_NE(std::find(expected.begin(), expected.end(), *it),
+                  expected.end());
+    }
 }
 
 } // namespace kevlar

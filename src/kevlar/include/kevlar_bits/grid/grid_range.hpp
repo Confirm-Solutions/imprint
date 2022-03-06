@@ -1,15 +1,17 @@
 #pragma once
 #include <type_traits>
 #include <kevlar_bits/util/types.hpp>
+#include <kevlar_bits/grid/utils.hpp>
 
 namespace kevlar {
 
-template <class ValueType=double
-        , class UIntType=uint32_t>
+template <class ValueType
+        , class UIntType
+        , class TileType>
 struct GridRange;
 
-template <class ValueType=double
-        , class UIntType=uint32_t>
+template <class ValueType
+        , class UIntType>
 struct GridptViewer
 {
     using value_t = ValueType;
@@ -53,11 +55,13 @@ private:
 };
 
 template <class ValueType
-        , class UIntType>
+        , class UIntType
+        , class TileType>
 struct GridRange
 {
     using value_t = ValueType;
     using uint_t = UIntType;
+    using tile_t = TileType;
 
     struct iterator_type 
     {
@@ -191,28 +195,127 @@ struct GridRange
         : thetas_(dim, size)
         , radii_(dim, size)
         , sim_sizes_(size)
+    {}
+
+    /*
+     * Creates the tile information based on current values of
+     * gridpoints and radii information.
+     *
+     * It is undefined behavior if gridpoints and radii are not set.
+     *
+     * @param   vec_surf    vector of surface objects.
+     *                      vec_surf[i] corresponds to the surface that 
+     *                      divides the parameter space to get ith null hypothesis space. 
+     *                      Assumed that the non-negative side of the surface is 
+     *                      the null-hypothesis region.
+     */
+    template <class VecSurfaceType>
+    void create_tiles(const VecSurfaceType& vec_surf) 
     {
-        sim_sizes_.setZero();
+        n_tiles_.resize(n_gridpts());
+        tiles_.reserve(n_gridpts());    // slight optimization
+                                        // we know we need at least 1 for each gridpoint.
+
+        size_t tiles_begin = 0; // begin position of tiles_ for gridpt j
+        for (int j = 0; j < thetas_.cols(); ++j) {
+            auto theta_j = thetas_.col(j);
+            auto radius_j = radii_.col(j);
+
+            // start the queue of tiles with one (regular) tile
+            tiles_.emplace_back(theta_j, radius_j);
+
+            for (size_t s = 0; s < vec_surf.size(); ++s) {
+                const auto& surf = vec_surf[s];
+                size_t q_size = tiles_.size() - tiles_begin;
+
+                // iterate over current queue of tiles for current gridpt
+                for (size_t i = 0; i < q_size; ++i) {
+                    // if tile is on one side of surface
+                    if (is_oriented(tiles_[tiles_begin+i], surf)) continue;
+
+                    // add new (regular) tile
+                    tiles_.emplace_back(theta_j, radius_j);
+
+                    auto& tile = tiles_[tiles_begin+i]; // get ref here because
+                                                        // previous emplace_back may 
+                                                        // invalidate any prior refs.
+                    auto& n_tile = tiles_.back();
+                    auto p_tile = n_tile;
+
+                    // copy ISH of tile into the new tiles
+                    n_tile.set_null(tile);
+                    p_tile.set_null(tile);
+
+                    // split the current tile via surf into two smaller tiles
+                    //  - p_tile will be oriented non-negatively (surf null hyp space)
+                    //  - n_tile will be oriented non-positively
+                    intersect(tile, surf, p_tile, n_tile);
+                    tile = std::move(p_tile);
+                    
+                    // update ISH for the new tiles
+                    tile.set_null(s, true);
+                    n_tile.set_null(s, false);
+                }
+            }
+
+            n_tiles_[j] = tiles_.size() - tiles_begin;
+            tiles_begin += n_tiles_[j];
+        }
     }
 
-    mat_type<value_t>& get_thetas() { return thetas_; }
-    const mat_type<value_t>& get_thetas() const { return thetas_; }
-    mat_type<value_t>& get_radii() { return radii_; }
-    const mat_type<value_t>& get_radii() const { return radii_; }
-    colvec_type<uint_t>& get_sim_sizes() { return sim_sizes_; }
-    const colvec_type<uint_t>& get_sim_sizes() const { return sim_sizes_; }
+    /*
+     * If these internal members' shapes are changed,
+     * user MUST call create_tiles() before using any tile information again.
+     */
+    mat_type<value_t>& thetas() { return thetas_; }
+    const mat_type<value_t>& thetas() const { return thetas_; }
+    mat_type<value_t>& radii() { return radii_; }
+    const mat_type<value_t>& radii() const { return radii_; }
+    colvec_type<uint_t>& sim_sizes() { return sim_sizes_; }
+    const colvec_type<uint_t>& sim_sizes() const { return sim_sizes_; }
 
-    iterator_type begin() { return {*this, 0}; }
-    iterator_type end() { return {*this, size()}; }
-    const_iterator_type begin() const { return {*this, 0}; }
-    const_iterator_type end() const { return {*this, size()}; }
-    size_t size() const { return thetas_.cols(); }
-    size_t dim() const { return thetas_.rows(); }
+    // This function is only valid once create_tiles() has been called.
+    uint_t n_tiles(size_t gridpt_idx) const { return n_tiles_[gridpt_idx]; }
+
+    uint_t n_gridpts() const { return thetas_.cols(); }
+    uint_t n_params() const { return thetas_.rows(); }
+
+    /*
+     * Returns true if the tile specified by tile_idx
+     * has ISH configuration such that null hypothesis for hypo_idx is true.
+     * Note that this function is for non-regular tiles.
+     * This function is only valid once create_tiles() has been called.
+     */
+    bool check_null(
+            size_t tile_idx,
+            size_t hypo_idx) const
+    { 
+        return tiles_[tile_idx].check_null(hypo_idx); 
+    }
+
+    /*
+     * Returns true if the tile tile_idx
+     * is a regular tile, i.e. a rectangular tile.
+     * This function is only valid once create_tiles() has been called.
+     */
+    bool is_regular(size_t tile_idx) const 
+    { 
+        return tiles_[tile_idx].is_regular(); 
+    }
+
+    /*
+     * Returns the vector of tiles.
+     */
+    const auto& tiles() const { return tiles_; }
 
 private:
-    mat_type<value_t> thetas_;          // matrix of theta vectors
-    mat_type<value_t> radii_;           // matrix of radius vectors
-    colvec_type<uint_t> sim_sizes_;      // vector of simulation sizes
+
+    mat_type<value_t> thetas_;      // matrix of theta vectors
+    mat_type<value_t> radii_;       // matrix of radius vectors
+    colvec_type<uint_t> sim_sizes_; // vector of simulation sizes
+    
+    std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
+    std::vector<tile_t> tiles_;     // vector of tiles (flattened across all gridpoints)
 };
 
 } // namespace kevlar

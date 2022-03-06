@@ -1,6 +1,6 @@
 #pragma once
-#include <cstddef>
 #include <bitset>
+#include <kevlar_bits/grid/decl.hpp>
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/macros.hpp>
@@ -80,8 +80,18 @@ struct Tile
         , radius_(radius.data(), radius.size())
     {}
 
-    Tile(const Tile&) =default;
-    Tile(Tile&&) =default;
+    Tile(const Tile& t)
+        : bits_(t.bits_)
+        , vertices_(t.vertices_)
+        , center_(t.center_.data(), t.center_.size())
+        , radius_(t.radius_.data(), t.radius_.size())
+    {}
+    Tile(Tile&& t)
+        : bits_(std::move(t.bits_))
+        , vertices_(std::move(t.vertices_))
+        , center_(t.center_.data(), t.center_.size())
+        , radius_(t.radius_.data(), t.radius_.size())
+    {}
     Tile& operator=(const Tile& t) 
     {
         bits_ = t.bits_;
@@ -92,7 +102,16 @@ struct Tile
                 t.radius_.data(), t.radius_.size());
         return *this;
     }
-    Tile& operator=(Tile&&) =default;
+    Tile& operator=(Tile&& t)
+    {
+        bits_ = std::move(t.bits_);
+        vertices_ = std::move(t.vertices_);
+        new (&center_) Eigen::Map<const colvec_type<value_t>>(
+                t.center_.data(), t.center_.size());
+        new (&radius_) Eigen::Map<const colvec_type<value_t>>(
+                t.radius_.data(), t.radius_.size());
+        return *this;
+    }
 
     /*
      * Returns true if the null-hypothesis H_{hypo} is true.
@@ -103,6 +122,7 @@ struct Tile
      * Sets the null hypothesis at index hypo to b.
      */
     void set_null(size_t hypo, bool b=true) { bits_.set(hypo, b); }
+    void set_null(const Tile& t) { bits_ = t.bits_; }
 
     /*
      * Appends a new vertex object initialized with v.
@@ -134,6 +154,7 @@ struct Tile
     auto end_full() const { return FullVertexIterator(*this, ipow(2, n_params())); }
 
     auto n_params() const { return center_.size(); }
+    auto center() const { return center_; }
     auto radius() const { return radius_; }
 
     void make_regular() { vertices_.clear(); }
