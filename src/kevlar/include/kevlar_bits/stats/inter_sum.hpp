@@ -14,12 +14,12 @@ struct InterSum
     InterSum() =default;
     InterSum(
         size_t n_models,
-        size_t n_gridpts,
+        size_t n_tiles,
         size_t n_params)
-        : type_I_sum_(n_models, n_gridpts)
-        , grad_sum_(n_models * n_gridpts * n_params)
+        : type_I_sum_(n_models, n_tiles)
+        , grad_sum_(n_models * n_tiles * n_params)
         , n_params_(n_params)
-        , rej_len_(n_gridpts)
+        , rej_len_(n_tiles)
     {
         type_I_sum_.setZero();
         grad_sum_.setZero();
@@ -40,29 +40,36 @@ struct InterSum
     void update(ModelStateType&& state)
     {
         // get number of rejected models per gridpoint
-        state.get_rej_len(rej_len_);
+        state.rej_len(rej_len_);
 
-        uint_t n_gridpts = type_I_sum_.cols();
-        const auto slice_size = type_I_sum_.size();
-        uint_t n_params = this->n_params();
+        const auto& gr_view = state.grid_range();
+        const uint_t n_gridpts = gr_view.n_gridpts();
+        uint_t n_params = gr_view.n_params();
 
-        // update type_I_sum
-        for (uint_t j = 0; j < n_gridpts; ++j) {
-            if (likely(rej_len_[j] == 0)) continue;
+        // update type_I_sum_ and grad_sum_
+        uint_t pos = 0;
+        for (uint_t i = 0; i < n_gridpts; ++i) {
 
-            type_I_sum_.col(j).tail(rej_len_[j]).array() += 1;
-        
-            // add (T - nabla_eta A(m)) for each threshold where we have rejection.
-            // where T is the sufficient statistic for arm k under mean m,
-            // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
-            auto slice_offset = 0;
-            for (uint_t k = 0; k < n_params; ++k, slice_offset += slice_size) {
-                Eigen::Map<mat_type<value_t> > grad_k_cache(
-                        grad_sum_.data() + slice_offset, 
-                        type_I_sum_.rows(),
-                        type_I_sum_.cols());
-                auto grad_k_j = grad_k_cache.col(j);
-                grad_k_j.tail(rej_len_[j]).array() += state.get_grad(j, k);
+            // if current gridpoint is regular,
+            // only update if there is any rejection
+            if (gr_view.is_regular(i)) {
+                if (unlikely(rej_len_[pos] != 0)) {
+                    update_internal(pos, [&](uint_t k) { return state.grad(i,k); });
+                }
+                ++pos;
+                continue;
+            }
+
+            // if not regular, cache current gradient
+            grad_buff_.resize(n_params);
+            for (uint_t k = 0; k < grad_buff_.size(); ++k) {
+                grad_buff_[k] = state.grad(i, k);
+            }
+
+            // then iterate through all the tiles for update
+            for (uint_t j = 0; j < gr_view.n_tiles(i); ++j, ++pos) {
+                if (likely(rej_len_[pos] == 0)) continue;
+                update_internal(pos, [&](uint_t k) { return grad_buff_[k]; });
             }
         }
     }
@@ -81,22 +88,22 @@ struct InterSum
 
     /*
      * Reset the size of internal data structures corresponding
-     * to the new configuration n_models, n_gridpts, n_params, n_acc.
+     * to the new configuration n_models, n_tiles, n_params, n_acc.
      * The first three parameters must be positive.
      *
      * @param   n_models        number of models.
-     * @param   n_gridpts       number of gridpts.
+     * @param   n_tiles       number of tiles.
      * @param   n_params        number of parameters.
      */
     void reset(
         size_t n_models,
-        size_t n_gridpts,
+        size_t n_tiles,
         size_t n_params)
     {
-        type_I_sum_.setZero(n_models, n_gridpts);
-        grad_sum_.setZero(n_models * n_gridpts * n_params);
+        type_I_sum_.setZero(n_models, n_tiles);
+        grad_sum_.setZero(n_models * n_tiles * n_params);
         n_params_ = n_params;
-        rej_len_.setZero(n_gridpts);
+        rej_len_.setZero(n_tiles);
     }
 
     mat_type<uint_t>& type_I_sum() { return type_I_sum_; }
@@ -104,20 +111,46 @@ struct InterSum
     colvec_type<value_t>& grad_sum() { return grad_sum_; }
     const colvec_type<value_t>& grad_sum() const { return grad_sum_; }
 
-    constexpr size_t n_models() const { return type_I_sum_.rows(); }
-    constexpr size_t n_gridpts() const { return type_I_sum_.cols(); }
-    constexpr size_t n_params() const { return n_params_; }     
+    constexpr size_t n_tiles() const { return type_I_sum_.cols(); }
+    
+    // TODO: I don't think we need these
+    //constexpr size_t n_models() const { return type_I_sum_.rows(); }
+    //constexpr size_t n_params() const { return n_params_; }     
 
 private:
 
+    template <class F>
+    KEVLAR_STRONG_INLINE
+    void update_internal(
+            uint_t pos, 
+            F get_grad)
+    {
+        type_I_sum_.col(pos).tail(rej_len_[pos]).array() += 1;
+    
+        // add (T - nabla_eta A(m)) for each threshold where we have rejection.
+        // where T is the sufficient statistic for arm k under mean m,
+        // nabla_eta A(m) is the gradient under the natural parameter eta of the log-partition function for arm k evaluated at mean m.
+        const auto slice_size = type_I_sum_.size();
+        uint_t slice_offset = 0;
+        for (uint_t k = 0; k < n_params_; ++k, slice_offset += slice_size) {
+            Eigen::Map<mat_type<value_t> > grad_k_cache(
+                    grad_sum_.data() + slice_offset, 
+                    type_I_sum_.rows(),
+                    type_I_sum_.cols());
+            auto grad_k_j = grad_k_cache.col(pos);
+            grad_k_j.tail(rej_len_[pos]).array() += get_grad(k);
+        }
+    }
+
     mat_type<uint_t> type_I_sum_;       // Type I error sums.
-                                        // type_I_sum_(i,j) = rejection accumulation for model i at gridpt j.
+                                        // type_I_sum_(i,j) = rejection accumulation for model i at tile j.
     colvec_type<value_t> grad_sum_;     // gradient sums.
-                                        // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at gridpt j.
+                                        // grad_sum_(i,j,k) = partial deriv accumulation w.r.t. param k for model i at tile j.
     size_t n_params_;                   // dimension of a gridpoint.
 
     /* Buffer needed in update for one-time allocation */
     colvec_type<uint_t> rej_len_;       // number of models that rejects for each gridpt
+    colvec_type<value_t> grad_buff_;    // gradient vector buffer for general tile case
 };
 
 } // namespace kevlar

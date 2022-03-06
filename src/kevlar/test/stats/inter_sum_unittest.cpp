@@ -1,27 +1,32 @@
 #include <testutil/base_fixture.hpp>
 #include <kevlar_bits/stats/inter_sum.hpp>
+#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 
 namespace kevlar {
 
+template <class GridRangeType>
 struct MockModelState
 {
     MockModelState(
         size_t n_models,
         size_t n_gridpts,
-        size_t n_params)
+        size_t n_params,
+        const GridRangeType& grid_range)
         : n_models_(n_models)
         , n_gridpts_(n_gridpts)
         , n_params_(n_params)
+        , gr_(grid_range)
     {}
 
-    void get_rej_len(colvec_type<uint32_t>& v) 
+    void rej_len(colvec_type<uint32_t>& v) 
     {
         for (size_t i = 0; i < n_gridpts_; ++i) {
             v[i] = i % n_models_;
         }
     }
 
-    void get_grad(colvec_type<double>& v,
+    void grad(colvec_type<double>& v,
                   const colvec_type<uint32_t>&) 
     {
         Eigen::Map<mat_type<double> > vm(v.data(), n_gridpts_, n_params_);
@@ -32,15 +37,38 @@ struct MockModelState
         }
     }
 
-    double get_grad(uint32_t j, uint32_t k) 
+    double grad(uint32_t j, uint32_t k) 
     {
         return static_cast<double>(k) * j - n_params_;
     }
+
+    auto n_gridpts() const { return n_gridpts_; }
+    auto n_tiles(size_t) const { return 1; }
+    const auto& grid_range() const { return gr_; }
 
 private:
     size_t n_models_;
     size_t n_gridpts_;
     size_t n_params_;
+    const GridRangeType& gr_;
+};
+
+struct MockGridRange
+{
+    MockGridRange(
+            size_t d,
+            size_t n)
+        : d_{d}, n_{n}
+    {}
+
+    auto n_gridpts() const { return n_; }
+    auto n_params() const { return d_; }
+    bool is_regular(size_t) const { return true; }
+    auto n_tiles(size_t) const { return 1; }
+
+private:
+    size_t d_;
+    size_t n_;
 };
 
 bool null_hypo() { return true; }
@@ -67,6 +95,10 @@ struct test_update_fixture
         std::tuple<size_t, size_t, size_t> >
 {
 protected:
+    using value_t = double;
+    using uint_t = uint32_t;
+    using gr_t = MockGridRange;
+    using state_t = MockModelState<gr_t>;
 };
 
 TEST_P(test_update_fixture, test_update)
@@ -77,15 +109,16 @@ TEST_P(test_update_fixture, test_update)
 
     std::tie(n_models, n_gridpts, n_params) = GetParam();
 
-    MockModelState mms(n_models, n_gridpts, n_params);
+    gr_t gr(n_params, n_gridpts);
+    state_t mms(n_models, n_gridpts, n_params, gr);
     InterSum<double, uint32_t> is;
     is.reset(n_models, n_gridpts, n_params);
     is.update(mms);
 
     colvec_type<uint32_t> v(n_gridpts);
-    mms.get_rej_len(v);
+    mms.rej_len(v);
     colvec_type<double> g(n_gridpts * n_params);
-    mms.get_grad(g, v);
+    mms.grad(g, v);
 
     // check Type I sums
     auto& tis = is.type_I_sum();
@@ -98,7 +131,6 @@ TEST_P(test_update_fixture, test_update)
     expect_eq_mat(tis, expected_tis);
 
     // check gradient sums
-    auto& gr = is.grad_sum();
     colvec_type<double> expected_gr(n_models * n_gridpts * n_params);
     Eigen::Map<mat_type<double> > gm(
             g.data(), n_gridpts, n_params);
@@ -112,7 +144,8 @@ TEST_P(test_update_fixture, test_update)
             }
         }
     }
-    expect_eq_vec(gr, expected_gr);
+    auto& grs = is.grad_sum();
+    expect_eq_vec(grs, expected_gr);
 }
 
 INSTANTIATE_TEST_SUITE_P(
