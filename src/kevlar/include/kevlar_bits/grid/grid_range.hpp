@@ -231,7 +231,12 @@ struct GridRange
                 // iterate over current queue of tiles for current gridpt
                 for (size_t i = 0; i < q_size; ++i) {
                     // if tile is on one side of surface
-                    if (is_oriented(tiles_[tiles_begin+i], surf)) continue;
+                    orient_type ori;
+                    if (is_oriented(tiles_[tiles_begin+i], surf, ori)) {
+                        tiles_[tiles_begin+i].set_null(
+                                s, (ori == orient_type::non_neg));
+                        continue;
+                    }
 
                     // add new (regular) tile
                     tiles_.emplace_back(theta_j, radius_j);
@@ -264,6 +269,80 @@ struct GridRange
     }
 
     /*
+     * Prunes out gridpts and tiles where the ISH is all 0.
+     * These correspond to totally alternative regions
+     * where we should not even compute Type I error since no null is ever true.
+     */
+    void prune()
+    {
+        std::vector<uint_t> tile_idx;
+        std::vector<uint_t> grid_idx;
+
+        size_t pos = 0;
+        for (size_t g = 0; g < n_gridpts(); ++g) 
+        {
+            size_t n_remove = 0;
+            for (size_t j = 0; j < n_tiles(g); ++j)
+            {
+                const auto& tile = tiles_[pos+j];
+                bool is_alt = true;
+                for (size_t i = 0; i < tile_t::n_bits; ++i) {
+                    if (tile.check_null(i)) {
+                        is_alt = false;
+                        break;
+                    }
+                }
+                if (is_alt) {
+                    tile_idx.push_back(pos+j);
+                    ++n_remove;
+                }
+            }
+            if (n_remove == n_tiles(g)) {
+                grid_idx.push_back(g);
+            }
+            pos += n_tiles(g);
+        }
+
+        mat_type<value_t> new_thetas(
+                thetas_.rows(), thetas_.cols()-grid_idx.size());
+        mat_type<value_t> new_radii(
+                radii_.rows(), radii_.cols()-grid_idx.size());
+        colvec_type<uint_t> new_sim_sizes(
+                sim_sizes_.size()-grid_idx.size());
+        colvec_type<uint_t> new_n_tiles(
+                n_tiles_.size()-grid_idx.size());
+        {
+            int nj = 0;
+            for (int j = 0; j < thetas_.cols(); ++j) {
+                // if current column should be removed
+                if (std::find(grid_idx.begin(), grid_idx.end(), j) 
+                        != grid_idx.end()) continue;
+                new_thetas.col(nj) = thetas_.col(j);
+                new_radii.col(nj) = radii_.col(j);
+                new_sim_sizes(nj) = sim_sizes_(j);
+                new_n_tiles(nj) = n_tiles_(j);
+                ++nj;
+            }
+        }
+        thetas_.swap(new_thetas);
+        radii_.swap(new_radii);
+        sim_sizes_.swap(new_sim_sizes);
+        n_tiles_.swap(new_n_tiles);
+
+        std::vector<tile_t> new_tiles;
+        {
+            size_t nj = 0;
+            for (size_t j = 0; j < tiles_.size(); ++j) {
+                if (std::find(tile_idx.begin(), tile_idx.end(), j)
+                        != tile_idx.end()) continue;         
+                new_tiles.push_back(tiles_[j]);
+                ++nj;
+            }
+        }
+        std::swap(tiles_, new_tiles);
+    }
+
+    /*
      * If these internal members' shapes are changed,
      * user MUST call create_tiles() before using any tile information again.
      */
@@ -276,7 +355,7 @@ struct GridRange
 
     // This function is only valid once create_tiles() has been called.
     uint_t n_tiles(size_t gridpt_idx) const { return n_tiles_[gridpt_idx]; }
-
+    uint_t n_tiles() const { return tiles_.size(); }
     uint_t n_gridpts() const { return thetas_.cols(); }
     uint_t n_params() const { return thetas_.rows(); }
 
@@ -313,8 +392,8 @@ private:
     mat_type<value_t> thetas_;      // matrix of theta vectors
     mat_type<value_t> radii_;       // matrix of radius vectors
     colvec_type<uint_t> sim_sizes_; // vector of simulation sizes
-    
-    std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
+    colvec_type<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
+
     std::vector<tile_t> tiles_;     // vector of tiles (flattened across all gridpoints)
 };
 

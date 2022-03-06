@@ -111,11 +111,15 @@ TEST_F(grid_range_fixture, create_tiles)
     pos += gr.n_tiles(0);
     EXPECT_EQ(gr.n_tiles(1), 1);
     EXPECT_TRUE(tiles[pos].is_regular());
+    EXPECT_FALSE(tiles[pos].check_null(0));
+    EXPECT_TRUE(tiles[pos].check_null(1));
 
     // check tiles for bottom right gridpt
     pos += gr.n_tiles(1);
     EXPECT_EQ(gr.n_tiles(2), 1);
     EXPECT_TRUE(tiles[pos].is_regular());
+    EXPECT_TRUE(tiles[pos].check_null(0));
+    EXPECT_TRUE(tiles[pos].check_null(1));
 
     // check tiles for top right gridpt
     pos += gr.n_tiles(2);
@@ -133,6 +137,7 @@ TEST_F(grid_range_fixture, create_tiles)
     buff << 1, 1;
     expected.back().emplace_back(buff);
     expected.back().set_null(0, true);
+    expected.back().set_null(1, true);
 
     // (F) tile
     expected.emplace_back(
@@ -144,6 +149,7 @@ TEST_F(grid_range_fixture, create_tiles)
     expected.back().emplace_back(buff);
     buff << 1, 1;
     expected.back().emplace_back(buff);
+    expected.back().set_null(1, true);
 
     // check each of the expected tiles
     auto beg = std::next(tiles.begin(), pos);
