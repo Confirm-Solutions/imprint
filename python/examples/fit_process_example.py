@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
 sim_size = 100000
-n_thetas_1d = 32
+n_thetas_1d = 64
 n_threads = os.cpu_count()
 # ========== End Toggleable ===============
 
@@ -53,11 +53,6 @@ end = timer()
 print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
 
 print(gr.n_tiles())
-#thetas = gr.thetas()
-#fig = plt.figure()
-#ax = fig.add_subplot(projection='3d')
-#ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:])
-#plt.show()
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])

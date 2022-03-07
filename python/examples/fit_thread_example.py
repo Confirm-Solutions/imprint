@@ -6,7 +6,7 @@ from datetime import timedelta
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 10000
+sim_size = int(100000/16)
 n_thetas_1d = 64
 # ========== End Toggleable ===============
 
@@ -36,6 +36,8 @@ grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
 gr = core.GridRange(n_arms, grid.shape[0])
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
+radii = gr.radii()
+radii[...] = core.Gridder.radius(n_thetas_1d, lower, upper)
 
 gr.create_tiles(null_hypos);
 
@@ -43,6 +45,7 @@ start = timer()
 gr.prune()
 end = timer()
 print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
+print("Number of tiles: {t}".format(t=gr.n_tiles()))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])

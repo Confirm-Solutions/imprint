@@ -20,10 +20,12 @@ struct InterSum
         , grad_sum_(n_models * n_tiles * n_params)
         , n_params_(n_params)
         , rej_len_(n_tiles)
+        , grad_buff_(n_params)
     {
         type_I_sum_.setZero();
         grad_sum_.setZero();
         rej_len_.setZero();
+        grad_buff_.setZero();
     }
     
     /*
@@ -44,12 +46,9 @@ struct InterSum
 
         const auto& gr_view = state.grid_range();
         const uint_t n_gridpts = gr_view.n_gridpts();
-        uint_t n_params = gr_view.n_params();
-
-        grad_buff_.resize(n_params);
 
         // update type_I_sum_ and grad_sum_
-        uint_t pos = 0;
+        size_t pos = 0;
         for (uint_t i = 0; i < n_gridpts; ++i) {
 
             // if current gridpoint is regular,
@@ -62,14 +61,16 @@ struct InterSum
                 continue;
             }
 
-            // if not regular, cache current gradient
-            for (uint_t k = 0; k < grad_buff_.size(); ++k) {
-                grad_buff_[k] = state.grad(i, k);
-            }
-
             // then iterate through all the tiles for update
+            bool grad_computed = false;
             for (uint_t j = 0; j < gr_view.n_tiles(i); ++j, ++pos) {
-                if (likely(rej_len_[pos] == 0)) continue;
+                if (unlikely(rej_len_[pos] == 0)) continue;
+                if (!grad_computed) {
+                    grad_computed = true;
+                    for (uint_t k = 0; k < grad_buff_.size(); ++k) {
+                        grad_buff_[k] = state.grad(i, k);
+                    }
+                }
                 update_internal(pos, [&](uint_t k) { return grad_buff_[k]; });
             }
         }

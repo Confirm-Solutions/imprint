@@ -2,6 +2,7 @@
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <limits>
 #include <algorithm>
@@ -135,31 +136,6 @@ public:
             auto& bits = outer_.gbits_;
             auto& gr_view = outer_.grid_range();
 
-            auto ph3_f = [&](size_t a_star, auto& bits_i) {
-                // pairwise z-test
-                auto n = outer_.n_samples();
-                Eigen::Map<const colvec_type<uint_t> > ss_astar(
-                        suff_stat_.data() + outer_.strides_[a_star],
-                        outer_.strides_[a_star+1] - outer_.strides_[a_star]);
-                Eigen::Map<const colvec_type<uint_t> > ss_0(
-                        suff_stat_.data(),
-                        outer_.strides_[1]);
-                auto p_star = static_cast<value_t>(ss_astar(bits_i[a_star])) / n;
-                auto p_0 = static_cast<value_t>(ss_0(bits_i[0])) / n;
-                auto z = (p_star - p_0);
-                auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
-                z = (var <= 0) ? 
-                    std::copysign(1.0, z) * std::numeric_limits<value_t>::infinity() : 
-                    z / std::sqrt(var / n); 
-
-                auto it = std::find_if(
-                        outer_.thresholds_.data(),
-                        outer_.thresholds_.data()+outer_.thresholds_.size(),
-                        [&](auto t) { return z > t; });
-
-                return outer_.n_models() - std::distance(outer_.thresholds_.data(), it);
-            };
-
             int pos = 0;
             for (int i = 0; i < outer_.n_gridpts(); ++i) 
             {
@@ -186,7 +162,7 @@ public:
                 // if current gridpt is regular, do an optimized routine.
                 if (gr_view.is_regular(i)) {
                     if (gr_view.check_null(pos, a_star-1)) {
-                        rej = ph3_f(a_star, bits_i);
+                        rej = phase_III_internal(a_star, bits_i);
                     }
                     rej_len[pos] = rej;
                     ++pos;
@@ -196,11 +172,15 @@ public:
                 // else, do a slightly different routine:
                 // compute the ph3 test statistic first and loop through each tile
                 // to check if it's a false rejection.
-                rej = ph3_f(a_star, bits_i);
-
+                bool rej_computed = false;
                 for (size_t n_t = 0; n_t < gr_view.n_tiles(i); ++n_t, ++pos) 
                 {
-                    rej_len[pos] = gr_view.check_null(pos, a_star-1) ? rej : 0;
+                    bool is_null = gr_view.check_null(pos, a_star-1);
+                    if (!rej_computed && is_null) {
+                        rej = phase_III_internal(a_star, bits_i);
+                        rej_computed = true;
+                    }  
+                    rej_len[pos] = is_null ? rej : 0;
                 }
             }
         }
@@ -224,6 +204,35 @@ public:
         }
 
     private:
+
+        template <class BitsType>
+        KEVLAR_STRONG_INLINE
+        auto phase_III_internal(size_t a_star, BitsType& bits_i) 
+        {
+            // pairwise z-test
+            auto n = outer_.n_samples();
+            Eigen::Map<const colvec_type<uint_t> > ss_astar(
+                    suff_stat_.data() + outer_.strides_[a_star],
+                    outer_.strides_[a_star+1] - outer_.strides_[a_star]);
+            Eigen::Map<const colvec_type<uint_t> > ss_0(
+                    suff_stat_.data(),
+                    outer_.strides_[1]);
+            auto p_star = static_cast<value_t>(ss_astar(bits_i[a_star])) / n;
+            auto p_0 = static_cast<value_t>(ss_0(bits_i[0])) / n;
+            auto z = (p_star - p_0);
+            auto var = (p_star * (1.-p_star) + p_0 * (1.-p_0));
+            z = (var <= 0) ? 
+                std::copysign(1.0, z) * std::numeric_limits<value_t>::infinity() : 
+                z / std::sqrt(var / n); 
+
+            int i = 0;
+            for (; i < outer_.thresholds_.size(); ++i) {
+                if (z > outer_.thresholds_[i]) break;
+            }
+
+            return outer_.n_models() - i;
+        };
+
         std::uniform_real_distribution<value_t> unif_dist_;
         mat_type<value_t> unif_;          // uniform rng
         colvec_type<uint_t> suff_stat_;    // sufficient statistic table for each arm and prob value
