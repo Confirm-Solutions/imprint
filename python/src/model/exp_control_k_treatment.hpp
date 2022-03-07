@@ -1,11 +1,6 @@
-#include <model/model.hpp>
-#include <pybind11/eigen.h>
-#include <pybind11/stl.h>
-#include <pybind11/functional.h>
+#pragma once
+#include <pybind11/pybind11.h>
 #include <kevlar_bits/model/exp_control_k_treatment.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <random>
-#include <iostream>
 
 namespace kevlar {
 namespace model {

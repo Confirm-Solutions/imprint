@@ -1,14 +1,10 @@
 #pragma once
 #include <type_traits>
+#include <kevlar_bits/grid/decl.hpp>
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/grid/utils.hpp>
 
 namespace kevlar {
-
-template <class ValueType
-        , class UIntType
-        , class TileType>
-struct GridRange;
 
 template <class ValueType
         , class UIntType>
@@ -197,6 +193,48 @@ struct GridRange
         , sim_sizes_(size)
     {}
 
+    GridRange(const GridRange& gr)
+        : thetas_(gr.thetas_)
+        , radii_(gr.radii_)
+        , sim_sizes_(gr.sim_sizes_)
+        , n_tiles_(gr.n_tiles_)
+        , tiles_(gr.tiles_)
+    {
+        reset_tiles_viewer();
+    }
+
+    GridRange(GridRange&& gr)
+        : thetas_(std::move(gr.thetas_))
+        , radii_(std::move(gr.radii_))
+        , sim_sizes_(std::move(gr.sim_sizes_))
+        , n_tiles_(std::move(gr.n_tiles_))
+        , tiles_(std::move(gr.tiles_))
+    {
+        reset_tiles_viewer();
+    }
+
+    GridRange& operator=(const GridRange& gr)
+    {
+        thetas_ = gr.thetas_;
+        radii_ = gr.radii_;
+        sim_sizes_ = gr.sim_sizes_;
+        n_tiles_ = gr.n_tiles_;
+        tiles_ = gr.tiles_;
+        reset_tiles_viewer();
+        return *this;
+    }
+
+    GridRange& operator=(GridRange&& gr)
+    {
+        thetas_ = std::move(gr.thetas_);
+        radii_ = std::move(gr.radii_);
+        sim_sizes_ = std::move(gr.sim_sizes_);
+        n_tiles_ = std::move(gr.n_tiles_);
+        tiles_ = std::move(gr.tiles_);
+        reset_tiles_viewer();
+        return *this;
+    }
+
     /*
      * Creates the tile information based on current values of
      * gridpoints and radii information.
@@ -275,33 +313,34 @@ struct GridRange
      */
     void prune()
     {
-        std::vector<uint_t> tile_idx;
         std::vector<uint_t> grid_idx;
+        std::vector<uint_t> new_n_tiles;
+        std::vector<tile_t> new_tiles;
+
+        new_n_tiles.reserve(n_gridpts());
+        new_tiles.reserve(tiles_.size());
 
         size_t pos = 0;
         for (size_t g = 0; g < n_gridpts(); ++g) 
         {
-            size_t n_remove = 0;
+            size_t n_append = 0;
             for (size_t j = 0; j < n_tiles(g); ++j)
             {
                 const auto& tile = tiles_[pos+j];
-                bool is_alt = true;
-                for (size_t i = 0; i < tile_t::n_bits; ++i) {
-                    if (tile.check_null(i)) {
-                        is_alt = false;
-                        break;
-                    }
-                }
-                if (is_alt) {
-                    tile_idx.push_back(pos+j);
-                    ++n_remove;
-                }
+                if (tile.none()) continue;
+                ++n_append;
+                new_tiles.emplace_back(std::move(tile));
             }
-            if (n_remove == n_tiles(g)) {
+            if (n_append == 0) {
                 grid_idx.push_back(g);
+            } else {
+                new_n_tiles.push_back(n_append);
             }
             pos += n_tiles(g);
         }
+
+        std::swap(n_tiles_, new_n_tiles);
+        std::swap(tiles_, new_tiles);
 
         mat_type<value_t> new_thetas(
                 thetas_.rows(), thetas_.cols()-grid_idx.size());
@@ -309,37 +348,21 @@ struct GridRange
                 radii_.rows(), radii_.cols()-grid_idx.size());
         colvec_type<uint_t> new_sim_sizes(
                 sim_sizes_.size()-grid_idx.size());
-        colvec_type<uint_t> new_n_tiles(
-                n_tiles_.size()-grid_idx.size());
         {
+            std::sort(grid_idx.begin(), grid_idx.end());
             int nj = 0;
             for (int j = 0; j < thetas_.cols(); ++j) {
                 // if current column should be removed
-                if (std::find(grid_idx.begin(), grid_idx.end(), j) 
-                        != grid_idx.end()) continue;
+                if (std::binary_search(grid_idx.begin(), grid_idx.end(), j)) continue;
                 new_thetas.col(nj) = thetas_.col(j);
                 new_radii.col(nj) = radii_.col(j);
                 new_sim_sizes(nj) = sim_sizes_(j);
-                new_n_tiles(nj) = n_tiles_(j);
                 ++nj;
             }
         }
         thetas_.swap(new_thetas);
         radii_.swap(new_radii);
         sim_sizes_.swap(new_sim_sizes);
-        n_tiles_.swap(new_n_tiles);
-
-        std::vector<tile_t> new_tiles;
-        {
-            size_t nj = 0;
-            for (size_t j = 0; j < tiles_.size(); ++j) {
-                if (std::find(tile_idx.begin(), tile_idx.end(), j)
-                        != tile_idx.end()) continue;         
-                new_tiles.push_back(tiles_[j]);
-                ++nj;
-            }
-        }
-        std::swap(tiles_, new_tiles);
     }
 
     /*
@@ -387,12 +410,31 @@ struct GridRange
      */
     const auto& tiles() const { return tiles_; }
 
+    // Helper functions for pickling stuff
+    auto& tiles__() { return tiles_; }
+    auto& n_tiles__() { return n_tiles_; }
+    const auto& n_tiles__() const { return n_tiles_; }
+
 private:
+
+    void reset_tiles_viewer()
+    {
+        // if tiles haven't been created yet
+        if (tiles_.size() == 0) return;
+
+        size_t pos = 0;
+        for (size_t i = 0; i < n_gridpts(); ++i) {
+            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
+                tiles_[pos].center(thetas_.col(i));
+                tiles_[pos].radius(radii_.col(i));
+            }
+        }
+    }
 
     mat_type<value_t> thetas_;      // matrix of theta vectors
     mat_type<value_t> radii_;       // matrix of radius vectors
     colvec_type<uint_t> sim_sizes_; // vector of simulation sizes
-    colvec_type<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
+    std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
 
     std::vector<tile_t> tiles_;     // vector of tiles (flattened across all gridpoints)
 };

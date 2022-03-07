@@ -1,7 +1,5 @@
-#include <std/random/random.hpp>
-#include <random>
-#include <cstdint>
-#include <stdexcept>
+#pragma once
+#include <pybind11/pybind11.h>
 
 namespace kevlar {
 namespace std {
@@ -9,9 +7,10 @@ namespace random {
 
 namespace py = pybind11;
 
+template <class MT19937>
 void add_mt19937(pybind11::module_& m)
 {
-    using mt19937_t = ::std::mt19937;
+    using mt19937_t = MT19937;
     py::class_<mt19937_t>(m, "mt19937")
         .def(py::init<>())
         .def("seed", 

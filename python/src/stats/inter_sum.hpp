@@ -1,22 +1,22 @@
-#include <stats/stats.hpp>
-#include <pybind11/eigen.h>
-#include <pybind11/functional.h>
-#include <kevlar_bits/model/base.hpp>
-#include <kevlar_bits/stats/inter_sum.hpp>
+#pragma once
+#include <pybind11/pybind11.h>
+#include <export_utils/types.hpp>
 
 namespace kevlar {
 namespace stats {
 
 namespace py = pybind11;
 
+template <class MSBType
+        , class ISType>
 void add_inter_sum(pybind11::module_& m)
 {
-    using msb_t = ModelStateBase<double, uint32_t>;
-    using is_t = InterSum<double, uint32_t>;
+    using msb_t = MSBType;
+    using is_t = ISType;
     py::class_<is_t>(m, "InterSum")
         .def(py::init<>())
-        .def(py::init<size_t, size_t, size_t>())
-        .def("update", &is_t::update<msb_t&>)
+        .def(py::init<py_size_t, py_size_t, py_size_t>())
+        .def("update", &is_t::template update<msb_t&>)
         .def("pool", &is_t::pool)
         .def("reset", &is_t::reset)
         .def("type_I_sum", 
@@ -31,9 +31,6 @@ void add_inter_sum(pybind11::module_& m)
         .def("grad_sum_const", 
                 py::overload_cast<>(&is_t::grad_sum, py::const_),
                 py::return_value_policy::reference_internal)
-        .def("n_models", &is_t::n_models)
-        .def("n_gridpts", &is_t::n_gridpts)
-        .def("n_params", &is_t::n_params)
         .def(py::pickle(
             [](const is_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

@@ -25,6 +25,7 @@ struct traits<BinomialControlkTreatment<ValueType, UIntType, GridRangeType> >
 {
     using value_t = ValueType;
     using uint_t = UIntType;
+    using grid_range_t = GridRangeType;
     using state_t = typename BinomialControlkTreatment<
         ValueType, UIntType, GridRangeType>::StateType;
 };
@@ -37,24 +38,28 @@ struct BinomialControlkTreatment
     , ModelBase<ValueType, UIntType, GridRangeType>
 {
 private:
-    using base_t = ControlkTreatmentBase;
-    using mbase_t = ModelBase<ValueType, UIntType, GridRangeType>;
-    using static_interface_t = base_t;
+    using static_interface_t = ControlkTreatmentBase;
 
 public:
     using value_t = ValueType;
     using uint_t = UIntType;
-    using gr_t = GridRangeType;
+    using grid_range_t = GridRangeType;
+    using base_t = static_interface_t;
+    using model_base_t = ModelBase<ValueType, UIntType, GridRangeType>;
 
-    struct StateType : ModelStateBase<value_t, uint_t, gr_t>
+    struct StateType : ModelStateBase<value_t, uint_t, grid_range_t>
     {
     private:
         using outer_t = BinomialControlkTreatment;
         const outer_t& outer_;
 
     public:
+        using model_state_base_t = 
+            ModelStateBase<value_t, uint_t, grid_range_t>;
+
         StateType(const outer_t& outer)
-            : outer_(outer)
+            : model_state_base_t(outer)
+            , outer_(outer)
             , unif_dist_(0., 1.)
         {
             for (auto& pu : outer_.probs_unique_) {
@@ -193,7 +198,7 @@ public:
                 // to check if it's a false rejection.
                 rej = ph3_f(a_star, bits_i);
 
-                for (int n_t = 0; n_t < gr_view.n_tiles(i); ++n_t, ++pos) 
+                for (size_t n_t = 0; n_t < gr_view.n_tiles(i); ++n_t, ++pos) 
                 {
                     rej_len[pos] = gr_view.check_null(pos, a_star-1) ? rej : 0;
                 }
@@ -217,8 +222,6 @@ public:
                     outer_.strides_(arm+1) - outer_.strides_(arm));
             return ss_a(bits(arm,gridpt)) - outer_.n_samples()*p_(arm,gridpt);
         }
-
-        const gr_t& grid_range() const override { return outer_.grid_range(); }
 
     private:
         std::uniform_real_distribution<value_t> unif_dist_;
@@ -262,9 +265,9 @@ public:
      * Sets the grid range and caches any results
      * to speed-up the simulations.
      */
-    void set_grid_range(const gr_t& grid_range) 
+    void set_grid_range(const grid_range_t& grid_range) 
     {
-        mbase_t::set_grid_range(grid_range);
+        model_base_t::set_grid_range(grid_range);
 
         // resize all other internal quantities
         probs_unique_.resize(n_arms());
@@ -332,7 +335,7 @@ public:
      */
     state_t make_state() const { return state_t(*this); }
 
-    constexpr auto n_models() const { return thresholds_.size(); }
+    uint_t n_models() const override { return thresholds_.size(); }
 
     /*
      * Computes the quadratic form of covariance matrix

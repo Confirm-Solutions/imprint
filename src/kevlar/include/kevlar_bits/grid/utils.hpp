@@ -192,7 +192,7 @@ void intersect(
         // such that current vertex is k-lower, i.e.
         // the kth entry is lower than that of the neighboring vertex,
         // and add any intersected points that are not current vertices.
-        for (size_t k = 0; k < n_params; ++k) {
+        for (int k = 0; k < n_params; ++k) {
             // if not k-lower 
             if (bits[k]) continue;
 

@@ -48,21 +48,21 @@ public:
         std::vector<action_type> actions(grid_range.size());
         mat_type<value_t> ub_tot = ub.get();
 
-        const uint32_t d = grid_range.dim();  // dimension of grid point
+        const uint32_t d = grid_range.n_params();  // dimension of grid point
         const uint32_t N_factor = ipow(2, d); // amount to increase sim size
         const uint32_t n_new_pts = ipow(2, d);    // number of new points if eps changes
         uint32_t n_finalized = 0;   // number of new finalized points
         uint32_t n_grid_range = 0;  // number of new grid range points
 
         // aliases
-        auto& d0 = ub.get_delta_0();
-        auto& d0_u = ub.get_delta_0_u();
-        auto& d1 = ub.get_delta_1();
-        auto& d1_u = ub.get_delta_1_u();
-        auto& d2_u = ub.get_delta_2_u();
-        auto& N = grid_range.get_sim_sizes(); 
-        auto& radii = grid_range.get_radii();
-        auto& thetas = grid_range.get_thetas();
+        auto& d0 = ub.delta_0();
+        auto& d0_u = ub.delta_0_u();
+        auto& d1 = ub.delta_1();
+        auto& d1_u = ub.delta_1_u();
+        auto& d2_u = ub.delta_2_u();
+        auto& N = grid_range.sim_sizes(); 
+        auto& radii = grid_range.radii();
+        auto& thetas = grid_range.thetas();
 
         // allocate aux data one-time.
         dAryInt bits(2, d);
@@ -148,9 +148,9 @@ public:
                 case action_type::finalize_: 
                 {
                     auto view = *gf_it;
-                    view.get_theta() = old_view.get_theta();
-                    view.get_radius() = old_view.get_radius();
-                    view.get_sim_size() = old_view.get_sim_size();
+                    view.theta() = old_view.theta();
+                    view.radius() = old_view.radius();
+                    view.sim_size() = old_view.sim_size();
                     ++gf_it;
                     break;
                 }
@@ -158,10 +158,10 @@ public:
                 case action_type::N_:
                 {
                     auto view = *gr_it;
-                    view.get_theta() = old_view.get_theta();
-                    view.get_radius() = old_view.get_radius();
-                    view.get_sim_size() = compute_new_sim_size(
-                            old_view.get_sim_size(), N_factor, N_max);
+                    view.theta() = old_view.theta();
+                    view.radius() = old_view.radius();
+                    view.sim_size() = compute_new_sim_size(
+                            old_view.sim_size(), N_factor, N_max);
                     ++gr_it;
                     break;
                 }
@@ -169,10 +169,10 @@ public:
                 case action_type::eps_:
                 {
                     bits.setZero();
-                    new_rad = old_view.get_radius() / 2.;
+                    new_rad = old_view.radius() / 2.;
                     for (size_t k = 0; k < n_new_pts; ++k, ++bits) 
                     {
-                        new_pt.array() = old_view.get_theta().array() + 
+                        new_pt.array() = old_view.theta().array() + 
                             new_rad.array() *
                                 (2*bits().cast<value_t>().array()-1);
 
@@ -181,9 +181,9 @@ public:
                         // if it's not in alternative space.
                         if (is_not_alt(new_pt)) {
                             auto view = *gr_it; 
-                            view.get_theta() = new_pt;
-                            view.get_radius() = new_rad;
-                            view.get_sim_size() = old_view.get_sim_size();
+                            view.theta() = new_pt;
+                            view.radius() = new_rad;
+                            view.sim_size() = old_view.sim_size();
                             ++gr_it;
                         }
                     }

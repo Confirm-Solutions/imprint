@@ -12,7 +12,7 @@ namespace kevlar {
  * It is the region on which we will compute the upper-bound estimates (supremum)
  * and the region associated with an intersection hypothesis space.
  */
-template <class ValueType, size_t NBits=8>
+template <class ValueType, size_t NBits>
 struct Tile
 {
     using value_t = ValueType;
@@ -125,6 +125,11 @@ struct Tile
     void set_null(const Tile& t) { bits_ = t.bits_; }
 
     /*
+     * Checks if none of the null hypotheses are true.
+     */
+    bool none() const { return bits_.none(); }
+
+    /*
      * Appends a new vertex object initialized with v.
      * Note that populating the vertices automatically converts
      * this tile to be non-regular. 
@@ -156,10 +161,26 @@ struct Tile
     auto n_params() const { return center_.size(); }
     auto center() const { return center_; }
     auto radius() const { return radius_; }
+    template <class C>
+    void center(const C& c) { 
+        new (&center_) Eigen::Map<const colvec_type<value_t> >(
+                c.data(), c.size());
+    }
+    template <class R>
+    void radius(const R& r) {
+        new (&radius_) Eigen::Map<const colvec_type<value_t> >(
+                r.data(), r.size());
+    }
 
     void make_regular() { vertices_.clear(); }
     void clear() { vertices_.clear(); }
     bool is_regular() const { return (vertices_.size() == 0); }
+
+    // Helper functions for pickling
+    auto& bits__() { return bits_; }
+    auto& vertices__() { return vertices_; }
+    const auto& bits__() const { return bits_; }
+    const auto& vertices__() const { return vertices_; }
 
 private:
     /* 

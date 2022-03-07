@@ -11,23 +11,23 @@ class SimpleBatchIter():
     def __next__(self):
         sb = self.simple_batch
 
-        if self.pos == sb.grid_range.size():
+        if self.pos == sb.grid_range.n_tiles():
             raise StopIteration
 
         size = min(sb.max_size,
-                   sb.grid_range.size()-self.pos)
+                   sb.grid_range.n_tiles()-self.pos)
 
-        gr = GridRange(sb.grid_range.dim(),
+        gr = GridRange(sb.grid_range.n_params(),
                        size)
 
         # copy over thetas
-        thetas = gr.get_thetas()
-        big_thetas = sb.grid_range.get_thetas()
+        thetas = gr.thetas()
+        big_thetas = sb.grid_range.thetas()
         thetas[...] = big_thetas[:, self.pos:(self.pos+size)]
 
         # copy over radii
-        radii = gr.get_radii()
-        big_radii = sb.grid_range.get_radii()
+        radii = gr.radii()
+        big_radii = sb.grid_range.radii()
         radii[...] = big_radii[:, self.pos:(self.pos+size)]
 
         # Assumptions:
@@ -35,7 +35,7 @@ class SimpleBatchIter():
         #   so just grab one of the elements.
         # - each batch will process the full sim_size.
         #   so no need to do anything special for sim_size_rem.
-        sim_size = np.max(sb.grid_range.get_sim_sizes_const())
+        sim_size = np.max(sb.grid_range.sim_sizes_const())
 
         self.pos += size
 

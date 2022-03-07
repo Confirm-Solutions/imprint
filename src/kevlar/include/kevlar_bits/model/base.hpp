@@ -4,22 +4,6 @@
 namespace kevlar {
 
 /*
- * Base class for all model state classes.
- */
-template <class ValueType, class UIntType, class GridRangeType>
-struct ModelStateBase
-{
-    using value_t = ValueType;
-    using uint_t = UIntType;
-    using gr_t = GridRangeType;
-
-    virtual ~ModelStateBase() =default;
-    virtual void rej_len(Eigen::Ref<colvec_type<uint_t> >) =0;
-    virtual value_t grad(uint_t, uint_t) =0;
-    virtual const gr_t& grid_range() const =0;
-};
-
-/*
  * Base class for all model classes.
  */
 template <class ValueType, class UIntType, class GridRangeType>
@@ -32,6 +16,7 @@ struct ModelBase
     virtual ~ModelBase() =default;
     virtual value_t cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
     virtual value_t max_cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
+    virtual uint_t n_models() const =0;
 
     void set_grid_range(const gr_t& grid_range) {
         grid_range_view_ = &grid_range;
@@ -41,6 +26,30 @@ struct ModelBase
 
 private:
     const gr_t* grid_range_view_ = nullptr; // viewer of current grid range
+};
+
+/*
+ * Base class for all model state classes.
+ */
+template <class ValueType, class UIntType, class GridRangeType>
+struct ModelStateBase
+{
+    using value_t = ValueType;
+    using uint_t = UIntType;
+    using gr_t = GridRangeType;
+    using model_base_t = ModelBase<value_t, uint_t, gr_t>;
+
+    ModelStateBase(const model_base_t& mb)
+        : mb_{&mb}
+    {}
+
+    virtual ~ModelStateBase() =default;
+    virtual void rej_len(Eigen::Ref<colvec_type<uint_t> >) =0;
+    virtual value_t grad(uint_t, uint_t) =0;
+    const gr_t& grid_range() { return mb_->grid_range(); }
+
+private:
+    const model_base_t* mb_;
 };
 
 /*

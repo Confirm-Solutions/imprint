@@ -5,8 +5,6 @@ namespace kevlar {
 namespace std {
 namespace random {
 
-void add_mt19937(pybind11::module_&);
-
 void add_to_module(pybind11::module_&);
 
 } // namespace random

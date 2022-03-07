@@ -1,9 +1,13 @@
 from pykevlar.core import InterSum, mt19937
 import os
 from multiprocessing.pool import Pool
+# TODO: temporary
+from timeit import default_timer as timer
+from datetime import timedelta
 
 
 def fit_thread(model,
+               grid_range,
                sim_size,
                seed):
     '''
@@ -24,24 +28,29 @@ def fit_thread(model,
     number of simulations under the given model.
     '''
 
+    model.set_grid_range(grid_range)
     model_state = model.make_state()
 
-    is_o = InterSum(model_state.n_models(),
-                    model_state.n_gridpts(),
-                    model_state.n_params())
+    is_o = InterSum(model.n_models(),
+                    grid_range.n_tiles(),
+                    grid_range.n_params())
 
     gen = mt19937()     # TODO: maybe generalize this?
     gen.seed(seed)
 
+    start = timer()
     for _ in range(sim_size):
         model_state.gen_rng(gen)
         model_state.gen_suff_stat()
         is_o.update(model_state)
+    end = timer()
+    print("Thread time: {t}".format(t=timedelta(seconds=end-start)))
 
     return is_o
 
 
 def fit_process(model,
+                grid_range,
                 sim_size,
                 base_seed,
                 n_threads=os.cpu_count()):
@@ -84,6 +93,7 @@ def fit_process(model,
     # create input arguments list
     inputs = [
         (model,
+         grid_range,
          sim_size_thr + (i < sim_size_rem),
          base_seed + i)
         for i in range(n_threads)
@@ -105,7 +115,6 @@ def fit_process(model,
 
 
 def fit_driver(batcher,
-               null_hypo,
                model,
                base_seed,
                n_threads=os.cpu_count()):
@@ -137,12 +146,9 @@ def fit_driver(batcher,
     '''
 
     for batch, sim_size in batcher:
-        # set the grid range to current batch (don't change!)
-        # and provide the null-hypothesis region.
-        model.set_grid_range(batch, null_hypo)
-
         # TODO: fit_process won't output anything later
         is_o = fit_process(model=model,
+                           grid_range=batch,
                            sim_size=sim_size,
                            base_seed=base_seed,
                            n_threads=n_threads)

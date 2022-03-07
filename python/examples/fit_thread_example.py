@@ -1,6 +1,8 @@
 import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
+from timeit import default_timer as timer
+from datetime import timedelta
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
@@ -19,25 +21,35 @@ upper = 0.5
 np.random.seed(seed)
 
 # define null hypos
-def null_hypo(i, p):
-    return p[i] <= p[0]
+null_hypos = []
+for i in range(1, n_arms):
+    n = np.zeros(n_arms)
+    n[0] = 1
+    n[i] = -1
+    null_hypos.append(core.HyperPlane(n, 0))
 
 # Create current batch of grid points.
 # At the thread-level, we only need to know theta gridpoints.
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
 grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
         .reshape(-1, n_arms)
-grid_null = np.array([
-    p for p in grid if null_hypo(1, p) or null_hypo(2, p)
-])
-gr = core.GridRange(n_arms, grid_null.shape[0])
-thetas = gr.get_thetas()
-thetas[...] = np.transpose(grid_null)
+gr = core.GridRange(n_arms, grid.shape[0])
+thetas = gr.thetas()
+thetas[...] = np.transpose(grid)
+
+gr.create_tiles(null_hypos);
+
+start = timer()
+gr.prune()
+end = timer()
+print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
-bckt.set_grid_range(gr, null_hypo)
 
 # run a mock-call of fit_thread
-is_o = driver.fit_thread(bckt, sim_size, seed)
+start = timer()
+is_o = driver.fit_thread(bckt, gr, sim_size, seed)
+end = timer()
+print("Fit time: {t}".format(t=timedelta(seconds=end-start)))
 print(is_o.type_I_sum() / sim_size)

@@ -46,6 +46,8 @@ struct InterSum
         const uint_t n_gridpts = gr_view.n_gridpts();
         uint_t n_params = gr_view.n_params();
 
+        grad_buff_.resize(n_params);
+
         // update type_I_sum_ and grad_sum_
         uint_t pos = 0;
         for (uint_t i = 0; i < n_gridpts; ++i) {
@@ -61,7 +63,6 @@ struct InterSum
             }
 
             // if not regular, cache current gradient
-            grad_buff_.resize(n_params);
             for (uint_t k = 0; k < grad_buff_.size(); ++k) {
                 grad_buff_[k] = state.grad(i, k);
             }
@@ -112,10 +113,7 @@ struct InterSum
     const colvec_type<value_t>& grad_sum() const { return grad_sum_; }
 
     constexpr size_t n_tiles() const { return type_I_sum_.cols(); }
-    
-    // TODO: I don't think we need these
-    //constexpr size_t n_models() const { return type_I_sum_.rows(); }
-    //constexpr size_t n_params() const { return n_params_; }     
+    constexpr size_t n_params() const { return n_params_; }     
 
 private:
 

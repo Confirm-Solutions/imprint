@@ -2,12 +2,14 @@ import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
 import os
-import timeit
+from timeit import default_timer as timer
+from datetime import timedelta
+import matplotlib.pyplot as plt
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
 sim_size = 100000
-n_thetas_1d = 64
+n_thetas_1d = 32
 n_threads = os.cpu_count()
 # ========== End Toggleable ===============
 
@@ -22,27 +24,47 @@ upper = 0.5
 np.random.seed(seed)
 
 # define null hypos
-def null_hypo(i, p):
-    return p[i] <= p[0]
+null_hypos = []
+for i in range(1, n_arms):
+    n = np.zeros(n_arms)
+    n[0] = 1
+    n[i] = -1
+    null_hypos.append(core.HyperPlane(n, 0))
 
 # Create current batch of grid points.
 # At the process-level, we only need to know theta, radii.
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
 grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
         .reshape(-1, n_arms)
-grid_null = np.array([
-    p for p in grid if null_hypo(1, p) or null_hypo(2, p)
-])
-gr = core.GridRange(n_arms, grid_null.shape[0])
-thetas = gr.get_thetas()
-thetas[...] = np.transpose(grid_null)
-radii = gr.get_radii()
+#grid_null = np.array([
+#    p for p in grid if null_hypo(1, p) or null_hypo(2, p)
+#])
+gr = core.GridRange(n_arms, grid.shape[0])
+thetas = gr.thetas()
+thetas[...] = np.transpose(grid)
+radii = gr.radii()
 radii[...] = core.Gridder.radius(n_thetas_1d, lower, upper)
+
+gr.create_tiles(null_hypos);
+
+start = timer()
+gr.prune()
+end = timer()
+print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
+
+print(gr.n_tiles())
+#thetas = gr.thetas()
+#fig = plt.figure()
+#ax = fig.add_subplot(projection='3d')
+#ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:])
+#plt.show()
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
-bckt.set_grid_range(gr, null_hypo)
 
 # run a mock-call of fit_process
-is_o = driver.fit_process(bckt, sim_size, seed, n_threads)
-print((is_o.type_I_sum() / sim_size)[0,:20])
+start = timer()
+is_o = driver.fit_process(bckt, gr, sim_size, seed, n_threads)
+end = timer()
+print("Fit time: {t}".format(t=timedelta(seconds=end-start)))
+print((is_o.type_I_sum() / sim_size))

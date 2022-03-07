@@ -14,6 +14,7 @@ KEVLAR_DIR = os.path.join(ROOT_DIR, 'src/kevlar')
 EIGEN_INCLUDE_DIR = os.path.join(KEVLAR_DIR, 'third_party/eigen-3.4.0')
 KEVLAR_INCLUDE_DIR = os.path.join(KEVLAR_DIR, 'include')
 PYKEVLAR_INCLUDE_DIR = os.path.join(CWD, 'src')
+DEBUG = False
 
 # Get long description by reading README.md (as one should).
 with open(os.path.join(CWD, "README.md"), encoding="utf-8") as f:
@@ -21,20 +22,32 @@ with open(os.path.join(CWD, "README.md"), encoding="utf-8") as f:
 
 # Get extra compiler/linker flags
 if sys.platform == "win32":
-    extra_compile_args = ["/openmp", "/O2"]
-    extra_link_args = ["/openmp"]
+    if DEBUG:
+        extra_compile_args = ["/O0"]
+        extra_link_args = []
+    else:
+        extra_compile_args = ["/openmp", "/O2"]
+        extra_link_args = ["/openmp"]
 else:
-    extra_compile_args = [
-        "-fopenmp",
-        "-O3",
-        "-ffast-math",
-        "--std=c++17",
-        # "-march=native",
-        # "-Ofast",
-        # "-frename-registers",
-        # "-funroll-loops"
-    ]
-    extra_link_args = ["-fopenmp"]
+    if DEBUG:
+        extra_compile_args = [
+            "-g",
+            "-O0",
+            "--std=c++17",
+        ]
+        extra_link_args = []
+    else:
+        extra_compile_args = [
+            "-fopenmp",
+            "-O3",
+            "-ffast-math",
+            "--std=c++17",
+            # "-march=native",
+            # "-Ofast",
+            # "-frename-registers",
+            # "-funroll-loops"
+        ]
+        extra_link_args = ["-fopenmp"]
 
 # Add extension module for pykevlar
 ext_modules = [

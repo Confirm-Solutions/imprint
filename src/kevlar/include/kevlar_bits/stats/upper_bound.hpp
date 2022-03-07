@@ -140,7 +140,7 @@ private:
         colvec_type<value_t> v_diff(n_params);  // buffer to store vertex-gridpt 
 
         size_t pos = 0; 
-        for (int gp = 0; gp < n_gridpts; ++gp) {
+        for (size_t gp = 0; gp < n_gridpts; ++gp) {
 
             auto ss = sim_sizes[gp];
             auto sqrt_ss = std::sqrt(ss);
@@ -182,7 +182,7 @@ private:
             // else, iterate through each tile and check every corner explicitly
 
             // iterate over tiles
-            for (int i = 0; i < grid_range.n_tiles(gp); ++i, ++pos) {
+            for (size_t i = 0; i < grid_range.n_tiles(gp); ++i, ++pos) {
                 // update 0th/0th upper
                 auto delta_0_j = delta_0_.col(pos);
                 delta_0_j = typeIsum.col(pos).template cast<value_t>()/ss;
@@ -203,7 +203,7 @@ private:
                     value_t d1u = std::sqrt(model.cov_quad(gp, v_diff)) * (d1u_factor/sqrt_ss);
                     value_t d2u = 0.5 * model.max_cov_quad(gp, v_diff);
 
-                    for (int m = 0; m < n_models; ++m) {
+                    for (size_t m = 0; m < n_models; ++m) {
 
                         // compute current v^T grad_f
                         value_t d1 = 0;
