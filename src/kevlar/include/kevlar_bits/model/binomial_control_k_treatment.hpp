@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include <set>
+#include <unordered_map>
 #include <random>
 #include <unordered_map>
 #include <vector>
