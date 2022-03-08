@@ -42,7 +42,7 @@ TEST_F(types_fixture, orient_type_le)
         {orient_type::neg, {orient_type::non_pos, orient_type::non_on}},
     };
     
-    check_op(true_tab, std::less());
+    check_op(true_tab, std::less<orient_type>());
 }
 
 TEST_F(types_fixture, orient_type_leq)
@@ -57,7 +57,7 @@ TEST_F(types_fixture, orient_type_leq)
         {orient_type::none, {orient_type::none}},
     };
     
-    check_op(true_tab, std::less_equal());
+    check_op(true_tab, std::less_equal<orient_type>());
 }
 
 } // namespace kevlar

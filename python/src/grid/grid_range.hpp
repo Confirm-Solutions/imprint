@@ -49,10 +49,11 @@ void add_grid_range(py::module_& m)
                         p.radii(), 
                         p.sim_sizes(),
                         p.n_tiles__(),
-                        p.tiles());
+                        p.tiles(),
+                        p.bits__());
             },
             [](py::tuple t) { // __setstate__
-                if (t.size() != 5) {
+                if (t.size() != 6) {
                     throw std::runtime_error("Invalid state!");
                 }
 
@@ -61,12 +62,14 @@ void add_grid_range(py::module_& m)
                 using s_t = std::decay_t<decltype(std::declval<gr_t>().sim_sizes())>;
                 using nt_t = std::decay_t<decltype(std::declval<gr_t>().n_tiles__())>;
                 using tt_t = std::decay_t<decltype(std::declval<gr_t>().tiles())>;
+                using b_t = std::decay_t<decltype(std::declval<gr_t>().bits__())>;
 
                 auto thetas = t[0].cast<t_t>();
                 auto radii = t[1].cast<r_t>();
                 auto sim_sizes = t[2].cast<s_t>();
                 auto n_tiles = t[3].cast<nt_t>();
                 auto tiles = t[4].cast<tt_t>();
+                auto bits = t[5].cast<b_t>();
 
                 /* Create a new C++ instance */
                 gr_t p;
@@ -75,6 +78,7 @@ void add_grid_range(py::module_& m)
                 p.sim_sizes() = sim_sizes;
                 p.n_tiles__() = n_tiles;
                 p.tiles__() = tiles;
+                p.bits__() = bits;
 
                 return p;
             }))

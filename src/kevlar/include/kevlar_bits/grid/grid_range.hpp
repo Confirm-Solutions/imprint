@@ -58,6 +58,7 @@ struct GridRange
     using value_t = ValueType;
     using uint_t = UIntType;
     using tile_t = TileType;
+    using bits_t = unsigned char;
 
     struct iterator_type 
     {
@@ -198,6 +199,7 @@ struct GridRange
         , radii_(gr.radii_)
         , sim_sizes_(gr.sim_sizes_)
         , n_tiles_(gr.n_tiles_)
+        , bits_(gr.bits_)
         , tiles_(gr.tiles_)
     {
         reset_tiles_viewer();
@@ -208,6 +210,7 @@ struct GridRange
         , radii_(std::move(gr.radii_))
         , sim_sizes_(std::move(gr.sim_sizes_))
         , n_tiles_(std::move(gr.n_tiles_))
+        , bits_(std::move(bits_))
         , tiles_(std::move(gr.tiles_))
     {
         reset_tiles_viewer();
@@ -219,6 +222,7 @@ struct GridRange
         radii_ = gr.radii_;
         sim_sizes_ = gr.sim_sizes_;
         n_tiles_ = gr.n_tiles_;
+        bits_ = gr.bits_;
         tiles_ = gr.tiles_;
         reset_tiles_viewer();
         return *this;
@@ -230,6 +234,7 @@ struct GridRange
         radii_ = std::move(gr.radii_);
         sim_sizes_ = std::move(gr.sim_sizes_);
         n_tiles_ = std::move(gr.n_tiles_);
+        bits_ = std::move(gr.bits_);
         tiles_ = std::move(gr.tiles_);
         reset_tiles_viewer();
         return *this;
@@ -251,6 +256,8 @@ struct GridRange
     void create_tiles(const VecSurfaceType& vec_surf) 
     {
         n_tiles_.resize(n_gridpts());
+
+        bits_.reserve(n_gridpts());
         tiles_.reserve(n_gridpts());    // slight optimization
                                         // we know we need at least 1 for each gridpoint.
 
@@ -260,6 +267,7 @@ struct GridRange
             auto radius_j = radii_.col(j);
 
             // start the queue of tiles with one (regular) tile
+            bits_.emplace_back(0);
             tiles_.emplace_back(theta_j, radius_j);
 
             for (size_t s = 0; s < vec_surf.size(); ++s) {
@@ -271,23 +279,25 @@ struct GridRange
                     // if tile is on one side of surface
                     orient_type ori;
                     if (is_oriented(tiles_[tiles_begin+i], surf, ori)) {
-                        tiles_[tiles_begin+i].set_null(
+                        set_null(bits_[tiles_begin+i], 
                                 s, (ori == orient_type::non_neg));
                         continue;
                     }
 
                     // add new (regular) tile
+                    bits_.emplace_back(0);
                     tiles_.emplace_back(theta_j, radius_j);
 
+                    auto& c_bits = bits_[tiles_begin+i]; 
                     auto& tile = tiles_[tiles_begin+i]; // get ref here because
                                                         // previous emplace_back may 
                                                         // invalidate any prior refs.
+                    auto& n_bits = bits_.back();
                     auto& n_tile = tiles_.back();
                     auto p_tile = n_tile;
 
                     // copy ISH of tile into the new tiles
-                    n_tile.set_null(tile);
-                    p_tile.set_null(tile);
+                    n_bits = c_bits;
 
                     // split the current tile via surf into two smaller tiles
                     //  - p_tile will be oriented non-negatively (surf null hyp space)
@@ -296,8 +306,8 @@ struct GridRange
                     tile = std::move(p_tile);
                     
                     // update ISH for the new tiles
-                    tile.set_null(s, true);
-                    n_tile.set_null(s, false);
+                    set_null(c_bits, s, true);
+                    set_null(n_bits, s, false);
                 }
             }
 
@@ -315,9 +325,11 @@ struct GridRange
     {
         std::vector<uint_t> grid_idx;
         std::vector<uint_t> new_n_tiles;
+        std::vector<bits_t> new_bits;
         std::vector<tile_t> new_tiles;
 
         new_n_tiles.reserve(n_gridpts());
+        new_bits.reserve(bits_.size());
         new_tiles.reserve(tiles_.size());
 
         size_t pos = 0;
@@ -327,8 +339,10 @@ struct GridRange
             for (size_t j = 0; j < n_tiles(g); ++j)
             {
                 const auto& tile = tiles_[pos+j];
-                if (tile.none()) continue;
+                auto bi = bits_[pos+j];
+                if (none(bi)) continue;
                 ++n_append;
+                new_bits.emplace_back(bi);
                 new_tiles.emplace_back(std::move(tile));
             }
             if (n_append == 0) {
@@ -339,6 +353,7 @@ struct GridRange
             pos += n_tiles(g);
         }
 
+        std::swap(bits_, new_bits);
         std::swap(n_tiles_, new_n_tiles);
         std::swap(tiles_, new_tiles);
 
@@ -392,17 +407,28 @@ struct GridRange
             size_t tile_idx,
             size_t hypo_idx) const
     { 
-        return tiles_[tile_idx].check_null(hypo_idx); 
+        return (bits_[tile_idx] & (static_cast<unsigned char>(1) << hypo_idx)) != 0;
     }
 
     /*
-     * Returns true if the tile tile_idx
-     * is a regular tile, i.e. a rectangular tile.
+     * Returns true if the gridpoint at idx
+     * is associated with a regular tile, i.e. a rectangular tile.
      * This function is only valid once create_tiles() has been called.
+     *
+     * Note: this function originally did:
+     *      return tiles_[tile_idx].is_regular();
+     * but benchmarking shows that there is a MASSIVE speed difference
+     * from the current implementation. Cache is really important...
+     * Idea is that tiles_ is a heterogenous structure which used to contain
+     * std::bitset<> and some Eigen objects.
+     * Iterating through these makes pre-fetching hard
+     * and there are more tiles than gridpoints, so not only does the current
+     * implementation pre-fetch more values at a time, 
+     * but also pre-fetches less in total.
      */
-    bool is_regular(size_t tile_idx) const 
+    bool is_regular(size_t idx) const 
     { 
-        return tiles_[tile_idx].is_regular(); 
+        return n_tiles_[idx] == 1;
     }
 
     /*
@@ -413,9 +439,22 @@ struct GridRange
     // Helper functions for pickling stuff
     auto& tiles__() { return tiles_; }
     auto& n_tiles__() { return n_tiles_; }
+    auto& bits__() { return bits_; }
     const auto& n_tiles__() const { return n_tiles_; }
+    const auto& bits__() const { return bits_; }
 
 private:
+
+    void set_null(bits_t& bits, size_t hypo, bool b=true) { 
+        unsigned char t = (static_cast<unsigned char>(1) << hypo);
+        if (b) {
+            bits |= t;
+        } else {
+            bits = ~((~bits) | t);
+        }
+    }
+
+    bool none(bits_t bits) const { return bits == 0; }
 
     void reset_tiles_viewer()
     {
@@ -436,6 +475,7 @@ private:
     colvec_type<uint_t> sim_sizes_; // vector of simulation sizes
     std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
 
+    std::vector<bits_t> bits_;      // vector of bits to represent ISH of each tile
     std::vector<tile_t> tiles_;     // vector of tiles (flattened across all gridpoints)
 };
 

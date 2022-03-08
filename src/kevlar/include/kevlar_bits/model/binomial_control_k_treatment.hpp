@@ -173,7 +173,8 @@ public:
                 // compute the ph3 test statistic first and loop through each tile
                 // to check if it's a false rejection.
                 bool rej_computed = false;
-                for (size_t n_t = 0; n_t < gr_view.n_tiles(i); ++n_t, ++pos) 
+                const auto n_ts = gr_view.n_tiles(i);
+                for (size_t n_t = 0; n_t < n_ts; ++n_t, ++pos) 
                 {
                     bool is_null = gr_view.check_null(pos, a_star-1);
                     if (!rej_computed && is_null) {

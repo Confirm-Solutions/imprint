@@ -9,11 +9,6 @@ template <class V, size_t N>
 inline constexpr bool
 operator==(const Tile<V, N>& t1, const Tile<V, N>& t2)
 {
-    // check ISH bits
-    for (size_t i = 0; i < N; ++i) {
-        if (t1.check_null(i) != t2.check_null(i)) return false;
-    }
-
     // check center and radius
     if ((t1.center().array() != t2.center().array()).any()) return false;
     if ((t1.radius().array() != t2.radius().array()).any()) return false;

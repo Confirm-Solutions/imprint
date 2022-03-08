@@ -81,20 +81,17 @@ struct Tile
     {}
 
     Tile(const Tile& t)
-        : bits_(t.bits_)
-        , vertices_(t.vertices_)
+        : vertices_(t.vertices_)
         , center_(t.center_.data(), t.center_.size())
         , radius_(t.radius_.data(), t.radius_.size())
     {}
     Tile(Tile&& t)
-        : bits_(std::move(t.bits_))
-        , vertices_(std::move(t.vertices_))
+        : vertices_(std::move(t.vertices_))
         , center_(t.center_.data(), t.center_.size())
         , radius_(t.radius_.data(), t.radius_.size())
     {}
     Tile& operator=(const Tile& t) 
     {
-        bits_ = t.bits_;
         vertices_ = t.vertices_;
         new (&center_) Eigen::Map<const colvec_type<value_t>>(
                 t.center_.data(), t.center_.size());
@@ -104,7 +101,6 @@ struct Tile
     }
     Tile& operator=(Tile&& t)
     {
-        bits_ = std::move(t.bits_);
         vertices_ = std::move(t.vertices_);
         new (&center_) Eigen::Map<const colvec_type<value_t>>(
                 t.center_.data(), t.center_.size());
@@ -112,22 +108,6 @@ struct Tile
                 t.radius_.data(), t.radius_.size());
         return *this;
     }
-
-    /*
-     * Returns true if the null-hypothesis H_{hypo} is true.
-     */
-    bool check_null(size_t hypo) const { return bits_.test(hypo); }
-
-    /*
-     * Sets the null hypothesis at index hypo to b.
-     */
-    void set_null(size_t hypo, bool b=true) { bits_.set(hypo, b); }
-    void set_null(const Tile& t) { bits_ = t.bits_; }
-
-    /*
-     * Checks if none of the null hypotheses are true.
-     */
-    bool none() const { return bits_.none(); }
 
     /*
      * Appends a new vertex object initialized with v.
@@ -177,9 +157,7 @@ struct Tile
     bool is_regular() const { return (vertices_.size() == 0); }
 
     // Helper functions for pickling
-    auto& bits__() { return bits_; }
     auto& vertices__() { return vertices_; }
-    const auto& bits__() const { return bits_; }
     const auto& vertices__() const { return vertices_; }
 
 private:
@@ -199,8 +177,6 @@ private:
         return center_ + b.cwiseProduct(radius_);
     }
 
-    std::bitset<NBits> bits_;   // ith bit from the right corresponds to 
-                                // ith hypothesis being true or false.
     std::vector<colvec_type<value_t> > vertices_;    // vertices of the actual tile
     Eigen::Map<const colvec_type<value_t> > center_;  // center of tile
     Eigen::Map<const colvec_type<value_t> > radius_;  // radius that defines the bounds

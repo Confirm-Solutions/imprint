@@ -63,7 +63,8 @@ struct InterSum
 
             // then iterate through all the tiles for update
             bool grad_computed = false;
-            for (uint_t j = 0; j < gr_view.n_tiles(i); ++j, ++pos) {
+            const auto n_ts = gr_view.n_tiles(i);
+            for (uint_t j = 0; j < n_ts; ++j, ++pos) {
                 if (unlikely(rej_len_[pos] == 0)) continue;
                 if (!grad_computed) {
                     grad_computed = true;

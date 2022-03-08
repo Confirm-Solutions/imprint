@@ -147,7 +147,7 @@ private:
 
             // if gridpt is regular, do specialized routine,
             // since we know there's only one tile associated with this gridpt.
-            if (grid_range.is_regular(pos)) {
+            if (grid_range.is_regular(gp)) {
 
                 // update 0th/0th upper
                 auto delta_0_j = delta_0_.col(pos);
