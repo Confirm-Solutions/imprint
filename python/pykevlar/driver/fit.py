@@ -1,15 +1,16 @@
 from pykevlar.core import InterSum, mt19937
 import os
 from multiprocessing.pool import Pool
-# TODO: temporary
+import pickle
 from timeit import default_timer as timer
 from datetime import timedelta
 
 
-def fit_thread(model,
-               grid_range,
+def fit_thread(#model_pkl,
+               grid_range_pkl,
                sim_size,
-               seed):
+               seed,
+               thread_id=0):
     '''
     Runs simulations for a given range of grid-points and a model.
     Returns the updated InterSum object.
@@ -28,25 +29,34 @@ def fit_thread(model,
     number of simulations under the given model.
     '''
 
-    model.set_grid_range(grid_range)
-    model_state = model.make_state()
+    #model = pickle.loads(model_pkl)
+    grid_range = pickle.loads(grid_range_pkl)
+    print(f"Thread {thread_id}")
 
-    is_o = InterSum(model.n_models(),
-                    grid_range.n_tiles(),
-                    grid_range.n_params())
+    #start = timer()
 
-    gen = mt19937()     # TODO: maybe generalize this?
-    gen.seed(seed)
+    #model.set_grid_range(grid_range)
+    #model_state = model.make_state()
 
-    start = timer()
-    for _ in range(sim_size):
-        model_state.gen_rng(gen)
-        model_state.gen_suff_stat()
-        is_o.update(model_state)
-    end = timer()
-    print("Thread time: {t}".format(t=timedelta(seconds=end-start)))
+    #print(model.grid_range().n_tiles())
+    #is_o = InterSum(model.n_models(),
+    #                grid_range.n_tiles(),
+    #                grid_range.n_params())
 
-    return is_o
+    #gen = mt19937()     # TODO: maybe generalize this?
+    #gen.seed(seed)
+
+    #for _ in range(sim_size):
+    #    model_state.gen_rng(gen)
+    #    model_state.gen_suff_stat()
+    #    is_o.update(model_state)
+
+    #end = timer()
+    #print("Thread {i}: {t}".format(
+    #        i=thread_id,
+    #        t=timedelta(seconds=end-start)))
+
+    #return is_o
 
 
 def fit_process(model,
@@ -84,6 +94,9 @@ def fit_process(model,
     if n_threads <= 0:
         raise ValueError("n_threads must be positive.")
 
+    if n_threads > os.cpu_count():
+        n_threads = n_threads % os.cpu_count()
+
     sim_size_thr = sim_size // n_threads
     sim_size_rem = sim_size % n_threads
 
@@ -91,11 +104,14 @@ def fit_process(model,
     # ========= THREAD LOGIC ============
 
     # create input arguments list
+    #model_pkl = pickle.dumps(model)
+    grid_range_pkl = pickle.dumps(grid_range)
     inputs = [
-        (model,
-         grid_range,
+        (#model_pkl,
+         grid_range_pkl,
          sim_size_thr + (i < sim_size_rem),
-         base_seed + i)
+         base_seed + i,
+         i)
         for i in range(n_threads)
     ]
 

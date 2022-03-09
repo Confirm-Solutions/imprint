@@ -41,6 +41,7 @@ void add_grid_range(py::module_& m)
         .def("sim_sizes_const",
                 py::overload_cast<>(&gr_t::sim_sizes, py::const_),
                 py::return_value_policy::reference_internal)
+        .def("check_null", &gr_t::check_null)
         .def(py::pickle(
             [](const gr_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
@@ -79,6 +80,12 @@ void add_grid_range(py::module_& m)
                 p.n_tiles__() = n_tiles;
                 p.tiles__() = tiles;
                 p.bits__() = bits;
+                //std::swap(p.thetas(), thetas);
+                //std::swap(p.radii(), radii);
+                //std::swap(p.sim_sizes(), sim_sizes);
+                //std::swap(p.n_tiles__(), n_tiles);
+                //std::swap(p.tiles__(), tiles);
+                //std::swap(p.bits__(), bits);
 
                 return p;
             }))

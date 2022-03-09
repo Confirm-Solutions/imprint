@@ -1,6 +1,7 @@
 import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
+import cloudpickle
 from timeit import default_timer as timer
 from datetime import timedelta
 
@@ -49,6 +50,10 @@ print("Number of tiles: {t}".format(t=gr.n_tiles()))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
+
+# TODO: extra pickling step
+bckt = cloudpickle.dumps(bckt)
+gr = cloudpickle.dumps(gr)
 
 # run a mock-call of fit_thread
 start = timer()

@@ -30,10 +30,10 @@ void add_binomial_control_k_treatment(py::module_& m)
             [](const bckt_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
                 return py::make_tuple(
-                        p.probs_unique(),
-                        p.strides(),
-                        p.probs(),
-                        p.gbits(),
+                        //p.probs_unique(),
+                        //p.strides(),
+                        //p.probs(),
+                        //p.gbits(),
                         p.thresholds(),
                         p.n_arms(),
                         p.ph2_size(),
@@ -41,31 +41,31 @@ void add_binomial_control_k_treatment(py::module_& m)
                         );
             },
             [](py::tuple t) { // __setstate__
-                if (t.size() != 8) {
+                if (t.size() != 4) {
                     throw std::runtime_error("Invalid state!");
                 }
 
                 /* Create a new C++ instance */
-                auto thresh = t[4].cast<
+                auto&& thresh = t[4-4].cast<
                     std::decay_t<decltype(std::declval<bckt_t>().thresholds())>
                     >();
-                bckt_t p(t[5].cast<size_t>(),
-                         t[6].cast<size_t>(),
-                         t[7].cast<size_t>(),
+                bckt_t p(t[5-4].cast<size_t>(),
+                         t[6-4].cast<size_t>(),
+                         t[7-4].cast<size_t>(),
                          thresh);
-                auto&& probs_unique = t[0].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().probs_unique())>
-                    >();
-                auto&& strides = t[1].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().strides())>
-                    >();
-                auto&& probs = t[2].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().probs())>
-                    >();
-                auto&& gbits = t[3].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().gbits())>
-                    >();
-                p.set_internal(probs_unique, strides, probs, gbits);
+                //auto&& probs_unique = t[0].cast<
+                //    std::decay_t<decltype(std::declval<bckt_t>().probs_unique())>
+                //    >();
+                //auto&& strides = t[1].cast<
+                //    std::decay_t<decltype(std::declval<bckt_t>().strides())>
+                //    >();
+                //auto&& probs = t[2].cast<
+                //    std::decay_t<decltype(std::declval<bckt_t>().probs())>
+                //    >();
+                //auto&& gbits = t[3].cast<
+                //    std::decay_t<decltype(std::declval<bckt_t>().gbits())>
+                //    >();
+                //p.set_internal(probs_unique, strides, probs, gbits);
                 return p;
             }))
         ;

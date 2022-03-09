@@ -210,7 +210,7 @@ struct GridRange
         , radii_(std::move(gr.radii_))
         , sim_sizes_(std::move(gr.sim_sizes_))
         , n_tiles_(std::move(gr.n_tiles_))
-        , bits_(std::move(bits_))
+        , bits_(std::move(gr.bits_))
         , tiles_(std::move(gr.tiles_))
     {
         reset_tiles_viewer();

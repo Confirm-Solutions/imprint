@@ -29,7 +29,7 @@ void add_tile(py::module_& m)
 
                 using v_t = std::decay_t<decltype(std::declval<tile_t>().vertices__())>;
 
-                auto vertices = t[0].cast<v_t>();
+                auto&& vertices = t[0].cast<v_t>();
 
                 // NOTE: for now, it's ok to set these as nullptrs.
                 // The only time this gets pickled is when GridRange gets pickled.

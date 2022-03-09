@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 100000
+sim_size = 100 // 2
 n_thetas_1d = 64
 n_threads = os.cpu_count()
 # ========== End Toggleable ===============

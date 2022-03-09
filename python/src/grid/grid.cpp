@@ -1,5 +1,6 @@
 #include <pybind11/eigen.h> // must enable for automatic conversion of Eigen
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/functional.h>
 #include <grid/grid.hpp>
 #include <grid/grid_range.hpp>

@@ -39,6 +39,7 @@ else:
     else:
         extra_compile_args = [
             "-fopenmp",
+            "-g",
             "-O3",
             "-ffast-math",
             "--std=c++17",
