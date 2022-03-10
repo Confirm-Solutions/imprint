@@ -18,6 +18,19 @@ struct ModelStateBase
 };
 
 /*
+ * Base class for all model classes.
+ */
+template <class ValueType>
+struct ModelBase
+{
+    using value_t = ValueType;
+
+    virtual ~ModelBase() =default;
+    virtual value_t cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
+    virtual value_t max_cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
+};
+
+/*
  * Base class for all control + k treatment designs.
  */
 struct ControlkTreatmentBase

@@ -1,7 +1,6 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
-#include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <limits>
@@ -34,6 +33,7 @@ struct traits<BinomialControlkTreatment<ValueType, UIntType> >
 template <class ValueType, class UIntType>
 struct BinomialControlkTreatment
     : ControlkTreatmentBase
+    , ModelBase<ValueType>
 {
 private:
     using base_t = ControlkTreatmentBase;
@@ -62,7 +62,6 @@ public:
         /*
          * Generate RNG for the simulation.
          * Generate U(0,1) for each patient in each arm.
-         * TODO: what's the interface?
          */
         template <class GenType>
         void gen_rng(GenType&& gen) { 
@@ -147,7 +146,7 @@ public:
 
                 // Phase III
                 
-                bool rej = false;
+                size_t rej = 0;
                 if (outer_.null_hypo_(a_star, i)) {
                     // pairwise z-test
                     auto n = outer_.n_samples();
@@ -165,8 +164,12 @@ public:
                         std::copysign(1.0, z) * std::numeric_limits<double>::infinity() : 
                         z / std::sqrt(var / n); 
 
-                    // TODO: this must be generalized once we have a sequence of thresholds
-                    rej = (z > outer_.threshold_);
+                    auto it = std::find_if(
+                            outer_.thresholds_.data(),
+                            outer_.thresholds_.data()+outer_.thresholds_.size(),
+                            [&](auto t) { return z > t; });
+
+                    rej = outer_.n_models() - std::distance(outer_.thresholds_.data(), it);
                 }
 
                 // save rejection for the current model
@@ -211,22 +214,31 @@ public:
     // default constructor is the base constructor
     using base_t::base_t;
 
+    using base_t::n_arms;
+    using base_t::ph2_size;
+    using base_t::n_samples;
+
     /*
      * Constructs the model object with configuration parameters.
      *
      * @param   n_arms      number of arms.
      * @param   ph2_size    phase II size.
      * @param   n_samples   number of patients in each arm.
-     * @param   threshold   critical threshold.
+     * @param   thresholds  critical thresholds.
+     *                      Internally, a copy is made in decreasing order.
      */
     BinomialControlkTreatment(
             size_t n_arms,
             size_t ph2_size,
             size_t n_samples,
-            value_t threshold)
+            const Eigen::Ref<const colvec_type<value_t> >& thresholds)
         : base_t(n_arms, ph2_size, n_samples)
-        , threshold_(threshold)
-    {}
+        , thresholds_(thresholds)
+    {
+        /* One-time const cast to sort the thresholds. */
+        auto& thr = const_cast<colvec_type<value_t>&>(thresholds_);
+        std::sort(thr.data(), thr.data()+thr.size(), std::greater<value_t>());
+    }
 
     /*
      * Sets the grid range and caches any results
@@ -312,28 +324,34 @@ public:
      */
     state_t make_state() const { return state_t(*this); }
 
-    // TODO: n_models should output the actual number of models once we have a sequence of lambdas.
-    constexpr auto n_models() const { return 1; }
+    constexpr auto n_models() const { return thresholds_.size(); }
     constexpr auto n_gridpts() const { return gbits_.cols(); }
 
     /*
-     * Computes the trace of the covariance matrix at ith gridpoint.
+     * Computes the quadratic form of covariance matrix
+     *  v^T Cov v
+     * at jth gridpoint.
      *
-     * @param   i      ith gridpoint.
+     * @param   j      jth gridpoint.
+     * @param   v      vector to take quadratic form.
      */
-    value_t tr_cov(size_t i) const
+    value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto p_ = get_p_();
-        auto pi = p_.col(i).array();
-        return (pi * (1.0 - pi)).sum() * n_samples();
+        auto p_j = get_p_().col(j);
+        return n_samples() * 
+            v.array().square().matrix().dot(
+                (p_j.array() * (1.0-p_j.array())).matrix() );
     }
 
     /*
-     * Computes the trace of the supremum (in the grid) of covariance matrix at ith gridpoint.
+     * Computes the supremum (in the grid) of covariance matrix 
+     *  v^T max_{grid} C v
+     * at jth gridpoint.
      *
-     * @param   i      ith gridpoint.
+     * @param   j      jth gridpoint.
+     * @param   v      vector to take quadratic form.
      */
-    value_t tr_max_cov(size_t i) const
+    value_t max_cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
         auto p_ = get_p_();
 
@@ -341,21 +359,21 @@ public:
                 probs_.data(), p_.rows(), p_.cols());
         Eigen::Map<const mat_type<value_t> > p_upper(
                 p_.data() + p_.size(), p_.rows(), p_.cols());
-        auto pli = p_lower.col(i);
-        auto pi = p_.col(i);
-        auto pui = p_upper.col(i);
+        auto pli = p_lower.col(j);
+        auto pui = p_upper.col(j);
 
         value_t hess_bd = 0;
-        for (int j = 0; j < pi.size(); ++j) {
-            if (pli[j] <= 0.5 && 0.5 <= pui[j]) {
-                hess_bd += 0.25;
+        for (int k = 0; k < v.size(); ++k) {
+            auto v_sq = v[k] * v[k];
+            if (pli[k] <= 0.5 && 0.5 <= pui[k]) {
+                hess_bd += 0.25 * v_sq;
             } else {
-                auto lower = pli[j] - 0.5; // shift away center
-                auto upper = pui[j] - 0.5; // shift away center
+                auto lower = pli[k] - 0.5; // shift away center
+                auto upper = pui[k] - 0.5; // shift away center
                 // max of p(1-p) occurs for whichever p is closest to 0.5.
                 bool max_at_upper = (std::abs(upper) < std::abs(lower));
-                auto max_endpt = max_at_upper ? pui[j] : pli[j]; 
-                hess_bd += max_endpt * (1. - max_endpt);
+                auto max_endpt = max_at_upper ? pui[k] : pli[k]; 
+                hess_bd += max_endpt * (1. - max_endpt) * v_sq;
             }
         }
         return hess_bd * n_samples();
@@ -385,7 +403,7 @@ public:
     const auto& get_strides() const { return strides_; }
     const auto& get_probs() const { return probs_; }
     const auto& get_gbits() const { return gbits_; }
-    auto get_threshold() const { return threshold_; }
+    const auto& get_thresholds() const { return thresholds_; }
     const auto& get_null_hypo() const { return null_hypo_; }
 
 private:
@@ -400,12 +418,17 @@ private:
                 n_arms(), n_gridpts());
     }
 
-    std::vector<colvec_type<value_t> > probs_unique_; // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
-    colvec_type<uint_t> strides_;    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
-    colvec_type<value_t> probs_;    // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
-    mat_type<bool> null_hypo_;      // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
-    mat_type<uint_t> gbits_; // range of gbits
-    const value_t threshold_; // critical threshold
+    using vec_t = colvec_type<value_t>;
+    using uvec_t = colvec_type<uint_t>;
+    using mat_t = mat_type<value_t>;
+    using umat_t = mat_type<uint_t>;
+
+    std::vector<vec_t> probs_unique_;   // probs_unique_[i] = unique prob vector sorted (ascending) for arm i.
+    uvec_t strides_;                    // strides_[i] = number of unique probs for arm i-1 with 0 for arm -1.
+    vec_t probs_;                       // probs_(.,j,k) = jth prob vector with k = 0,1,2 corresp to left/curr/right gridpt.
+    mat_type<bool> null_hypo_;          // null_hypo_(i,j) = true if arm i+1 is in its null hypothesis under jth gridpoint.
+    umat_t gbits_;                      // range of gbits
+    const vec_t thresholds_;            // critical thresholds 
 };
 
 } // namespace kevlar

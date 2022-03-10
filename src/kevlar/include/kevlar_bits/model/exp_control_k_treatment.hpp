@@ -1,7 +1,6 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
-#include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/model/base.hpp>
@@ -35,6 +34,7 @@ struct traits<ExpControlkTreatment<ValueType, UIntType> >
 template <class ValueType, class UIntType>
 struct ExpControlkTreatment
     : ControlkTreatmentBase
+    , ModelBase<ValueType>
 {
 private:
     using base_t = ControlkTreatmentBase;
@@ -161,7 +161,11 @@ public:
                         std::copysign(1., logrank_cum_sum_[idx]) * std::numeric_limits<value_t>::infinity() :
                         logrank_cum_sum_[idx] / std::sqrt(v_cum_sum_[idx]);
 
-                rej_len[i] = (z > outer_.threshold_);
+                auto it = std::find_if(
+                        outer_.thresholds_.data(),
+                        outer_.thresholds_.data()+outer_.thresholds_.size(),
+                        [&](auto t) { return z > t; });
+                rej_len[i] = outer_.n_models() - std::distance(outer_.thresholds_.data(), it);
             }
         }
 
@@ -203,11 +207,15 @@ public:
     ExpControlkTreatment(
             size_t n_samples,
             value_t censor_time,
-            value_t threshold)
+            const Eigen::Ref<const colvec_type<value_t> >& thresholds)
         : base_t(2, 0, n_samples)
         , censor_time_(censor_time)
-        , threshold_(threshold)
-    {}
+        , thresholds_(thresholds)
+    {
+        /* One-time const cast to sort the thresholds. */
+        auto& thr = const_cast<colvec_type<value_t>&>(thresholds_);
+        std::sort(thr.data(), thr.data()+thr.size(), std::greater<value_t>());
+    }
 
     /*
      * Sets the grid range and caches any results
@@ -246,22 +254,24 @@ public:
      */
     state_t make_state() const { return state_t(*this); }
 
-    constexpr auto n_models() const { return 1; }
+    constexpr auto n_models() const { return thresholds_.size(); }
     constexpr auto n_gridpts() const { return n_gridpts_; }
 
-    value_t tr_cov(size_t i) const
+    value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto hr = hzrd_rate(i);
-        auto mean_1 = 1./lmda_control(i);
-        auto mean_0 = 1./hr * mean_1;
-        return n_samples() * (mean_1*mean_1 + mean_0*mean_0);
+        auto hr = hzrd_rate(j);
+        auto mean_1 = 1./lmda_control(j);
+        return n_samples() * mean_1 * mean_1 *
+            (v[1]*v[1] + v[0]*v[0]/(hr * hr));
     }
 
-    value_t tr_max_cov(size_t i) const
+    value_t max_cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v) const override
     {
-        auto lmda_lower = lmda_control_lower(i);
-        auto hr_lower = hzrd_rate_lower(i);
-        return n_samples() * (1./(lmda_lower*lmda_lower)) * (1.0 + 1./(hr_lower*hr_lower));
+        auto lmda_lower = lmda_control_lower(j);
+        auto hr_lower = hzrd_rate_lower(j);
+        auto mean_1 = 1./lmda_lower;
+        return n_samples() * mean_1 * mean_1 *
+            (v[1]*v[1] + v[0]*v[0]/(hr_lower*hr_lower));
     }
 
     /*
@@ -281,10 +291,10 @@ public:
 
     /* Getter routines mainly for pickling */
     auto get_censor_time() const { return censor_time_; }
-    auto get_threshold() const { return threshold_; }
     auto get_n_gridpts() const { return n_gridpts_; }
     const auto& get_buff() const { return buff_; }
     const auto& get_null_hypo() const { return null_hypo_; }
+    const auto& get_thresholds() const { return thresholds_; }
 
 private:
     auto get_params_lower() {
@@ -313,7 +323,7 @@ private:
     auto lmda_control_lower(size_t j) const { return get_params_lower()(0,j); }
 
     const value_t censor_time_;
-    const value_t threshold_;
+    const colvec_type<value_t> thresholds_;
     uint_t n_gridpts_ = 0;
     colvec_type<value_t> buff_;     // buff_(0,j,0) = lower lambda of control at jth gridpoint.
                                     // buff_(1,j,0) = lower hazard rate at jth gridpoint.

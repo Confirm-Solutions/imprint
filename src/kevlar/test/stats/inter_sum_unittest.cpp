@@ -1,5 +1,5 @@
 #include <testutil/base_fixture.hpp>
-#include <kevlar_bits/intersum.hpp>
+#include <kevlar_bits/stats/inter_sum.hpp>
 
 namespace kevlar {
 
@@ -86,9 +86,6 @@ TEST_P(test_update_fixture, test_update)
     mms.get_rej_len(v);
     colvec_type<double> g(n_gridpts * n_params);
     mms.get_grad(g, v);
-
-    // check accumulation count
-    EXPECT_EQ(is.n_accum(), 1);
 
     // check Type I sums
     auto& tis = is.type_I_sum();

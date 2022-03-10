@@ -53,10 +53,10 @@ sim_sizes[...] = sim_size
 batcher = SimpleBatch(gr, max_batch_size)
 
 # create ECKT
-eckt = core.ExpControlkTreatment(n_samples, censor_time, thresh)
+eckt = core.ExpControlkTreatment(n_samples, censor_time, [thresh])
 
 # run a mock-call of fit_driver
 # Currently, it will yield each batched result.
 # TODO: once this doesn't yield anymore, modify this part.
 for is_o in driver.fit_driver(batcher, null_hypo, eckt, seed, n_threads):
-    print(is_o.type_I_sum() / is_o.n_accum())
+    print(is_o.type_I_sum() / sim_size)

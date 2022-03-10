@@ -3,7 +3,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/util/range/grid_range.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 #include <random>
 #include <iostream>
 
@@ -14,14 +14,15 @@ namespace py = pybind11;
 
 void add_binomial_control_k_treatment(py::module_& m)
 {
+    using mb_t = ModelBase<double>;
     using ckt_t = kevlar::ControlkTreatmentBase;
     using bckt_t = kevlar::BinomialControlkTreatment<double, uint32_t>;
-    py::class_<bckt_t, ckt_t>(m, "BinomialControlkTreatment")
+    py::class_<bckt_t, ckt_t, mb_t>(m, "BinomialControlkTreatment")
         .def(py::init<
                 size_t,
                 size_t,
                 size_t,
-                double
+                Eigen::Ref<const colvec_type<double> >
             >())
         .def("set_grid_range", &bckt_t::set_grid_range<
                 const kevlar::GridRange<double, uint32_t>&,
@@ -29,8 +30,6 @@ void add_binomial_control_k_treatment(py::module_& m)
                 >)
         .def("make_state", &bckt_t::make_state)
         .def("n_gridpts", &bckt_t::n_gridpts)
-        .def("tr_cov", &bckt_t::tr_cov)
-        .def("tr_max_cov", &bckt_t::tr_max_cov)
         .def(py::pickle(
             [](const bckt_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
@@ -39,7 +38,7 @@ void add_binomial_control_k_treatment(py::module_& m)
                         p.get_strides(),
                         p.get_probs(),
                         p.get_gbits(),
-                        p.get_threshold(),
+                        p.get_thresholds(),
                         p.get_null_hypo(),
                         p.n_arms(),
                         p.ph2_size(),
@@ -53,7 +52,7 @@ void add_binomial_control_k_treatment(py::module_& m)
 
                 /* Create a new C++ instance */
                 auto thresh = t[4].cast<
-                    std::decay_t<decltype(std::declval<bckt_t>().get_threshold())>
+                    std::decay_t<decltype(std::declval<bckt_t>().get_thresholds())>
                     >();
                 bckt_t p(t[6].cast<size_t>(),
                          t[7].cast<size_t>(),

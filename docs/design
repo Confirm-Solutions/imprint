@@ -1,19 +1,44 @@
-UpperBoundComputer:
-- Python
-- Require list of functions to check null-hypo space.
-- Do the corner cases to compute sup bound
-- Save the delta_0^u, delta_1^u, delta_2^u and also the combined upper-bound in the database
+Adagrid:
+- Python class object
+- Members vars:
+    - thr
+    - thr_minus
 
-=============================================================================
-C++ side
+- Member fns:
+    - initialize:
+        - Inputs:
+            - model
+                - needs model.initial_thresh(alpha_minus, alpha)
+
+
+    - fit
+        - Inputs:
+            - model
+            - null_hypo (model-dependent) this is for passing to model.get_rej_len(..., null_hypo)
+            - is_not_alt (not model-dependent): a function that takes in a gridpoint and returns true if it is not in alternative space.
+            - alpha
+            - delta
+            - seed
+            - max_iter (iterations for creating new points)
+            - init_grid_range (GridRange object)
+        - Output:
+            - GridRange object of last selected set of points
+- C++ side needs:
+    - models need to support more than 1 thresholds for fitting.
+    - GridRangeView that views existing memory storage (accept row or column major format)
+    - 
+
+========================================================================================================================
+#### Finished Implementation ####
+
+UpperBound:
+- Do the corner cases to compute sup bound
+- Store the delta_0, delta_0^u, delta_1, delta_1^u, delta_2^u.
 
 ExponentialModel:
 - Nested class for an instance of the model ("State"):
     - similar to BinomialModel
 - Optimize in the case of diagonal points, but still works in general.
-
-========================================================================================================================
-#### Finished Implementation ####
 
 FitDriver:
 - Python
@@ -31,35 +56,6 @@ FitDriver:
     - update gridpt simsize after calling Fit like:
     for each gridpt:
         gridpt.simsize -= N
-
-Fit:
-- Python
-- Inputs: 
-    - model state
-    - batch simsize
-    - gen
-- Each node in a cluster will call this function.
-- Spawn k threads (where node has k CPUs) (one for each CPU),
-and divide up the simulations.
-- set batch simsize /= k for each thread.
-- Each thread starts at seed=base seed + i, where i is the index of thread.
-- Pool the return values from each thread by summing them,
-and update into database.
-
-FitThread:
-- Python
-- Inputs:
-    - model_state
-    - batch simsize
-    - seed
-- Each thread spawned from Fit will call this routine.
-- Return (TypeIerror, gradient).
-- Pseudocode:
-for i in 1:batch simsize:
-    model_state.get_rng() # THIS is where we interact with model for the first time.
-    model_state.get_suff_stat()
-    intersum.update(model_state) 
-return intersum
 
 BinomialModel:
 - Nested class for an instance of the model ("State"):

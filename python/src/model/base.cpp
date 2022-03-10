@@ -7,6 +7,15 @@ namespace model {
 
 namespace py = pybind11;
 
+void add_model_base(py::module_& m)
+{
+    using mb_t = ModelBase<double>;
+    py::class_<mb_t>(m, "ModelBase")
+        .def("cov_quad", &mb_t::cov_quad)
+        .def("max_cov_quad", &mb_t::max_cov_quad)
+        ;
+}
+
 void add_model_state_base(pybind11::module_& m)
 {
     using msb_t = ModelStateBase<double, uint32_t>;
