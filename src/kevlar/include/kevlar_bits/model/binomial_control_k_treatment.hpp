@@ -80,9 +80,17 @@ public:
         }
 
         /*
+         * Overrides the necessary RNG generator.
+         * TODO: generalize mt19937 somehow.
+         */
+        void gen_rng(std::mt19937& gen) override { 
+            gen_rng<std::mt19937&>(gen);
+        }
+
+        /*
          * Generates sufficient statistic for each arm under all possible grid points.
          */
-        void gen_suff_stat() 
+        void gen_suff_stat() override
         {
             size_t k = outer_.n_arms()-1;
             size_t n = outer_.n_samples();
@@ -343,7 +351,8 @@ public:
     /*
      * Create a state object associated with the current model instance.
      */
-    state_t make_state() const { return state_t(*this); }
+    std::unique_ptr<typename state_t::model_state_base_t>
+        make_state() const override { return std::make_unique<state_t>(*this); }
 
     uint_t n_models() const override { return thresholds_.size(); }
 

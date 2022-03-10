@@ -1,4 +1,4 @@
-from pykevlar.driver import fit_driver
+from pykevlar.driver import fit_process
 from pykevlar.core import (
     AdaGridInternal,
     UpperBound,
@@ -42,7 +42,7 @@ class AdaGrid(AdaGridInternal):
         #model.set_grid_range(grid_range, null_hypo)
         #model_state = model.make_state()
 
-        #sim_sizes = grid_range.get_sim_sizes()
+        #sim_sizes = grid_range.sim_sizes()
         #it_o = InitThresh(alpha)
         #gen = mt19937()
 
@@ -51,13 +51,13 @@ class AdaGrid(AdaGridInternal):
         #    sim_size_j = sim_sizes[j]
         #    it_o.reset(sim_size_j)
         #    for i in range(sim_size_j):
-        #        model_state.get_rng(gen)
-        #        model_state.get_suff_stat()
+        #        model_state.rng(gen)
+        #        model_state.suff_stat()
         #        it_o.update(model_state, j)
         #    it_o.create(model_state, j)
 
-        #thresh = it_o.get_thresh()
-        #alpha_minus = it_o.get_alpha_minus()
+        #thresh = it_o.thresh()
+        #alpha_minus = it_o.alpha_minus()
 
         #i_star = np.argmax(thresh[0,:]) # argmax of thresh
 
@@ -74,10 +74,8 @@ class AdaGrid(AdaGridInternal):
     def fit_internal__(self,
                        batcher,
                        model,
-                       null_hypo,
-                       is_not_alt,
+                       null_hypos,
                        grid_range,
-                       grid_final,
                        thr,
                        thr_minus,
                        alpha,
@@ -89,8 +87,8 @@ class AdaGrid(AdaGridInternal):
         '''
         Simulates the model for the current grid range.
         Based on the upper bound object,
-        it appends finalized points into grid_final,
-        and resets grid_range with the new set of points.
+        it returns finalized points into grid_final,
+        and grid_range as the new set of points.
 
         '''
 
@@ -98,7 +96,7 @@ class AdaGrid(AdaGridInternal):
         model.set_thresholds(np.array([thr_minus, thr]))
 
         # attach batcher to current grid range
-        batcher.reset(grid_range=grid_range)
+        batcher.reset(grid_range=grid_range, null_hypos=null_hypos)
 
         # TODO: THIS ASSUMES EACH BATCH FINISHES ALL SIMS.
         # Later do a SQL query instead of getting yields,
@@ -106,56 +104,71 @@ class AdaGrid(AdaGridInternal):
         # because by the time the driver is finished
         # the updates are all done regardless of how sims were divided up.
         # For now, we'll just create one big InterSum from all InterSums.
-        is_os = [ is_o
-            for is_o in
-            fit_driver(
-            batcher=batcher,
-            null_hypo=null_hypo,
-            model=model,
-            base_seed=base_seed,
-            n_threads=n_threads
-        )]
-        is_o = type(is_os[0])(
-            is_os[0].n_models(),
-            grid_range.size(),
-            is_os[0].n_params(),
+        grs = []
+        gfs = []
+        for gr, sim_size in batcher:
+            is_o = fit_process(
+                model=model,
+                grid_range=gr,
+                sim_size=sim_size,
+                base_seed=base_seed,
+                n_threads=n_threads
+            )
+            ub = UpperBound()
+            ub.create(model, is_o, gr, delta)
+
+            # extract estimates of alpha, alpha_minus, N_crit
+            d0 = ub.delta_0_const()
+            N = gr.sim_sizes_const()
+
+            i_star = np.argmax(d0[1,:])
+            alpha_hat = d0[1,i_star]
+            alpha_minus_hat = d0[0,i_star]
+
+            ntcs = np.cumsum(gr.n_tiles())
+            N_crit = N[np.where(ntcs > i_star)[0][0]]
+
+            # call internal C++ routine to update grid ranges
+            gf = GridRange()
+            self.update(
+                ub,
+                gr,
+                gf,
+                N_max,
+                finalize_thr,
+            )
+
+            # append to list
+            grs.append(gr)
+            gfs.append(gf)
+
+
+        def copy_gr(gs, og):
+            pos = 0
+            for g in gs:
+                og.thetas()[:,pos:(pos+g.n_gridpts())] = g.thetas()
+                og.radii()[:,pos:(pos+g.n_gridpts())] = g.radii()
+                og.sim_sizes()[pos:(pos+g.n_gridpts())] = g.sim_sizes()
+                pos += g.n_gridpts()
+
+        grid_range = GridRange(
+            grid_range.n_params(),
+            np.sum(np.array([gr.n_gridpts() for gr in grs]))
         )
-        tis = is_o.type_I_sum()
-        gs = is_o.grad_sum()
-        tis[...] = np.hstack([i.type_I_sum() for i in is_os])
-        gs[...] = np.concatenate([i.grad_sum() for i in is_os])
-
-        # create upper bound
-        ub = UpperBound()
-        ub.create(model, is_o, grid_range, delta)
-
-        # extract estimates of alpha, alpha_minus, N_crit
-        d0 = ub.get_delta_0_const()
-        N = grid_range.get_sim_sizes_const()
-
-        i_star = np.argmax(d0[1,:])
-        alpha_hat = d0[1,i_star]
-        alpha_minus_hat = d0[0,i_star]
-        N_crit = N[i_star]
-
-        # call internal C++ routine to update grid ranges
-        self.update(
-            ub,
-            grid_range,
-            grid_final,
-            is_not_alt,
-            N_max,
-            finalize_thr,
+        grid_final = GridRange(
+            grid_range.n_params(),
+            np.sum(np.array([gf.n_gridpts() for gf in gfs]))
         )
+        copy_gr(grs, grid_range)
+        copy_gr(gfs, grid_final)
 
-        return alpha_hat, alpha_minus_hat, N_crit
+        return alpha_hat, alpha_minus_hat, N_crit, grid_range, grid_final
 
 
     def fit(self,
             batcher,
             model,
-            null_hypo,
-            is_not_alt,
+            null_hypos,
             init_grid,
             alpha,
             delta,
@@ -179,8 +192,7 @@ class AdaGrid(AdaGridInternal):
         model       :   model object.
         null_hypo   :   functor whose input is unspecified and is model-specific.
                         Must satisfy model.set_grid_range(..., null_hypo).
-        is_not_alt  :   functor whose input is a grid-point.
-                        Returns True if grid-point is not in alternative space.
+        null_hypos  :   list of surface objects that define the null-hypothesis region.
         init_grid   :   initial GridRange object.
         alpha       :   desired nominal level of model test.
         delta       :   1-confidence bound for provable upper bound.
@@ -209,18 +221,8 @@ class AdaGrid(AdaGridInternal):
         if finalize_thr is None:
             finalize_thr = alpha * 1.1
 
-        # prune out grid points based on is_not_alt
-        # and create the first grid range
-        thetas = init_grid.get_thetas()
-        slicer = np.array([is_not_alt(p) for p in thetas.T])
-
-        grid_range = GridRange(thetas.shape[0], np.sum(slicer))
-        thetas = grid_range.get_thetas()
-        thetas[...] = init_grid.get_thetas()[:,slicer]
-        radii = grid_range.get_radii()
-        radii[...] = init_grid.get_radii()[:,slicer]
-        sim_sizes = grid_range.get_sim_sizes()
-        sim_sizes[...] = init_grid.get_sim_sizes()[slicer]
+        # create the first grid range
+        grid_range = init_grid
 
         # list of grid ranges for each iteration that were finalized points.
         grid_finals = []
@@ -235,7 +237,7 @@ class AdaGrid(AdaGridInternal):
         thr_minus = thr_minus
 
         itr = 0
-        while (grid_range.size() > 0) and (itr < max_iter):
+        while (grid_range.n_gridpts() > 0) and (itr < max_iter):
 
             if rand_iter:
                 # TODO: how do we ensure that the seed change
@@ -252,20 +254,17 @@ class AdaGrid(AdaGridInternal):
                     thr=thr, thr_minus=thr_minus))
 
             grid_range_old = copy.deepcopy(grid_range)
-            grid_final = GridRange()
 
             # get estimates for alpha_hat, alpha_minus_hat, N_crit, upper bound
             # updates in-place:
             #   - grid_range as the next set of grid-range.
             #   - grid_final is appended with points.
-            alpha_hat, alpha_minus_hat, N_crit = \
+            alpha_hat, alpha_minus_hat, N_crit, grid_range, grid_final = \
                 self.fit_internal__(
                     batcher=batcher,
                     model=model,
-                    null_hypo=null_hypo,
-                    is_not_alt=is_not_alt,
+                    null_hypos=null_hypos,
                     grid_range=grid_range,
-                    grid_final=grid_final,
                     thr=thr,
                     thr_minus=thr_minus,
                     alpha=alpha,

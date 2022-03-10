@@ -31,6 +31,8 @@ void add_inter_sum(pybind11::module_& m)
         .def("grad_sum_const", 
                 py::overload_cast<>(&is_t::grad_sum, py::const_),
                 py::return_value_policy::reference_internal)
+        .def("n_tiles", &is_t::n_tiles)
+        .def("n_params", &is_t::n_params)
         .def(py::pickle(
             [](const is_t& p) { // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

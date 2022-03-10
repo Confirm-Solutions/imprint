@@ -11,11 +11,12 @@ class SimpleBatchIter():
     def __next__(self):
         sb = self.simple_batch
 
-        if self.pos == sb.grid_range.n_tiles():
+        if self.pos == sb.grid_range.n_gridpts():
+            self.pos = 0
             raise StopIteration
 
         size = min(sb.max_size,
-                   sb.grid_range.n_tiles()-self.pos)
+                   sb.grid_range.n_gridpts()-self.pos)
 
         gr = GridRange(sb.grid_range.n_params(),
                        size)
@@ -35,7 +36,12 @@ class SimpleBatchIter():
         #   so just grab one of the elements.
         # - each batch will process the full sim_size.
         #   so no need to do anything special for sim_size_rem.
-        sim_size = np.max(sb.grid_range.sim_sizes_const())
+        gr.sim_sizes()[...] = sb.grid_range.sim_sizes()[self.pos:(self.pos+size)]
+
+        sim_size = np.max(gr.sim_sizes())
+
+        gr.create_tiles(sb.null_hypos)
+        gr.prune()
 
         self.pos += size
 
@@ -44,23 +50,26 @@ class SimpleBatchIter():
 
 class SimpleBatch():
 
-    def __init__(self, grid_range=None, max_size=None):
+    def __init__(self, grid_range=None, max_size=None, null_hypos=None):
         if max_size == 0:
             raise ValueError("max_size must be either positive or negative.")
 
         self.grid_range = None
         self.max_size = None
+        self.null_hypos = None
 
-        self.reset(grid_range, max_size)
+        self.reset(grid_range, max_size, null_hypos)
 
 
-    def reset(self, grid_range=None, max_size=None):
+    def reset(self, grid_range=None, max_size=None, null_hypos=None):
         if not (grid_range is None):
             self.grid_range = grid_range
         if not (max_size is None):
             self.max_size = max_size \
                 if max_size > 0 \
-                else grid_range.size()
+                else grid_range.n_gridpts()
+        if not (null_hypos is None):
+            self.null_hypos = null_hypos
 
     def __iter__(self):
         return SimpleBatchIter(self)

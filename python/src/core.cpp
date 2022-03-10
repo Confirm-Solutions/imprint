@@ -1,4 +1,5 @@
 #include <core.hpp>
+#include <driver/driver.hpp>
 #include <grid/grid.hpp>
 #include <stats/stats.hpp>
 #include <model/model.hpp>
@@ -10,6 +11,7 @@ PYBIND11_MODULE(core, m) {
     kevlar::grid::add_to_module(m);
     kevlar::stats::add_to_module(m);
     kevlar::std::add_to_module(m);
+    kevlar::driver::add_to_module(m);
 
     /* Rest of the dependencies */
 }

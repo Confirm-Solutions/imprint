@@ -473,8 +473,9 @@ private:
     mat_type<value_t> thetas_;      // matrix of theta vectors
     mat_type<value_t> radii_;       // matrix of radius vectors
     colvec_type<uint_t> sim_sizes_; // vector of simulation sizes
-    std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
 
+    // updated via member functions
+    std::vector<uint_t> n_tiles_;   // n_tiles_[i] = number of tiles for ith gridpoint
     std::vector<bits_t> bits_;      // vector of bits to represent ISH of each tile
     std::vector<tile_t> tiles_;     // vector of tiles (flattened across all gridpoints)
 };

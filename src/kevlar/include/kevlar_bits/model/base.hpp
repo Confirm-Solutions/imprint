@@ -1,7 +1,12 @@
 #pragma once
 #include <kevlar_bits/util/types.hpp>
+#include <memory>
+#include <random> // TODO: should generalize
 
 namespace kevlar {
+
+template <class ValueType, class UIntType, class GridRangeType>
+struct ModelStateBase;
 
 /*
  * Base class for all model classes.
@@ -12,16 +17,17 @@ struct ModelBase
     using value_t = ValueType;
     using uint_t = UIntType;
     using gr_t = GridRangeType;
+    using model_state_t = ModelStateBase<value_t, uint_t, gr_t>;
 
     virtual ~ModelBase() =default;
     virtual value_t cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
     virtual value_t max_cov_quad(size_t, const Eigen::Ref<const colvec_type<value_t>>&) const =0;
     virtual uint_t n_models() const =0;
+    virtual std::unique_ptr<model_state_t> make_state() const =0;
 
     void set_grid_range(const gr_t& grid_range) {
         grid_range_view_ = &grid_range;
     }
-
     const gr_t& grid_range() const { return *grid_range_view_; }
 
 private:
@@ -44,8 +50,11 @@ struct ModelStateBase
     {}
 
     virtual ~ModelStateBase() =default;
+    virtual void gen_rng(std::mt19937&) =0; // TODO: generalize mt19937
+    virtual void gen_suff_stat() =0;
     virtual void rej_len(Eigen::Ref<colvec_type<uint_t> >) =0;
     virtual value_t grad(uint_t, uint_t) =0;
+
     const gr_t& grid_range() { return mb_->grid_range(); }
 
 private:

@@ -29,7 +29,9 @@ void add_upper_bound(py::module_& m)
                 py::arg("delta"),
                 py::arg("delta_prop_0to1")=0.5,
                 py::arg("verbose")=false)
-        .def("get", &ub_t::get)
+        .def("get", 
+                py::overload_cast<>(&ub_t::get, py::const_),
+                py::return_value_policy::reference_internal)
         .def("delta_0", 
                 py::overload_cast<>(&ub_t::delta_0),
                 py::return_value_policy::reference_internal)

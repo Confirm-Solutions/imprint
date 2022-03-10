@@ -9,7 +9,6 @@
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
-#include <random>
 
 namespace kevlar {
 namespace model {
@@ -32,7 +31,7 @@ void add_to_module(py::module_& m)
     add_model_base<mb_t>(m);
     add_model_state_base<msb_t>(m);
     add_control_k_treatment_base<cktb_t>(m);
-    add_binomial_control_k_treatment<bckt_t, std::mt19937>(m);
+    add_binomial_control_k_treatment<bckt_t>(m);
     // TODO
     //add_exp_control_k_treatment(m);
 }

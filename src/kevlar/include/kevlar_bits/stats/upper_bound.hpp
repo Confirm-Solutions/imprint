@@ -48,12 +48,12 @@ struct UpperBound
                 value_t delta_prop_0to1 = 0.5,
                 bool verbose = false)
     {
-        auto n_params = grid_range.n_params();
-        auto n_tiles = is_o.n_tiles();
-        auto n_models = model.n_models();
+        const auto n_params = grid_range.n_params();
+        const auto n_tiles = is_o.n_tiles();
+        const auto n_models = model.n_models();
         
         if (verbose) {
-            auto slice_size = n_params * n_tiles;
+            const auto slice_size = n_params * n_tiles;
             vertices_.resize(slice_size * n_models);
             create_internal(
                     model, is_o, grid_range, 
@@ -71,15 +71,15 @@ struct UpperBound
                     delta, delta_prop_0to1,
                     [](size_t, size_t, const auto&) {});
         }
+
+        full_ = delta_0_ + delta_0_u_ + delta_1_ 
+                + delta_1_u_ + delta_2_u_;
     }
 
     /*
      * Returns the total upper bound computed from the components.
      */
-    mat_type<value_t> get() const 
-    {
-        return delta_0_ + delta_0_u_ + delta_1_ + delta_1_u_ + delta_2_u_;
-    }
+    const mat_type<value_t>& get() const { return full_; }
 
     /*
      * Returns the vertices that maximize d1 + d1u + d2u 
@@ -131,7 +131,7 @@ private:
 
         // populate 0th order and upper bound
         delta_0_.resize(n_models, n_tiles);
-        delta_0_u_.resize(delta_0_.rows(), delta_0_.cols());
+        delta_0_u_.resize(n_models, n_tiles);
         delta_1_.setZero(n_models, n_tiles);
         delta_1_u_.resize(n_models, n_tiles);
         delta_2_u_.resize(n_models, n_tiles);
@@ -242,6 +242,7 @@ private:
     mat_type<value_t> delta_1_;         // 1st order (n_models x n_gridpts)
     mat_type<value_t> delta_1_u_;       // 1st order upper bound (n_models x n_gridpts)
     mat_type<value_t> delta_2_u_;       // 2nd order upper bound (n_models x n_gridpts)
+    mat_type<value_t> full_;            // full upper bound = sum of previous components
 
     colvec_type<value_t> vertices_;     // vertices that achieve the maximum of d1+d1u+d2u
                                         // n_params x n_gridpts x n_models

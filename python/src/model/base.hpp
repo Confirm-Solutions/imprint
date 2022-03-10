@@ -16,6 +16,7 @@ void add_model_base(py::module_& m)
         .def("n_models", &mb_t::n_models)
         .def("grid_range", &mb_t::grid_range,
                 py::return_value_policy::reference_internal)
+        .def("make_state", &mb_t::make_state)
         ;
 }
 
@@ -24,6 +25,8 @@ void add_model_state_base(pybind11::module_& m)
 {
     using msb_t = MSB;
     py::class_<msb_t>(m, "ModelStateBase")
+        .def("gen_rng", &msb_t::gen_rng)
+        .def("gen_suff_stat", &msb_t::gen_suff_stat)
         .def("rej_len", &msb_t::rej_len)
         .def("grad", &msb_t::grad)
         .def("grid_range", &msb_t::grid_range,

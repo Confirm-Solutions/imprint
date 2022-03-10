@@ -74,6 +74,12 @@ struct Tile
         size_t cnt_;
     };
 
+    Tile()
+        : vertices_()
+        , center_(nullptr, 0)
+        , radius_(nullptr, 0)
+    {}
+
     Tile(const Eigen::Ref<const colvec_type<value_t>>& center,
          const Eigen::Ref<const colvec_type<value_t>>& radius)
         : center_(center.data(), center.size())

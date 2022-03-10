@@ -4,11 +4,10 @@ import numpy as np
 import os
 from timeit import default_timer as timer
 from datetime import timedelta
-import matplotlib.pyplot as plt
 
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 100 // 2
+sim_size = 100000
 n_thetas_1d = 64
 n_threads = os.cpu_count()
 # ========== End Toggleable ===============
@@ -16,7 +15,7 @@ n_threads = os.cpu_count()
 ph2_size = 50
 n_samples = 250
 seed = 69
-thresh = 1.96
+thresh = 2.1
 lower = -0.5
 upper = 0.5
 
@@ -36,9 +35,6 @@ for i in range(1, n_arms):
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
 grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
         .reshape(-1, n_arms)
-#grid_null = np.array([
-#    p for p in grid if null_hypo(1, p) or null_hypo(2, p)
-#])
 gr = core.GridRange(n_arms, grid.shape[0])
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
@@ -52,7 +48,8 @@ gr.prune()
 end = timer()
 print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
 
-print(gr.n_tiles())
+print("Gridpts: {n}".format(n=gr.n_gridpts()))
+print("Tiles: {n}".format(n=gr.n_tiles()))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])

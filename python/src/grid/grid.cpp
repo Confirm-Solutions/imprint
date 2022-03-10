@@ -13,8 +13,7 @@
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
-//TODO: bring this back in
-//#include <kevlar_bits/grid/adagrid_internal.hpp>
+#include <kevlar_bits/grid/adagrid_internal.hpp>
 #include <kevlar_bits/stats/upper_bound.hpp>
 
 namespace kevlar {
@@ -25,10 +24,8 @@ void add_to_module(pybind11::module_& m)
     using tile_t = Tile<py_double_t>;
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
     using gridder_t = Gridder;
-    //using adagrid_t = AdaGridInternal<py_double_t>;
-    //using ub_t = UpperBound<py_double_t>;
-    //using fn_t = std::function<
-    //    bool(const Eigen::Ref<const colvec_type<double> >&) >;
+    using adagrid_t = AdaGridInternal;
+    using ub_t = UpperBound<py_double_t>;
     using hp_t = HyperPlane<py_double_t>;
     using vec_surf_t = std::vector<hp_t>;
     using tile_t = Tile<py_double_t>;
@@ -37,8 +34,7 @@ void add_to_module(pybind11::module_& m)
     add_tile<tile_t>(m);
     add_grid_range<gr_t, vec_surf_t>(m);
     add_hyperplane<hp_t>(m);
-    // TODO
-    //add_adagrid_internal<adagrid_t, ub_t, gr_t, fn_t>(m);
+    add_adagrid_internal<adagrid_t, ub_t, gr_t, py_double_t>(m);
 }
 
 } // namespace grid

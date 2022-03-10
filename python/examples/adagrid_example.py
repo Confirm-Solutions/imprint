@@ -1,7 +1,8 @@
 from pykevlar.core import (
     GridRange,
+    HyperPlane,
     BinomialControlkTreatment,
-    ExpControlkTreatment,
+    #ExpControlkTreatment,
 )
 from pykevlar.driver import (
     fit_process
@@ -20,11 +21,11 @@ from logging import DEBUG as log_level
 logger = getLogger(__name__)
 
 # ========== Toggleable ===============
-n_arms = 2          # prioritize 2 first, then do 3, 4
+n_arms = 3          # prioritize 2 first, then do 3, 4
 max_iter = 15        # max iterations into adagrid
 N_max = int(1E5)    # max simulation size
 n_threads = os.cpu_count()
-max_batch_size = 2000000
+max_batch_size = 100000
 
 logger.info("n_arms: %d, max_iter: %d, N_max: %d, "
             "n_threads: %d, max_batch_size: %d" %
@@ -35,10 +36,12 @@ logger.info("n_arms: %d, max_iter: %d, N_max: %d, "
 init_sim_size = int(1E3) # initial simulation size
                     # (for simplicity, fixed for all points)
 init_size = 8       # initial number of points along each direction
-#lower = np.array([-1] * n_arms)  # lower bound for each direction
-#upper = np.array([1] * n_arms)    # upper bound for each direction
-lower = np.array([-0.1/4, -1])
-upper = np.array([1/4, 0])
+# Binomial ones:
+lower = np.array([-1] * n_arms)  # lower bound for each direction
+upper = np.array([1] * n_arms)    # upper bound for each direction
+# Exponential ones:
+#lower = np.array([-0.1/4, -1])
+#upper = np.array([1/4, 0])
 alpha = 0.025
 delta = 0.025
 seed = 21324
@@ -52,15 +55,17 @@ thr = norm.isf(alpha)
 thr_minus = norm.isf(alpha_minus)
 
 # define null-hypo
-#def null_hypo(i, p):
-#    return p[i] <= p[0]
-def null_hypo(p):
-    return p[1] <= 1
+# Binomial ones:
+null_hypos = []
+for i in range(1, n_arms):
+    n = np.zeros(n_arms)
+    n[0] = 1
+    n[i] = -1
+    null_hypos.append(HyperPlane(n, 0))
 
-# define is_not_alt
-def is_not_alt(p):
-    #return np.any(np.array([null_hypo(i, p) for i in range(1,n_arms)]))
-    return p[1] <= 0
+# Exponential ones:
+#def null_hypo(p):
+#    return p[1] <= 1
 
 # make initial 1d grid
 rnge = upper-lower
@@ -79,22 +84,17 @@ grid = np.concatenate(
 # create initial grid range
 n_init_gridpts = grid.shape[0]
 gr = GridRange(n_arms, n_init_gridpts)
-thetas = gr.get_thetas()
+thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
-radii = gr.get_radii()
+radii = gr.radii()
 for i, row in enumerate(radii):
     row[...] = radius[i]
-sim_sizes = gr.get_sim_sizes()
+sim_sizes = gr.sim_sizes()
 sim_sizes[...] = init_sim_size
 
 # create model
-#model = BinomialControlkTreatment(n_arms, ph2_size, n_samples, [])
-model = ExpControlkTreatment(n_samples, 2.0, [thr_minus, thr])
-model.set_grid_range(gr, null_hypo)
-
-is_o = fit_process(model=model, sim_size=init_sim_size, base_seed=seed)
-print(is_o.type_I_sum())
-
+model = BinomialControlkTreatment(n_arms, ph2_size, n_samples, [])
+#model = ExpControlkTreatment(n_samples, 2.0, [thr_minus, thr])
 
 # create batcher
 batcher = SimpleBatch(max_size=max_batch_size)
@@ -103,8 +103,7 @@ adagrid = AdaGrid()
 gr_new = adagrid.fit(
     batcher=batcher,
     model=model,
-    null_hypo=null_hypo,
-    is_not_alt=is_not_alt,
+    null_hypos=null_hypos,
     init_grid=gr,
     alpha=alpha,
     delta=delta,
@@ -123,7 +122,7 @@ import matplotlib.pyplot as plt
 
 finals = None
 curr = None
-do_plot = True
+do_plot = False
 
 i = 0
 while 1:
@@ -133,20 +132,22 @@ while 1:
         break
 
     if do_plot:
-        thetas = curr.get_thetas_const()
+        thetas = curr.thetas_const()
 
-        #fig = plt.figure()
-        #ax = fig.add_subplot(projection='3d')
-        #ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:],
-        #            marker='.',
-        #            c=curr.get_sim_sizes(),
-        #            cmap='plasma')
-        #ax.set_title('Iter={i}'.format(i=i))
+        if n_arms == 3:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+            ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:],
+                        marker='.',
+                        c=curr.sim_sizes(),
+                        cmap='plasma')
+            ax.set_title('Iter={i}'.format(i=i))
 
-        plt.scatter(thetas[0,:], thetas[1,:],
-                    marker='.',
-                    c=curr.get_sim_sizes(),
-                    cmap='plasma')
+        elif n_arms == 2:
+            plt.scatter(thetas[0,:], thetas[1,:],
+                        marker='.',
+                        c=curr.sim_sizes(),
+                        cmap='plasma')
 
         plt.show()
 
@@ -161,8 +162,8 @@ s_max = 0
 if not (curr is None):
     finals.append(curr)
 for final in finals:
-    n_pts += final.get_thetas().shape[1]
-    if final.get_sim_sizes().size != 0:
-        s_max = max(s_max, np.max(final.get_sim_sizes()))
+    n_pts += final.thetas().shape[1]
+    if final.sim_sizes().size != 0:
+        s_max = max(s_max, np.max(final.sim_sizes()))
 print(n_pts)
 print(s_max)
