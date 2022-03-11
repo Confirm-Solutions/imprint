@@ -1,10 +1,48 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
+    name = "rules_fuzzing",
+    sha256 = "a5734cb42b1b69395c57e0bbd32ade394d5c3d6afbfe782b24816a96da24660d",
+    strip_prefix = "rules_fuzzing-0.1.1",
+    urls = ["https://github.com/bazelbuild/rules_fuzzing/archive/v0.1.1.zip"],
+)
+
+# Protobuf
+load("@rules_fuzzing//fuzzing:repositories.bzl", "rules_fuzzing_dependencies")
+
+rules_fuzzing_dependencies()
+
+load("@rules_fuzzing//fuzzing:init.bzl", "rules_fuzzing_init")
+
+rules_fuzzing_init()
+
+http_archive(
     name = "com_google_absl",
-    sha256 = "aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87",
-    strip_prefix = "abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip"],
+    sha256 = "92d469a1a652fd1944398e560bd0d92ee8e3affbd61ed41fca89bb624b59109e",
+    strip_prefix = "abseil-cpp-04bde89e5cb33bf4a714a5496fac715481fc48311",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/04bde89e5cb33bf4a714a5496fac715481fc48311.zip"],
+)
+
+# GoogleTest/GoogleMock framework. Used by most unit-tests.
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "205ddbea89a0dff059cd681f3ec9b0a6c12de7036a04cd57f0254105257593d9",
+    strip_prefix = "googletest-13a433a94dd9c7e55907d7a9b75f44ff82f309eb",
+    urls = ["https://github.com/google/googletest/archive/13a433a94dd9c7e55907d7a9b75f44ff82f309eb.zip"],
+)
+
+# Google benchmark.
+http_archive(
+    name = "com_github_google_benchmark",
+    sha256 = "59f918c8ccd4d74b6ac43484467b500f1d64b40cc1010daa055375b322a43ba3",
+    strip_prefix = "benchmark-16703ff83c1ae6d53e5155df3bb3ab0bc96083be",
+    urls = ["https://github.com/google/benchmark/archive/16703ff83c1ae6d53e5155df3bb3ab0bc96083be.zip"],
+)
+
+http_archive(
+    name = "com_google_tcmalloc",
+    strip_prefix = "tcmalloc-a3717bc4fcade63c642f9b991fbdd64299896762",
+    urls = ["https://github.com/google/tcmalloc/archive/a3717bc4fcade63c642f9b991fbdd64299896762.zip"],
 )
 
 http_archive(
@@ -12,13 +50,6 @@ http_archive(
     sha256 = "9a446e9dd9c1bb180c86977a8dc1e9e659550ae732ae58bd2e8fd51e15b2c91d",
     strip_prefix = "rules_cc-262ebec3c2296296526740db4aefce68c80de7fa",
     urls = ["https://github.com/bazelbuild/rules_cc/archive/262ebec3c2296296526740db4aefce68c80de7fa.zip"],
-)
-
-http_archive(
-    name = "com_google_googletest",
-    sha256 = "5cf189eb6847b4f8fc603a3ffff3b0771c08eec7dd4bd961bfd45477dd13eb73",
-    strip_prefix = "googletest-609281088cfefc76f9d0ce82e1ff6c30cc3591e5",
-    urls = ["https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip"],
 )
 
 http_archive(
@@ -32,13 +63,6 @@ http_archive(
     sha256 = "23778bad8edba12d76e4075da06db591f3b0e3c6c04928ced4a7282ca3400e5d",
     strip_prefix = "fmt-8.1.1",
     urls = ["https://github.com/fmtlib/fmt/releases/download/8.1.1/fmt-8.1.1.zip"],
-)
-
-http_archive(
-    name = "cppitertools",
-    sha256 = "204fa0c872c0f34c9263862a5f4b93a9858fde9fdae8064febc7683863f1497d",
-    strip_prefix = "cppitertools-2.1",
-    urls = ["https://github.com/ryanhaining/cppitertools/archive/refs/tags/v2.1.zip"],
 )
 
 EIGEN_VERSION = "3.4.0"

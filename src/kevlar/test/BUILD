@@ -26,4 +26,5 @@ cc_library(
     "grid",
     "model",
     "stats",
+    "util",
 ]]

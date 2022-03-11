@@ -63,4 +63,4 @@ bazel-kevlar
 .vagrant/
 Vagrantfile
 .idea/
-compile_comands.json
+compile_commands.json
