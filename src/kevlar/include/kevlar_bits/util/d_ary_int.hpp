@@ -1,5 +1,6 @@
 #pragma once
 #include <Eigen/Core>
+#include <kevlar_bits/util/math.hpp>
 
 namespace kevlar {
 
@@ -8,7 +9,7 @@ struct dAryInt
     // @param   d   base d
     // @param   k   number of bits
     dAryInt(size_t d, size_t k)
-        : d_(d), bits_(k)
+        : d_(d), bits_(k), n_unique_(ipow(d_,k))
     {
         bits_.setZero();
     }
@@ -28,10 +29,16 @@ struct dAryInt
 
     const auto& operator()() const { return bits_; }
 
+    /*
+     * Returns the number of unique values that the d-ary integer
+     * can represent.
+     */
+    auto n_unique() const { return n_unique_; }
+
 private:
     size_t d_;
     Eigen::Matrix<unsigned int, Eigen::Dynamic, 1> bits_;
+    size_t n_unique_;
 };
-
 
 } // namespace kevlar

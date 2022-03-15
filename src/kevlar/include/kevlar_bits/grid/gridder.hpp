@@ -9,14 +9,7 @@ namespace kevlar {
  * This class is responsible for defining routines to easily
  * create a 1-dimensional grid.
  */
-template <class GridType>
-struct Gridder;
-
-/*
- * Specialization for a rectangular grid.
- */
-template <>
-struct Gridder<grid::Rectangular>
+struct Gridder
 {
     template <class ValueType>
     static ValueType radius(

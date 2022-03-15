@@ -5,21 +5,6 @@
 namespace kevlar {
 
 struct kevlar_error : std::exception {};
-struct thread_error : kevlar_error
-{ 
-    thread_error(const char* msg)
-        : msg_(msg)
-    {}
-
-    thread_error(const std::string& msg)
-        : msg_(msg)
-    {}
-
-    const char* what() const noexcept override { return msg_.data(); }
-
-private:
-    std::string msg_;
-};
 
 struct min_lmda_reached_error : kevlar_error
 {

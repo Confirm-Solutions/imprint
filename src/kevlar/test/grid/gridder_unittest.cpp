@@ -1,14 +1,10 @@
 #include <testutil/base_fixture.hpp>
-#include <kevlar_bits/util/grid.hpp>
+#include <kevlar_bits/grid/gridder.hpp>
 
 namespace kevlar {
 
 // TEST grid
-template <class GridType>
-struct grid_fixture;
-
-template <>
-struct grid_fixture<grid::Rectangular>: 
+struct grid_fixture: 
     base_fixture,
     testing::WithParamInterface<
         std::tuple<size_t, std::pair<double, double> > >
@@ -20,22 +16,20 @@ struct grid_fixture<grid::Rectangular>:
     }
 
 protected:
-    using grid_t = Gridder<grid::Rectangular>;
+    using grid_t = Gridder;
     static constexpr double tol = 2e-15;
 
     size_t n;
     double lower, upper;
 };
 
-using grid_fixture_rect = grid_fixture<grid::Rectangular>;
-
-TEST_P(grid_fixture_rect, radius_test)
+TEST_P(grid_fixture, radius_test)
 {
     auto r = grid_t::radius(n, lower, upper);
     EXPECT_DOUBLE_EQ(upper-lower, 2 * r * n);
 }
 
-TEST_P(grid_fixture_rect, make_grid_test)
+TEST_P(grid_fixture, make_grid_test)
 {
     Eigen::VectorXd grid = grid_t::make_grid(n, lower, upper);
     EXPECT_EQ(grid.size(), n);
@@ -47,7 +41,7 @@ TEST_P(grid_fixture_rect, make_grid_test)
     EXPECT_NEAR(r, upper - grid[grid.size()-1], tol);
 }
 
-TEST_P(grid_fixture_rect, make_endpts_test)
+TEST_P(grid_fixture, make_endpts_test)
 {
     Eigen::MatrixXd endpts = grid_t::make_endpts(n, lower, upper);
     EXPECT_EQ(endpts.rows(), 2);
@@ -65,7 +59,7 @@ TEST_P(grid_fixture_rect, make_endpts_test)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    GridSuite, grid_fixture_rect,
+    GridSuite, grid_fixture,
     testing::Combine(
         testing::Values(1, 2, 3, 5, 10),
         testing::Values(

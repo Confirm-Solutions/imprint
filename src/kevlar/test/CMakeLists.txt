@@ -1,3 +1,31 @@
+# Set compile flags, libs, include for building tests
+set(KEVLAR_TEST_CXXFLAGS -g -Wall)
+set(KEVLAR_TEST_LIBS
+    ${PROJECT_NAME}
+    GTest::gtest_main
+    Eigen3::Eigen)
+set(KEVLAR_TEST_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR})
+
+if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(KEVLAR_TEST_CXXFLAGS
+        ${KEVLAR_TEST_CXXFLAGS}
+        -Werror -Wextra -Wpedantic)
+endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(KEVLAR_TEST_CXXFLAGS ${KEVLAR_TEST_CXXFLAGS} -fopenmp)
+    set(KEVLAR_TEST_LIBS ${KEVLAR_TEST_LIBS} -fopenmp)
+endif()
+if (KEVLAR_ENABLE_COVERAGE)
+    set(KEVLAR_TEST_LIBS ${KEVLAR_TEST_LIBS} gcov)
+endif()
+
+function(kevlar_add_test name)
+    target_compile_options(${name} PRIVATE ${KEVLAR_TEST_CXXFLAGS})
+    target_include_directories(${name} PRIVATE ${KEVLAR_TEST_INCLUDES})
+    target_link_libraries(${name} ${KEVLAR_TEST_LIBS})
+    add_test(${name} ${name})
+endfunction()
+
 ########################################################################
 # Utility TEST
 ########################################################################
@@ -5,33 +33,24 @@
 add_executable(utility_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/util/algorithm_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/d_ary_int_unittest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/util/grid_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/math_unittest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/util/serializer_unittest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/util/progress_bar_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/util/types_unittest.cpp
     )
+kevlar_add_test(utility_unittest)
 
-if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(utility_unittest PRIVATE -Werror -Wextra -Wpedantic)
-endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(utility_unittest PRIVATE -fopenmp)
-    target_link_libraries(utility_unittest -fopenmp)
-endif()
-target_compile_options(utility_unittest PRIVATE -g -Wall)
-target_include_directories(utility_unittest PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR})
-if (KEVLAR_ENABLE_COVERAGE)
-    target_link_libraries(utility_unittest gcov)
-endif()
-target_link_libraries(utility_unittest
-    ${PROJECT_NAME}
-    GTest::gtest_main
-    Eigen3::Eigen)
-if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_link_libraries(utility_unittest pthread)
-endif()
-add_test(utility_unittest utility_unittest)
+########################################################################
+# Grid TEST
+########################################################################
+
+add_executable(grid_unittest
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/gridder_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/grid_range_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/tile_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/hyperplane_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/grid/utils_unittest.cpp
+    )
+kevlar_add_test(grid_unittest)
 
 ########################################################################
 # Model TEST
@@ -40,29 +59,14 @@ add_test(utility_unittest utility_unittest)
 add_executable(model_unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/model/binomial_control_k_treatment_unittest.cpp
     )
+kevlar_add_test(model_unittest)
 
-if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(model_unittest PRIVATE -Werror -Wextra -Wpedantic)
-endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(model_unittest PRIVATE -fopenmp)
-    target_link_libraries(model_unittest -fopenmp)
-endif()
-target_compile_options(model_unittest PRIVATE -g -Wall)
-target_compile_definitions(model_unittest PRIVATE
-    ${KEVLAR_HAS_PTHREAD_MACRO})
-target_include_directories(model_unittest PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${KEVLAR_SOURCEDIR})
-if (KEVLAR_ENABLE_COVERAGE)
-    target_link_libraries(model_unittest gcov)
-endif()
-target_link_libraries(model_unittest
-    ${PROJECT_NAME}
-    GTest::gtest_main
-    Eigen3::Eigen)
-if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_link_libraries(model_unittest pthread)
-endif()
-add_test(model_unittest model_unittest)
+########################################################################
+# Stats TEST
+########################################################################
 
+add_executable(stats_unittest
+    ${CMAKE_CURRENT_SOURCE_DIR}/stats/inter_sum_unittest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/stats/upper_bound_unittest.cpp
+    )
+kevlar_add_test(stats_unittest)
