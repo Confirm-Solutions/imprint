@@ -2,3 +2,4 @@
 build/
 pykevlar/*.so
 pykevlar/pykevlar.egg-info/
+pykevlar.egg-info/

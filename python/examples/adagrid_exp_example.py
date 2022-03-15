@@ -1,8 +1,7 @@
 from pykevlar.core import (
     GridRange,
     HyperPlane,
-    BinomialControlkTreatment,
-    #ExpControlkTreatment,
+    ExpControlkTreatment,
 )
 from pykevlar.driver import (
     fit_process
@@ -15,33 +14,26 @@ import os
 
 from logging import basicConfig, getLogger
 from logging import DEBUG as log_level
-#basicConfig(level = log_level,
-#            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
-#            datefmt ='%Y-%m-%d %H:%M:%S')
 logger = getLogger(__name__)
 
 # ========== Toggleable ===============
-n_arms = 3          # prioritize 2 first, then do 3, 4
-max_iter = 15        # max iterations into adagrid
+max_iter = 15       # max iterations into adagrid
 N_max = int(1E5)    # max simulation size
 n_threads = os.cpu_count()
 max_batch_size = 100000
 
-logger.info("n_arms: %d, max_iter: %d, N_max: %d, "
+logger.info("max_iter: %d, N_max: %d, "
             "n_threads: %d, max_batch_size: %d" %
-            (n_arms, max_iter,
+            (max_iter,
              N_max, n_threads, max_batch_size))
 # ========== End Toggleable ===============
 
+n_arms = 2
 init_sim_size = int(1E3) # initial simulation size
                     # (for simplicity, fixed for all points)
 init_size = 8       # initial number of points along each direction
-# Binomial ones:
-lower = np.array([-1] * n_arms)  # lower bound for each direction
-upper = np.array([1] * n_arms)    # upper bound for each direction
-# Exponential ones:
-#lower = np.array([-0.1/4, -1])
-#upper = np.array([1/4, 0])
+lower = np.array([-0.1/4, -1])
+upper = np.array([1/4, 0])
 alpha = 0.025
 delta = 0.025
 seed = 21324
@@ -55,17 +47,7 @@ thr = norm.isf(alpha)
 thr_minus = norm.isf(alpha_minus)
 
 # define null-hypo
-# Binomial ones:
-null_hypos = []
-for i in range(1, n_arms):
-    n = np.zeros(n_arms)
-    n[0] = 1
-    n[i] = -1
-    null_hypos.append(HyperPlane(n, 0))
-
-# Exponential ones:
-#def null_hypo(p):
-#    return p[1] <= 1
+null_hypos = [HyperPlane(np.array([0,-1]), 0)]
 
 # make initial 1d grid
 rnge = upper-lower
@@ -93,8 +75,7 @@ sim_sizes = gr.sim_sizes()
 sim_sizes[...] = init_sim_size
 
 # create model
-model = BinomialControlkTreatment(n_arms, ph2_size, n_samples, [])
-#model = ExpControlkTreatment(n_samples, 2.0, [thr_minus, thr])
+model = ExpControlkTreatment(n_samples, 2.0, [])
 
 # create batcher
 batcher = SimpleBatch(max_size=max_batch_size)
@@ -122,7 +103,7 @@ import matplotlib.pyplot as plt
 
 finals = None
 curr = None
-do_plot = False
+do_plot = True
 
 i = 0
 while 1:
@@ -134,20 +115,10 @@ while 1:
     if do_plot:
         thetas = curr.thetas_const()
 
-        if n_arms == 3:
-            fig = plt.figure()
-            ax = fig.add_subplot(projection='3d')
-            ax.scatter(thetas[0,:], thetas[1,:], thetas[2,:],
-                        marker='.',
-                        c=curr.sim_sizes(),
-                        cmap='plasma')
-            ax.set_title('Iter={i}'.format(i=i))
-
-        elif n_arms == 2:
-            plt.scatter(thetas[0,:], thetas[1,:],
-                        marker='.',
-                        c=curr.sim_sizes(),
-                        cmap='plasma')
+        plt.scatter(thetas[0,:], thetas[1,:],
+                    marker='.',
+                    c=curr.sim_sizes(),
+                    cmap='plasma')
 
         plt.show()
 

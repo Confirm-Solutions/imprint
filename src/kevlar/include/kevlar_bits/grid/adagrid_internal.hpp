@@ -192,7 +192,7 @@ public:
                 {
                     bits.setZero();
                     new_rad = radius_old_j / 2.;
-                    for (size_t k = 0; k < n_new_pts; ++k, ++bits) 
+                    for (int k = 0; k < n_new_pts; ++k, ++bits) 
                     {
                         new_pt.array() = theta_old_j.array() + 
                             new_rad.array() *

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <set>
 #include <random>
+#include <unordered_map>
 #include <vector>
 
 namespace kevlar {

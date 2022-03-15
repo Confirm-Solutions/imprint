@@ -20,7 +20,7 @@ void add_binomial_control_k_treatment(py::module_& m)
                 size_t,
                 size_t,
                 size_t,
-                Eigen::Ref<const colvec_type<value_t> >
+                const Eigen::Ref<const colvec_type<value_t>>&
             >())
         .def("set_grid_range", &bckt_t::set_grid_range)
         .def("set_thresholds", &bckt_t::set_thresholds)

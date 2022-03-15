@@ -38,22 +38,18 @@ else:
         extra_link_args = []
     else:
         extra_compile_args = [
-            "-fopenmp",
             "-g",
             "-O3",
+            "-fopenmp",
             "-ffast-math",
             "--std=c++17",
-            # "-march=native",
-            # "-Ofast",
-            # "-frename-registers",
-            # "-funroll-loops"
         ]
         extra_link_args = ["-fopenmp"]
 
 # Add extension module for pykevlar
 ext_modules = [
     Pybind11Extension(
-        "core",
+        "pykevlar.core",
         sorted(glob(PYKEVLAR_INCLUDE_DIR + '/**/*.cpp', recursive=True)),
         include_dirs=[
             EIGEN_INCLUDE_DIR,
@@ -85,8 +81,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
     ],
-    package_dir={"": "pykevlar"},
-    packages=find_packages(where="pykevlar"),
+    packages=find_packages(),
     # TODO: doesn't seem relevant
     #entry_points=None
     #if os.environ.get("CONDA_BUILD")
