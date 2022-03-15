@@ -4,17 +4,9 @@ project("kevlar" VERSION 1.0.0
                  DESCRIPTION "A bed of simulation tools.")
 
 option(KEVLAR_ENABLE_TEST         "Enable unit tests to be built."    ON)
-option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      ON)
+option(KEVLAR_ENABLE_EXAMPLE      "Enable examples to be built."      OFF)
 option(KEVLAR_ENABLE_BENCHMARK    "Enable benchmarks to be built."    OFF)
 option(KEVLAR_ENABLE_COVERAGE     "Build glmnetpp with coverage"      OFF)
-
-# Add global flags
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
-endif()
-if (CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
-endif()
 
 # Stoopid hack on windows
 if (WIN32)
@@ -23,7 +15,8 @@ if (WIN32)
 endif()
 
 # Dependency on Eigen
-find_package(Eigen3 3.3 CONFIG REQUIRED NO_MODULE)
+find_package(Eigen3 3.4 CONFIG REQUIRED
+    HINTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen-3.4.0/build/share/eigen3)
 message(STATUS "Eigen3 found at ${EIGEN3_INCLUDE_DIR}")
 
 # Set include dirs

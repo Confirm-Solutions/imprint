@@ -1,0 +1,139 @@
+Adagrid:
+- Python class object
+- Members vars:
+    - thr
+    - thr_minus
+
+- Member fns:
+    - initialize:
+        - Inputs:
+            - model
+                - needs model.initial_thresh(alpha_minus, alpha)
+
+
+    - fit
+        - Inputs:
+            - model
+            - null_hypo (model-dependent) this is for passing to model.get_rej_len(..., null_hypo)
+            - is_not_alt (not model-dependent): a function that takes in a gridpoint and returns true if it is not in alternative space.
+            - alpha
+            - delta
+            - seed
+            - max_iter (iterations for creating new points)
+            - init_grid_range (GridRange object)
+        - Output:
+            - GridRange object of last selected set of points
+- C++ side needs:
+    - models need to support more than 1 thresholds for fitting.
+    - GridRangeView that views existing memory storage (accept row or column major format)
+    - 
+
+========================================================================================================================
+#### Finished Implementation ####
+
+UpperBound:
+- Do the corner cases to compute sup bound
+- Store the delta_0, delta_0^u, delta_1, delta_1^u, delta_2^u.
+
+ExponentialModel:
+- Nested class for an instance of the model ("State"):
+    - similar to BinomialModel
+- Optimize in the case of diagonal points, but still works in general.
+
+FitDriver:
+- Python
+- Create batches of the gridpoints.
+- For each batch, send it to a node in a cluster.
+- Number of gridpoints might be too large.
+- Each batch of gridpts can be operated simultaneously without dependence on other nodes.
+- Proposal for batching: stratified batches.
+    - each batch contains the same % of gridpts with certain simsize.
+    - e.g. batch 1 = (30 gridpts with simsize=1000, 20 gridpts with simsize=4000, 10 with simsize=16000)
+            batch 2 = (same...)
+- Proposal 2: homogenous batches.
+    - batch gridpts with similar simsizes ()
+    - larger the simsize for a batch, fewer gridpts in that batch.
+    - update gridpt simsize after calling Fit like:
+    for each gridpt:
+        gridpt.simsize -= N
+
+BinomialModel:
+- Nested class for an instance of the model ("State"):
+    - contains object for storing RNG (e.g. uniforms 250 x 3)
+    - sufficient statistics for each arm, for each p
+        - create 3 vectors, one for each arm
+        - each vector j = [...suff_stat at p=p_ij...], p_ij is one of the p's in the batch of gridpts along arm j.
+    - phase II sufficient stats as well for the selection later.
+    - defines functions like test_stat(), T-\nabla A, trace_cov(), trace_max_cov()
+- Member variables:
+- pointer to batch of gridpts
+- phase II simsize
+- n_arms
+- any configuration variables...
+
+Questions:
+- Do I assume that the gridpts will always be in the Theta-space (natural parameter)? YES
+- Do I allocate memory to store parameters in p-space? YES
+    - Do I allocate memory for every gridpt? Or, do I only save the unique parameters along each direction? Unique!
+        - e.g. theta = (1,2,3) and (1,2,2) and the first two the same
+        - this would save d*N^{1/d} values
+        - but if I save all parameters in p-space = save N values
+        - d*N^{1/d} <<<<<<< N even if d = 3 (small)
+
+- IF we do the savings for unique parameters:
+- Pros:
+- computing suff-stat becomes cheaper:
+    - For each arm, create a vector of suff_stat for that arm by doing cumulative counts on sorted, unique values of p.
+- CONS:
+- If we only store the unique values of p along each arm,
+we need a mapping from the batch of gridpts to the index of the vector of unique values of p.
+- During the gradient update, I need T - \nabla A, and T comes from looking up the sufficient stat table.
+And the suff stat table is like 
+[
+[X_{11}, X_{12} X_{13}],
+...
+[X_{p1}, X_{p2}, X_{p3}]
+]
+need to access the right index of the table.
+This means I need a dAryInt but generalized so that each bit i is base d_i (because number of unique p's along each arm may be different).
+E.g. (3, 4, 5)-aryInt if arm 1 has 3 unique pts, arm 2 has 4 unique pts, etc.
+And I need N number of dAryInts, but dAryInt=O(d) => O(Nd) in total memory.
+- May need to figure out more efficient storage of vector of dAryInts.
+- std::vector<dAryInt> will allocate all over the place in the heap for each dAryInt (may have to benchmark later)
+    - possible fix: create another class SeqdAryInt - internally, store a matrix of integers.
+
+
+InterSums:
+- Type I error sums
+- Gradient sums
+- private:
+- rej_pos vector 
+- public:
+- update(model_state) {
+    // gets vector of integers where rej_pos[i] == index into delta_0.col(i) where rejection first occurs.
+    model_state.get_first_rej_pos(rej_pos)
+    for i in 1:len(p):
+        delta_0.col(i).tail(rej_pos[i]) += 1;
+
+    // updating gradients
+    for each arm:
+        for i in 1:len(p):
+            grad_slice_arm.col(i) += model_state.grad_lr(arm, i);
+}
+
+GridRange:
+- C++ class (later exported to Python)
+- Member variables:
+    - a matrix of theta vectors
+    - a matrix of radius vectors
+    - a vector of original simsizes (would get updated in piloting and then fixed afterwards)
+    - a vector of leftover simsizes (initialized to original simsizes after piloting, then decremented during the Fit)  
+
+Questions:
+- Does gridpt contain an Eigen::VectorXd for theta-vector?
+    - std::vector<GridPt> => allocate a bunch of Eigen::VectorXd on the heap
+    - do we access the actual theta points often?
+- Otherwise, the solution is to have a class SeqGridPt => contain an Eigen::MatrixXd (each column is a theta gridpt).
+    - problem is now in the piloting
+    - because we need to dynamically add pts
+    - adding pts to a matrix will first have to destruct original matrix and copy old to new matrix.

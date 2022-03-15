@@ -8,25 +8,36 @@ and configurable simulations for popular models used in clinical trials.
 
 ## Dependencies
 
-- [Eigen >= 3.3](https://eigen.tuxfamily.org/index.php?title=Main_Page)
 - [CMake >= 3.7](https://cmake.org/)
-- [GoogleTest](https://github.com/google/googletest) (_dev only_)
+- [GoogleTest](https://github.com/google/googletest)
 
 ## Build
- 
-Simply run `./clean-build.sh [debug/release]` (choose one of `debug` or `release`).
+
+First run:
+```
+./setup.sh
+```
+to install some dependencies that should be kept local.
+Currently, this script installs:
+
+- [Eigen 3.4.0](https://eigen.tuxfamily.org/index.php?title=Main_Page)
+
+Next, run
+```
+./clean-build.sh [debug/release] [CMake options...]
+```
 This will create a `build` directory containing either `debug` or `release` sub-directory.
 For testing purposes, it is recommended to build with `debug`.
 For all other purposes, it is recommended to build with `release`.
 
-One can also pass CMake options, e.g. `./clean-build.sh [debug/release] [CMake options...]`.
+One can also pass CMake options.
 For example, if one wishes to run the tests
 and GoogleTest is installed locally in `/path/to/googletest`,
-then you must pass `-DGTest_DIR=/path/to/googletest/install/lib/cmake/GTest` where 
+then one must pass `-DGTest_DIR=/path/to/googletest/install/lib/cmake/GTest` where 
 `/path/to/googletest/install` is the installation path to GoogleTest.
 If one wishes to build without tests, pass `-DKEVLAR_ENABLE_TEST=OFF`.
 
-To run tests, do the following:
+To run tests, run the following:
 ```
 cd build/[debug/release]
 ctest
@@ -34,7 +45,7 @@ ctest
 
 To run the examples in `example/`, do the following:
 ```
-cd build/release
+cd build/release/example
 ./name-of-example
 ```
 where `name-of-example` is the same name of the example `.cpp` file in `example/` folder.
