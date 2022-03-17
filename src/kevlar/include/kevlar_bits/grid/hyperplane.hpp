@@ -28,13 +28,16 @@ struct HyperPlaneView
      * respectively.
      */
     template <class VecType>
-    orient_type find_orient(const VecType& v) const
-    {
+    orient_type find_orient(const VecType& v) const {
         value_t ctv = normal_.dot(v);
-        bool is_neg = (ctv < *shift_);
-        bool is_on = (ctv == *shift_);
-        return (is_neg) ? orient_type::neg :
-            ((is_on) ? orient_type::on : orient_type::pos);
+        constexpr value_t tol = 1e-16;
+        auto comp = ctv - *shift_;
+        if (comp < -tol) {
+            return orient_type::neg;
+        } else if (comp >= tol) {
+            return orient_type::pos;
+        }
+        return orient_type::on;
     }
 
     /*

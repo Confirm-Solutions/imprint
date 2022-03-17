@@ -7,7 +7,6 @@ The Kevlar Project.
 conda update conda
 conda create -n kevlar-revamp python=3.9.7 anaconda
 conda activate kevlar-revamp
-conda install pybind11
 git clone git@github.com:mikesklar/kevlar.git
 cd kevlar/
 git checkout james.yang/kevlar_revamp
@@ -15,6 +14,7 @@ git checkout james.yang/kevlar_revamp
 Refer to ./src/kevlar/README.md to install C++ driver deps
 ```
 cd python/
+pip install -r requirements.txt
 pip install -vvv -e .
 ```
 
