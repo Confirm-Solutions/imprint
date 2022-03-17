@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 
 /*
  * likely/unlikely forces branch prediction to predict true/false.
@@ -30,4 +31,13 @@
 #else
 #define KEVLAR_STRONG_INLINE inline
 #endif
+#endif
+
+#ifndef print
+#define print(t) (std::cout << __LINE__ << ": " << #t << '\n' << t << "\n\n")
+#endif
+
+#ifndef assert_good
+#define assert_good(t) \
+    assert(!t.array().isNaN().any() && !t.array().isInf().any())
 #endif

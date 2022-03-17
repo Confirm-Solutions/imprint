@@ -1,4 +1,4 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 #include <kevlar_bits/util/progress_bar.hpp>
 
 namespace kevlar {

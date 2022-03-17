@@ -8,45 +8,36 @@ and configurable simulations for popular models used in clinical trials.
 
 ## Dependencies
 
-- [CMake >= 3.7](https://cmake.org/)
-- [GoogleTest](https://github.com/google/googletest)
+Kevlar requires a recent version of Bazel and a C++17-capable C++ compiler:
+
+### Mac OS
+
+```
+brew install bazelisk llvm
+```
+
+### Ubuntu Linux
+
+```
+sudo curl -Lo /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64
+sudo chmod +x /usr/local/bin/bazel
+sudo apt install clang-11 --install-suggests
+```
 
 ## Build
 
-First run:
 ```
-./setup.sh
+bazel build -c dbg //src/kevlar:kevlar
 ```
-to install some dependencies that should be kept local.
-Currently, this script installs:
 
-- [Eigen 3.4.0](https://eigen.tuxfamily.org/index.php?title=Main_Page)
-
-Next, run
+To run all tests, run the following:
 ```
-./clean-build.sh [debug/release] [CMake options...]
-```
-This will create a `build` directory containing either `debug` or `release` sub-directory.
-For testing purposes, it is recommended to build with `debug`.
-For all other purposes, it is recommended to build with `release`.
-
-One can also pass CMake options.
-For example, if one wishes to run the tests
-and GoogleTest is installed locally in `/path/to/googletest`,
-then one must pass `-DGTest_DIR=/path/to/googletest/install/lib/cmake/GTest` where 
-`/path/to/googletest/install` is the installation path to GoogleTest.
-If one wishes to build without tests, pass `-DKEVLAR_ENABLE_TEST=OFF`.
-
-To run tests, run the following:
-```
-cd build/[debug/release]
-ctest
+bazel test //...
 ```
 
 To run the examples in `example/`, do the following:
 ```
-cd build/release/example
-./name-of-example
+bazel run //src/kevlar/example:name-of-example
 ```
 where `name-of-example` is the same name of the example `.cpp` file in `example/` folder.
 
