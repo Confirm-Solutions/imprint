@@ -57,18 +57,18 @@ P = []
 B = []
 pos = 0
 for i in range(gr.n_gridpts()):
-    for j in range(gr.n_tiles(i)):
-        P.append(gr.thetas()[:, i])
-        B.append([
-            ub.delta_0()[0, pos],
-            ub.delta_0_u()[0, pos],
-            ub.delta_1()[0, pos],
-            ub.delta_1_u()[0, pos],
-            ub.delta_2_u()[0, pos],
-            ub.get()[0, pos],
-        ])
-        pos += 1
-P = np.array(P)
+    P.append(gr.thetas()[:, i])
+    #for j in range(gr.n_tiles(i)):
+    B.append([
+        ub.delta_0()[0, pos],
+        ub.delta_0_u()[0, pos],
+        ub.delta_1()[0, pos],
+        ub.delta_1_u()[0, pos],
+        ub.delta_2_u()[0, pos],
+        ub.get()[0, pos],
+    ])
+    pos += gr.n_tiles(i)
+P = np.array(P).T
 B = np.array(B)
 
 save_ub(
