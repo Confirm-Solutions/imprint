@@ -8,16 +8,10 @@
 
 namespace kevlar {
 
-template <class GenType
-        , class ModelStateType
-        , class InterSumType>
-KEVLAR_STRONG_INLINE
-void fit_thread(
-        ModelStateType& model_state,
-        InterSumType& is_o,
-        size_t sim_size,
-        size_t seed)
-{
+template <class GenType, class ModelStateType, class InterSumType>
+KEVLAR_STRONG_INLINE void fit_thread(ModelStateType& model_state,
+                                     InterSumType& is_o, size_t sim_size,
+                                     size_t seed) {
     GenType gen;
     gen.seed(seed);
 
@@ -28,18 +22,11 @@ void fit_thread(
     }
 }
 
-template <class GenType
-        , class ModelType
-        , class GridRangeType
-        , class InterSumType>
-inline void fit(
-        const ModelType& model,
-        const GridRangeType& grid_range,
-        InterSumType& is_o,
-        size_t sim_size,
-        size_t seed,
-        size_t n_threads)
-{
+template <class GenType, class ModelType, class GridRangeType,
+          class InterSumType>
+inline void fit(const ModelType& model, const GridRangeType& grid_range,
+                InterSumType& is_o, size_t sim_size, size_t seed,
+                size_t n_threads) {
     using is_t = InterSumType;
 
     size_t max_threads = std::thread::hardware_concurrency();
@@ -58,21 +45,17 @@ inline void fit(
     std::vector<is_t> is_os;
 
     for (size_t t = 0; t < n_threads; ++t) {
-        is_os.emplace_back(
-                model.n_models(),
-                grid_range.n_tiles(),
-                grid_range.n_params());
+        is_os.emplace_back(model.n_models(), grid_range.n_tiles(),
+                           grid_range.n_params());
     }
 
     omp_set_num_threads(n_threads);
 
-#pragma omp parallel for schedule(static) // TODO: add some args
+#pragma omp parallel for schedule(static)  // TODO: add some args
     for (size_t t = 0; t < n_threads; ++t) {
         auto model_state = model.make_state();
-        fit_thread<GenType>(
-                *model_state, is_os[t], 
-                sim_size_thr + (t < sim_size_rem),
-                seed + t);
+        fit_thread<GenType>(*model_state, is_os[t],
+                            sim_size_thr + (t < sim_size_rem), seed + t);
     }
 
     for (size_t j = 1; j < is_os.size(); ++j) {
@@ -82,4 +65,4 @@ inline void fit(
     std::swap(is_o, is_os[0]);
 }
 
-} // namespace kevlar
+}  // namespace kevlar

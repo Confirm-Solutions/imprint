@@ -3,12 +3,10 @@
 
 namespace kevlar {
 
-template <class ValueType, size_t NBits=8>
+template <class ValueType, size_t NBits = 8>
 struct Tile;
 
-template <class ValueType
-        , class UIntType
-        , class TileType>
+template <class ValueType, class UIntType, class TileType>
 struct GridRange;
 
 struct Gridder;
@@ -19,4 +17,4 @@ struct HyperPlaneView;
 template <class ValueType>
 struct HyperPlane;
 
-} // namespace kevlar
+}  // namespace kevlar

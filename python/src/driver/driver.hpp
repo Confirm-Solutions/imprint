@@ -6,5 +6,5 @@ namespace driver {
 
 void add_to_module(pybind11::module_&);
 
-} // namespace driver
-} // namespace kevlar
+}  // namespace driver
+}  // namespace kevlar

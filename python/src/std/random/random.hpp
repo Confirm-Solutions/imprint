@@ -7,6 +7,6 @@ namespace random {
 
 void add_to_module(pybind11::module_&);
 
-} // namespace random
-} // namespace std
-} // namespace kevlar
+}  // namespace random
+}  // namespace std
+}  // namespace kevlar

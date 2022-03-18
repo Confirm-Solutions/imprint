@@ -15,8 +15,7 @@ namespace stats {
 
 namespace py = pybind11;
 
-void add_to_module(py::module_& m)
-{
+void add_to_module(py::module_& m) {
     using tile_t = Tile<py_double_t>;
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
     using mb_t = ModelBase<py_double_t, py_uint_t, gr_t>;
@@ -28,5 +27,5 @@ void add_to_module(py::module_& m)
     add_upper_bound<gr_t, mb_t, is_t, ub_t>(m);
 }
 
-} // namespace stats
-} // namespace kevlar
+}  // namespace stats
+}  // namespace kevlar

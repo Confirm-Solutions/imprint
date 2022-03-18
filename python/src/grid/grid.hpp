@@ -6,5 +6,5 @@ namespace grid {
 
 void add_to_module(pybind11::module_&);
 
-} // namespace grid
-} // namespace kevlar
+}  // namespace grid
+}  // namespace kevlar

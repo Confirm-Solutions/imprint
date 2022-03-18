@@ -21,8 +21,7 @@ namespace py = pybind11;
  * Function to add all model classes into module m.
  * Populate this function as more models are exported.
  */
-void add_to_module(py::module_& m)
-{
+void add_to_module(py::module_& m) {
     using tile_t = Tile<py_double_t>;
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
     using mb_t = ModelBase<py_double_t, py_uint_t, gr_t>;
@@ -38,5 +37,5 @@ void add_to_module(py::module_& m)
     add_exp_control_k_treatment<eckt_t>(m);
 }
 
-} // namespace model
-} // namespace kevlar
+}  // namespace model
+}  // namespace kevlar

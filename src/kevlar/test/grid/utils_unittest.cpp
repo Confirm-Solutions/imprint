@@ -5,10 +5,8 @@
 
 namespace kevlar {
 
-struct utils_fixture
-    : base_fixture
-{
-protected:
+struct utils_fixture : base_fixture {
+   protected:
     using value_t = double;
     using tile_t = Tile<value_t>;
     using hp_t = HyperPlane<value_t>;
@@ -19,8 +17,7 @@ protected:
     value_t shift;
 
     template <class RT>
-    void check_is_oriented(RT run_test)
-    {
+    void check_is_oriented(RT run_test) {
         size_t d = 2;
         center.setZero(d);
         radius.resize(d);
@@ -29,52 +26,43 @@ protected:
         shift = 0;
 
         // should cut through along y = -x line
-        run_test(center, radius, normal, shift,
-                 false, orient_type::none);
+        run_test(center, radius, normal, shift, false, orient_type::none);
 
         // check hyperplane shifted to top right corner
-        // first, shift slightly below 
+        // first, shift slightly below
         value_t eps = 1e-14;
         value_t n_sq = normal.squaredNorm();
-        shift += (1-eps) * n_sq;
-        run_test(center, radius, normal, shift,
-                 false, orient_type::none);
+        shift += (1 - eps) * n_sq;
+        run_test(center, radius, normal, shift, false, orient_type::none);
 
         // next, shift to exactly the top right corner
         // now entering negative orientation
         shift += eps * n_sq;
-        run_test(center, radius, normal, shift,
-                 true, orient_type::non_pos);
+        run_test(center, radius, normal, shift, true, orient_type::non_pos);
 
         // next, go slightly beyond top right corner
         // should end up still in negative orientation
         shift += 2 * n_sq;
-        run_test(center, radius, normal, shift,
-                 true, orient_type::non_pos);
+        run_test(center, radius, normal, shift, true, orient_type::non_pos);
 
         // check positive side
-        shift = -(1-eps) * n_sq;
-        run_test(center, radius, normal, shift,
-                 false, orient_type::none);
+        shift = -(1 - eps) * n_sq;
+        run_test(center, radius, normal, shift, false, orient_type::none);
 
         shift -= eps * n_sq;
-        run_test(center, radius, normal, shift,
-                 true, orient_type::non_neg);
+        run_test(center, radius, normal, shift, true, orient_type::non_neg);
 
         shift -= 2 * n_sq;
-        run_test(center, radius, normal, shift,
-                 true, orient_type::non_neg);
+        run_test(center, radius, normal, shift, true, orient_type::non_neg);
     }
 
     template <class Tile, class Vertices>
-    void is_vertices_same(
-            const Tile& t, 
-            const Vertices& expected)
-    {
+    void is_vertices_same(const Tile& t, const Vertices& expected) {
         size_t count = 0;
         for (auto& x : t) {
-            auto it = std::find_if(expected.begin(), expected.end(),
-                    [&](const auto& v) { return (v.array() == x.array()).all(); });
+            auto it = std::find_if(
+                expected.begin(), expected.end(),
+                [&](const auto& v) { return (v.array() == x.array()).all(); });
             EXPECT_NE(it, expected.end());
             ++count;
         }
@@ -82,14 +70,13 @@ protected:
     }
 };
 
-TEST_F(utils_fixture, test_is_oriented_shift_inv)
-{
+TEST_F(utils_fixture, test_is_oriented_shift_inv) {
     // just go through a lot of examples
     for (int i = 0; i < 100; ++i) {
         size_t d = 6;
         center.setRandom(d);
         radius.setRandom(d);
-        radius.array() = 0.5*(radius.array()+1) + 1e-8;
+        radius.array() = 0.5 * (radius.array() + 1) + 1e-8;
         normal.setRandom(d);
         shift = 0.3897874;
 
@@ -101,7 +88,7 @@ TEST_F(utils_fixture, test_is_oriented_shift_inv)
         bool expected;
         orient_type expected_ori;
         {
-            tile_t tile(center, radius);  
+            tile_t tile(center, radius);
             hp_t hp(normal, shift);
             expected = is_oriented(tile, hp, expected_ori);
         }
@@ -112,7 +99,7 @@ TEST_F(utils_fixture, test_is_oriented_shift_inv)
         {
             center += pert_dir;
             shift += normal.dot(pert_dir);
-            tile_t tile(center, radius);  
+            tile_t tile(center, radius);
             hp_t hp(normal, shift);
             actual = is_oriented(tile, hp, actual_ori);
         }
@@ -122,55 +109,46 @@ TEST_F(utils_fixture, test_is_oriented_shift_inv)
     }
 }
 
-TEST_F(utils_fixture, test_is_oriented_full)
-{
-    auto run_test = [](
-            const auto& center,
-            const auto& radius,
-            const auto& normal,
-            auto shift,
-            bool expected, 
-            orient_type exp_ori) 
-    {
-        tile_t tile(center, radius);  
+TEST_F(utils_fixture, test_is_oriented_full) {
+    auto run_test = [](const auto& center, const auto& radius,
+                       const auto& normal, auto shift, bool expected,
+                       orient_type exp_ori) {
+        tile_t tile(center, radius);
         hp_t hp(normal, shift);
         orient_type ori;
         bool actual = is_oriented(tile, hp, ori);
-        if (expected) EXPECT_TRUE(actual);
-        else EXPECT_FALSE(actual);
+        if (expected)
+            EXPECT_TRUE(actual);
+        else
+            EXPECT_FALSE(actual);
         EXPECT_EQ(ori, exp_ori);
     };
 
     check_is_oriented(run_test);
 }
 
-TEST_F(utils_fixture, test_is_oriented)
-{
-    auto run_test = [](
-            const auto& center,
-            const auto& radius,
-            const auto& normal,
-            auto shift,
-            bool expected, 
-            orient_type exp_ori) 
-    {
-        tile_t tile(center, radius);  
+TEST_F(utils_fixture, test_is_oriented) {
+    auto run_test = [](const auto& center, const auto& radius,
+                       const auto& normal, auto shift, bool expected,
+                       orient_type exp_ori) {
+        tile_t tile(center, radius);
         for (auto it = tile.begin_full(); it != tile.end_full(); ++it) {
             tile.emplace_back(*it);
         }
         hp_t hp(normal, shift);
         orient_type ori;
         bool actual = is_oriented(tile, hp, ori);
-        if (expected) EXPECT_TRUE(actual);
-        else EXPECT_FALSE(actual);
+        if (expected)
+            EXPECT_TRUE(actual);
+        else
+            EXPECT_FALSE(actual);
         EXPECT_EQ(ori, exp_ori);
     };
 
     check_is_oriented(run_test);
 }
 
-TEST_F(utils_fixture, test_intersect_d2)
-{
+TEST_F(utils_fixture, test_intersect_d2) {
     size_t d = 2;
     center.setZero(d);
     radius.resize(d);
@@ -241,8 +219,7 @@ TEST_F(utils_fixture, test_intersect_d2)
     run_test();
 }
 
-TEST_F(utils_fixture, test_intersect_d3)
-{
+TEST_F(utils_fixture, test_intersect_d3) {
     size_t d = 3;
     center.setZero(d);
     radius.resize(d);
@@ -310,8 +287,7 @@ TEST_F(utils_fixture, test_intersect_d3)
     run_test();
 }
 
-TEST_F(utils_fixture, test_intersect_d2_non_reg)
-{
+TEST_F(utils_fixture, test_intersect_d2_non_reg) {
     size_t d = 2;
     center.setZero(d);
     radius.resize(d);
@@ -328,10 +304,7 @@ TEST_F(utils_fixture, test_intersect_d2_non_reg)
 
     auto run_test = [&]() {
         tile_t tile(center, radius);
-        for (auto it = tile.begin_full();
-                it != tile.end_full();
-                ++it)
-        {
+        for (auto it = tile.begin_full(); it != tile.end_full(); ++it) {
             tile.emplace_back(*it);
         }
         hp_t hp(normal, shift);
@@ -341,10 +314,7 @@ TEST_F(utils_fixture, test_intersect_d2_non_reg)
     };
 
     // test when shift = 0
-    for (auto it = p_tile.begin_full();
-            it != p_tile.end_full();
-            ++it)
-    {
+    for (auto it = p_tile.begin_full(); it != p_tile.end_full(); ++it) {
         n_expected.push_back(*it);
     }
     p_expected = n_expected;
@@ -359,8 +329,7 @@ TEST_F(utils_fixture, test_intersect_d2_non_reg)
 
 // EXAMPLES THAT FAILED IN APPLICATION
 
-TEST_F(utils_fixture, test_is_oriented_full_issue1)
-{
+TEST_F(utils_fixture, test_is_oriented_full_issue1) {
     size_t d = 2;
     center.resize(d);
     center << -0.5, -0.5;
@@ -380,4 +349,4 @@ TEST_F(utils_fixture, test_is_oriented_full_issue1)
     EXPECT_EQ(ori, orient_type::none);
 }
 
-} // namespace kevlar
+}  // namespace kevlar
