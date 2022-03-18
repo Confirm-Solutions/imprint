@@ -1,0 +1,81 @@
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage{mathtools}
+\usepackage{bbm}
+\usepackage{listings}
+\usepackage{enumitem} % reference enum item
+\usepackage{wasysym} % smiley faces!
+
+% COLORS
+\usepackage{color}
+\usepackage{xcolor}
+\definecolor{mygray}{rgb}{0.4,0.4,0.4}
+
+% Math Utils
+\newcommand{\inner}[2]{\langle#1,\,#2\rangle}
+\newcommand{\innerone}[1]{\langle#1\rangle}
+\newcommand{\paren}[1]{\left(#1\right)}
+\newcommand{\bracket}[1]{\left[#1\right]}
+\newcommand{\given}{\biggr\rvert}
+\newcommand{\PP}[1]{\mathbb{P}\paren{#1}}
+\newcommand{\PPB}[1]{\mathbb{P}\bracket{#1}}
+\newcommand{\PPP}{\mathbb{P}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\EE}[1]{\mathbb{E}\paren{#1}}
+\newcommand{\EEB}[1]{\mathbb{E}\bracket{#1}}
+\newcommand{\Tr}[1]{\text{Tr}\paren{#1}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\xeq}[1]{\stackrel{#1}{=}}
+\newcommand{\indist}{\mathcal{D}}
+\newcommand{\inprob}{\mathcal{P}}
+\newcommand{\borel}{\mathcal{B}}
+\newcommand{\indic}[1]{\mathbbm{1}_{#1}}
+\newcommand\restr[2]{{% we make the whole thing an ordinary symbol
+ \left.\kern-\nulldelimiterspace% automatically resize the bar with \right
+ #1 % the function
+ \vphantom{\big|} % pretend it's a little taller at normal size
+ \right|_{#2} % this is the delimiter
+ }}
+\newcommand{\im}{\text{Im}}
+\newcommand{\cov}[2]{\text{Cov}\paren{#1,#2}}
+\newcommand{\corr}[2]{\text{Corr}\paren{#1,#2}}
+\newcommand{\var}[1]{\text{Var}\paren{#1}}
+\newcommand{\abs}[1]{\left\lvert#1\right\rvert}
+\newcommand{\norm}[1]{\vert\vert#1\rvert\rvert}
+\newcommand{\grad}{\nabla}
+\newcommand{\varrow}{\overset{\rightharpoonup}}
+\newcommand{\diag}[1]{\text{diag}\paren{#1}}
+\newcommand{\mesh}{\text{mesh}}
+\newcommand{\sgn}[1]{\text{sgn}\paren{#1}}
+\newcommand{\set}[1]{\{#1\}}
+\newcommand{\swap}{\operatorname{swap}}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\tv}{d_{TV}}
+
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+\newcommand\indep{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+\newcommand{\code}[1]{{\texttt{\textcolor{mygray}{\small #1}}}}
+
+% TODO highlighting 
+\newcommand{\todo}[1]{\textcolor{red}{#1}}
+
+% Theorem stuff
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{exercise}{Exercise}[section]
+\newtheorem{remark}{Remark}[section]
+\newtheorem{example}{Example}[section]
