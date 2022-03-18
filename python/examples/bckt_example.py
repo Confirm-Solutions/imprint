@@ -2,12 +2,14 @@ import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
 import os
-from timeit import default_timer as timer
-from datetime import timedelta
+from utils import (
+    save_ub,
+    create_ub_plot_inputs,
+)
 
 # ========== Toggleable ===============
-n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 100000
+n_arms = 2
+sim_size = 10000
 n_thetas_1d = 64
 n_threads = os.cpu_count()
 # ========== End Toggleable ===============
@@ -18,6 +20,7 @@ seed = 69
 thresh = 2.1
 lower = -0.5
 upper = 0.5
+delta = 0.025
 
 # set numpy random seed
 np.random.seed(seed)
@@ -40,23 +43,23 @@ thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
 radii = gr.radii()
 radii[...] = core.Gridder.radius(n_thetas_1d, lower, upper)
+sim_sizes = gr.sim_sizes()
+sim_sizes[...] = sim_size
 
 gr.create_tiles(null_hypos)
-
-start = timer()
 gr.prune()
-end = timer()
-print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
-
-print("Gridpts: {n}".format(n=gr.n_gridpts()))
-print("Tiles: {n}".format(n=gr.n_tiles()))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 
 # run a mock-call of fit_process
-start = timer()
 is_o = driver.fit_process(bckt, gr, sim_size, seed, n_threads)
-end = timer()
-print("Fit time: {t}".format(t=timedelta(seconds=end-start)))
-print((is_o.type_I_sum() / sim_size))
+
+# create upper bound plot inputs and save info
+P, B = create_ub_plot_inputs(bckt, is_o, gr, delta)
+save_ub(
+    'P-bckt-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
+    'B-bckt-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
+    P,
+    B,
+)

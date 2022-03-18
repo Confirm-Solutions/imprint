@@ -2,7 +2,10 @@ import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
 import os
-from utils import save_ub
+from utils import (
+    save_ub,
+    create_ub_plot_inputs,
+)
 
 # ========== Toggleable ===============
 sim_size = 10000
@@ -51,29 +54,12 @@ eckt = core.ExpControlkTreatment(n_samples, censor_time, [thresh])
 
 # fit on current grid range and output csv files for upper bound
 is_o = driver.fit_process(eckt, gr, sim_size, seed, n_threads)
-ub = core.UpperBound()
-ub.create(eckt, is_o, gr, delta)
-P = []
-B = []
-pos = 0
-for i in range(gr.n_gridpts()):
-    P.append(gr.thetas()[:, i])
-    #for j in range(gr.n_tiles(i)):
-    B.append([
-        ub.delta_0()[0, pos],
-        ub.delta_0_u()[0, pos],
-        ub.delta_1()[0, pos],
-        ub.delta_1_u()[0, pos],
-        ub.delta_2_u()[0, pos],
-        ub.get()[0, pos],
-    ])
-    pos += gr.n_tiles(i)
-P = np.array(P).T
-B = np.array(B)
 
+# create upper bound plot inputs and save info
+P, B = create_ub_plot_inputs(eckt, is_o, gr, delta)
 save_ub(
-    'P-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
-    'B-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
+    'P-eckt-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
+    'B-eckt-6eeba17dfc476eea1cc7f562d367e5026112d4fb.csv',
     P,
     B,
 )
