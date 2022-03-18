@@ -6,5 +6,5 @@ namespace stats {
 
 void add_to_module(pybind11::module_&);
 
-} // namespace stats
-} // namespace kevlar
+}  // namespace stats
+}  // namespace kevlar

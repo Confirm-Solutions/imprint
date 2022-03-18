@@ -5,12 +5,9 @@
 namespace kevlar {
 namespace driver {
 
-template <class GenType
-        , class ModelBaseType
-        , class GridRangeType
-        , class InterSumType>
-inline void add_fit(pybind11::module_& m)
-{
+template <class GenType, class ModelBaseType, class GridRangeType,
+          class InterSumType>
+inline void add_fit(pybind11::module_& m) {
     using gen_t = GenType;
     using model_t = ModelBaseType;
     using gr_t = GridRangeType;
@@ -19,5 +16,5 @@ inline void add_fit(pybind11::module_& m)
     m.def("fit", fit<gen_t, model_t, gr_t, is_t>);
 }
 
-} // namespace driver
-} // namespace kevlar
+}  // namespace driver
+}  // namespace kevlar
