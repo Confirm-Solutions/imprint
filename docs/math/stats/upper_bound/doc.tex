@@ -1,0 +1,119 @@
+\documentclass[10pt, a4paper]{article}
+\input{../../../latex/mathtools}
+\usepackage{fullpage}
+
+\begin{document}
+\title{Generalized Grid Upper Bound}
+\author{James Yang}
+\maketitle
+
+\section*{Introduction}
+
+The current formulation of upper bound assumes that the 
+(rectangular) gridding occurs in the (canonical) natural parameter space.
+However, it is sometimes more suitable to grid 
+a differently parametrized space.
+For example, the Exponential control k treatment model
+works better under the parametrization of $\lambda_{c}, h$
+where $\lambda_c$ is the natural parameter of the control arm
+and $h$ is the hazard rate.
+Moreover, for better scaling, we may want to grid 
+rather the $\log(\lambda_{c}), \log(h)$.
+Such parametrization defines a mapping from 
+\emph{the grid space} to the natural parameter space.
+We wish to construct the upper bound under any such parametrization,
+provided that the mapping is sufficiently smooth.
+
+In the subsequent sections,
+we will use the notation $\theta \in \R^p$ to denote 
+a point in the grid-space and $\eta = \eta(\theta) \in \R^d$
+as the canonical natural parameter.
+Assume that $\eta$ is twice-continuously differentiable.
+
+\section*{Upper Bound Changes}
+
+The 0th order Monte Carlo term and its upper bound
+need no change from reparametrization.
+As in Michael's thesis, we will denote $f(\theta) = P_\theta(A)$
+where $A$ is the event of false rejection.
+
+\subsection*{Gradient Term: $\delta_1$}
+
+\begin{align*}
+    \nabla f(\theta)
+    :=
+    \nabla_{\theta} P_\theta(A) 
+    &=
+    \nabla_{\theta} \int_A \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    =
+    \int_A \nabla_{\theta} \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    \\&=
+    \int_A (D_{\theta}\eta)^\top 
+    \nabla_{\eta} \frac{P_{\eta}}{P_{\eta_0}} dP_{\eta_0}
+\end{align*}
+where $\eta_0 = \eta(\theta_0)$.
+If $\theta_0$ is the point at which we are Taylor expanding,
+it suffices to compute this gradient at $\theta = \theta_0$.
+This results in
+\begin{align*}
+    \nabla_{\theta} P_{\theta_0}(A) 
+    &=
+    \int_A (D_{\theta}\eta(\theta_0))^\top (T - \nabla_\eta A(\eta_0)) dP_{\theta_0}
+\end{align*}
+
+Hence, our gradient Monte Carlo estimate will be
+\begin{align*}
+    \hat{\nabla f}(\theta_0)
+    :=
+    D_{\theta} \eta(\theta_0)^\top 
+    \frac{1}{N}
+    \sum\limits_{i=1}^N
+    (T(X_i)-\nabla_\eta A(\eta_0)) \indic{X_i \in A}
+\end{align*}
+
+Note that the Jacobian is known when defining a model
+and is simulation-independent.
+Further, it only changes how we compute the upper bound
+and does not affect the InterSum updates (updating the gradient array).
+
+\subsection*{Gradient Upper Bound Term: $\delta_1^u$}
+
+We follow a similar progression as in the original method in Michael's thesis.
+Once we can show for any corner difference $v_m$, 
+there exists a corresponding random $c_m$ such that
+\[
+    P_\theta\paren{v_m^\top \nabla f(\theta) \leq c_m} \geq 1-\delta
+\]
+then we have
+\[
+    P_\theta\paren{\sup\limits_{v\in R_0} v^\top \nabla f(\theta) \leq \max\limits_{m} c_m} \geq 1-\delta
+\]
+
+Using Cantelli's inequality
+with $Y = v_m^\top \hat{\nabla f(\theta)} = \frac{1}{N} \sum\limits_{i=1}^N v_m^\top \hat{\nabla f(\theta)}_i$,
+we just need to provide an upper bound on the variance of $v_m^\top \hat{\nabla f(\theta)}_i$,
+where $\hat{\nabla f(\theta)}_i := D_\theta \eta(\theta)^\top (T(X_i)-\nabla_\eta A(\eta))$.
+In that endeavor,
+\begin{align*}
+    \var{v_m^\top \hat{\nabla f(\theta)}_i}
+    &=
+    v_m^\top \var{\hat{\nabla f(\theta)}_i} v_m
+    \leq 
+    v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{max}}} (D_\theta \eta) v_m
+\end{align*}
+The rest of the calculations remain the same.
+
+Hence, our upper bound is term is simply
+\begin{align*}
+    \hat{\delta}_1^u
+    &=
+    \sqrt{
+        \frac{v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{max}}} (D_\theta \eta) v_m}{N}
+        \paren{\frac{1}{\delta} - 1}
+    }
+\end{align*}
+
+\subsection*{Hessian Term}
+
+
+\end{document}
