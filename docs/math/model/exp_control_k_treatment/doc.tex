@@ -1,0 +1,60 @@
+\documentclass[10pt, a4paper]{article}
+\input{../../../latex/mathtools}
+\usepackage{fullpage}
+
+\begin{document}
+\title{Exponential Control k Treatment Model}
+\author{James Yang}
+\maketitle
+
+\section*{Grid Space}
+
+We will take the grid-space to be $(\xi_1, \xi_2)$
+where $\xi_1 = \log(\lambda_c)$ ($\lambda_c$ is the control arm's $\lambda$),
+and $\xi_2 = \log(h)$ ($h = \lambda_t / \lambda_c$ is the hazard rate,
+i.e.\ the ratio of treatment to control $\lambda$ parameter).
+Note that the grid-space is not in the natural parameter space.
+This results in a slightly different upper-bound formulation,
+which is outlined below.
+
+\section*{Upper Bound}
+
+The 0th order Monte Carlo term and its upper bound
+need no change from this reparametrization.
+
+\subsection*{Gradient Term}
+
+Let $\xi = (\xi_1, \xi_2)$, $\lambda = (\lambda_c, \lambda_t)$,
+and $A$ be the event of false rejection.
+\begin{align*}
+    \nabla_{\xi} P_\lambda(A) 
+    &=
+    \nabla_{\xi} \int_A \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
+    =
+    \int_A \nabla_{\xi} \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
+    \\&=
+    \int_A (D_{\xi}\lambda)^\top \nabla_{\lambda} \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
+\end{align*}
+If $\xi_0$ is the point at which we are Taylor expanding,
+it suffices to compute this gradient at $\xi = \xi_0$ (equivalently, $\lambda_0$).
+This results in
+
+\begin{align*}
+    \nabla_{\xi} P_{\lambda_0}(A) 
+    &=
+    \int_A (D_{\xi}\lambda(\xi_0))^\top (T - \nabla_\lambda A(\lambda_0)) dP_{\lambda_0}
+\end{align*}
+
+Hence, our gradient Monte Carlo estimate will be
+\begin{align*}
+    \hat{\nabla f}
+    :=
+    \frac{1}{N}
+    \sum\limits_{i=1}^N
+    D_{\xi} \lambda(\xi_0)^\top (T(X_i)-\nabla_\lambda A(\lambda_0)) \indic{X_i \in A}
+\end{align*}
+
+\subsection*{Hessian Term}
+
+
+\end{document}
