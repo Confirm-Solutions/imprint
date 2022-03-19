@@ -141,13 +141,23 @@ struct UpperBound {
                 // iterate over all vertices of the tile
                 // and update current max of d1 + d1u + d2u
                 // and d1, d1u, d2u that achieve that max.
-                if (grid_range.is_regular(i)) {
-                    update_d11u2u(tile.begin_full(), tile.end_full(), gp, pos,
-                                  ss, sqrt_ss, d1u_factor, v_diff, deta_v_diff,
-                                  thetas, model, n_models, n_tiles, slice_size,
-                                  is_o, d11u2u, save_corner);
+                if (grid_range.is_regular(gp)) {
+                    for (auto it = tile.begin_full(); it != tile.end_full();
+                         ++it) {
+                        if ((*it)[0] > 400 || (*it)[1] > 400) {
+                            std::cerr << "center: " << tile.center()
+                                      << std::endl;
+                            std::cerr << "radius: " << tile.radius()
+                                      << std::endl;
+                            std::cerr << "vertex: " << *it << std::endl;
+                        }
+                    }
+                    update_d11u2u(tile.begin_full(), tile.end_full(), true, gp,
+                                  pos, ss, sqrt_ss, d1u_factor, v_diff,
+                                  deta_v_diff, thetas, model, n_models, n_tiles,
+                                  slice_size, is_o, d11u2u, save_corner);
                 } else {
-                    update_d11u2u(tile.begin(), tile.end(), gp, pos, ss,
+                    update_d11u2u(tile.begin(), tile.end(), false, gp, pos, ss,
                                   sqrt_ss, d1u_factor, v_diff, deta_v_diff,
                                   thetas, model, n_models, n_tiles, slice_size,
                                   is_o, d11u2u, save_corner);
@@ -159,14 +169,15 @@ struct UpperBound {
     template <class Iter, class VDiffType, class DetaVDiffType,
               class ThetasType, class ModelType, class ISType, class D11U2UType,
               class SaveCornerType>
-    void update_d11u2u(Iter begin, Iter end, size_t gp, size_t pos, size_t ss,
-                       value_t sqrt_ss, value_t d1u_factor, VDiffType& v_diff,
-                       DetaVDiffType& deta_v_diff, const ThetasType& thetas,
-                       const ModelType& model, size_t n_models, size_t n_tiles,
-                       size_t slice_size, const ISType& is_o,
-                       D11U2UType& d11u2u, SaveCornerType save_corner) {
+    void update_d11u2u(Iter begin, Iter end, bool is_reg, size_t gp, size_t pos,
+                       size_t ss, value_t sqrt_ss, value_t d1u_factor,
+                       VDiffType& v_diff, DetaVDiffType& deta_v_diff,
+                       const ThetasType& thetas, const ModelType& model,
+                       size_t n_models, size_t n_tiles, size_t slice_size,
+                       const ISType& is_o, D11U2UType& d11u2u,
+                       SaveCornerType save_corner) {
         for (; begin != end; ++begin) {
-            const auto& v = *begin;  // vertex
+            auto&& v = *begin;  // vertex
 
             v_diff = v - thetas.col(gp);
             model.eta_transform(gp, v_diff, deta_v_diff);
