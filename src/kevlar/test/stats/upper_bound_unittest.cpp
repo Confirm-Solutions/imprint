@@ -20,6 +20,12 @@ struct MockModel {
         return j;
     }
 
+    void eta_transform(size_t, const Eigen::Ref<const colvec_type<double>>& x,
+                       colvec_type<double>& out) const {
+        out = x;
+    }
+    double max_eta_hess_cov(size_t) const { return 0; }
+
     size_t n_models() const { return n_models_; }
 
    private:

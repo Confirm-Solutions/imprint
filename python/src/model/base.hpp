@@ -12,6 +12,8 @@ void add_model_base(py::module_& m) {
     py::class_<mb_t>(m, "ModelBase")
         .def("cov_quad", &mb_t::cov_quad)
         .def("max_cov_quad", &mb_t::max_cov_quad)
+        .def("eta_transform", &mb_t::eta_transform)
+        .def("max_eta_hess_cov", &mb_t::max_eta_hess_cov)
         .def("n_models", &mb_t::n_models)
         .def("grid_range", &mb_t::grid_range,
              py::return_value_policy::reference_internal)
