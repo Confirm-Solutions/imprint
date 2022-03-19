@@ -1,6 +1,7 @@
 \documentclass[10pt, a4paper]{article}
-\input{../../../latex/mathtools}
+\usepackage[english]{babel}
 \usepackage{fullpage}
+\input{../../../latex/mathtools}
 
 \begin{document}
 \title{Generalized Grid Upper Bound}
@@ -103,7 +104,7 @@ In that endeavor,
 \end{align*}
 The rest of the calculations remain the same.
 
-Hence, our upper bound is term is simply
+Hence, our 1st order upper bound term is simply
 \begin{align*}
     \hat{\delta}_1^u
     &=
@@ -115,5 +116,138 @@ Hence, our upper bound is term is simply
 
 \subsection*{Hessian Term}
 
+For any corner difference $v$,
+we will first upper bound
+\begin{align*}
+    \int_0^1 (1-\alpha) v^\top \nabla^2 f(\theta_0 + \alpha v) v d\alpha
+\end{align*}
+
+It suffices to bound $\nabla^2 f(\theta)$.
+\begin{align*}
+    \nabla^2 f(\theta)
+    &=
+    \int_A \nabla^2 P_\theta(x) dx
+\end{align*}
+Applying the multivariate chain-rule for the function
+$\theta \mapsto P_{\eta(\theta)}(x)$,
+we have that
+\begin{align*}
+    \nabla^2 P_\theta(x)
+    &=
+    (D\eta)^\top \nabla^2 P_\eta(x) (D\eta)
+    + 
+    \sum\limits_{k=1}^d 
+    \frac{\partial P_\eta}{\partial \eta_k}
+    \nabla^2 \eta_k
+\end{align*}
+~\cite{skorski:2019:hess}.
+
+By the same proof as in the thesis,
+\begin{align*}
+    -\var{T_{\tau_{\max}}}_{\eta}
+    \preceq
+    \int_A \nabla^2 P_{\eta}(x) dx
+    \preceq
+    \var{T_{\tau_{\max}}}_{\eta}
+\end{align*}
+
+Note that if $S \preceq T$
+for any square matrices $S, T$,
+then we must have that for any matrix $A$,
+$A^\top S A \preceq A^\top T A$.
+This is because $S \preceq T$
+if and only if $T - S$ is positive semi-definite,
+and $A^\top (T-S) A$ is clearly positive semi-definite as well.
+Rearranging, we have our claim.
+Hence, 
+\begin{align*}
+    -(D\eta)^\top
+    \var{T_{\tau_{\max}}}_{\eta}
+    (D\eta)
+    \preceq
+    (D\eta)^\top
+    \int_A \nabla^2 P_{\eta}(x) dx
+    (D\eta)
+    \preceq
+    (D\eta)^\top
+    \var{T_{\tau_{\max}}}_{\eta}
+    (D\eta)
+\end{align*}
+
+This gives us the first bound:
+\begin{align}
+    v^\top \nabla^2 f(\theta) v
+    \leq
+    v^\top (D\eta)^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta) v
+    +
+    \sum\limits_{k=1}^d 
+    v^\top \nabla^2 \eta_k v
+    \int_A (T(x) - \nabla A(\eta))_k P_\eta(x) dx
+    \label{eq:hess-second-term}
+\end{align}
+
+We next bound second term in Eq.~\ref{eq:hess-second-term}.
+\begin{align*}
+    \int_A \abs{(T(x) - \nabla A(\eta))_k} P_\eta(x) dx
+    &\leq
+    \int \abs{(T(x) - \nabla A(\eta))_k} P_\eta(x) dx
+    \\&\leq
+    \paren{\int \abs{(T(x) - \nabla A(\eta))_k}^2 P_\eta(x) dx}^{1/2}
+    \\&=
+    \sqrt{\var{T_k}_\eta}
+\end{align*}
+
+Combining with Eq.~\ref{eq:hess-second-term},
+\begin{align*}
+    v^\top \sup\limits_{\theta \in R} \nabla^2 f(\theta) v
+    &\leq
+    v^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v
+    +
+    \sum\limits_{k=1}^d 
+    \sup\limits_{\theta \in R}
+    \bracket{%
+        \abs{v^\top \nabla^2 \eta_k(\theta) v}
+        \sqrt{\var{T_k}_{\eta(\theta)}}
+    }
+    \\&\leq
+    v^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v
+    +
+    \norm{v}^2
+    \sum\limits_{k=1}^d 
+    \sup\limits_{\theta \in R}
+    \bracket{%
+        \norm{\nabla^2 \eta_k(\theta)}_{op}
+        \sqrt{\var{T_k}_{\eta(\theta)}}
+    }
+\end{align*}
+
+This gives us our upper bound for the hessian term:
+\begin{align*}
+    \hat{\delta}_2^u
+    &=
+    \frac{1}{2}
+    \paren{%
+        v_m^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v_m
+        +
+        \norm{v_m}^2
+        \sum\limits_{k=1}^d 
+        \sup\limits_{\theta \in R}
+        \bracket{%
+            \norm{\nabla^2 \eta_k(\theta)}_{op}
+            \sqrt{\var{T_k}_{\eta(\theta)}}
+        }
+    }
+\end{align*}
+for some corner vector $v_m$.
+
+Note that the second term becomes 0 for any linear transformation $\eta$.
+In particular, for the identity transformation, it simplifies to the usual formula
+\begin{align*}
+    \frac{1}{2}
+    v_m^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_\eta v_m
+\end{align*}
+
+\bibliographystyle{unsrt}
+\bibliography{references}
 
 \end{document}
