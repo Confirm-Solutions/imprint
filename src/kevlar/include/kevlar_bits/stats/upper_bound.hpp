@@ -122,13 +122,15 @@ struct UpperBound {
         for (size_t gp = 0; gp < n_gridpts; ++gp) {
             auto ss = sim_sizes[gp];
             auto sqrt_ss = std::sqrt(ss);
+            auto d0u_factor_sqrt_ss = d0u_factor / sqrt_ss;
+            auto d1u_factor_sqrt_ss = d1u_factor / sqrt_ss;
 
             for (size_t i = 0; i < grid_range.n_tiles(gp); ++i, ++pos) {
                 // update 0th/0th upper
                 auto delta_0_j = delta_0_.col(pos);
                 delta_0_j = typeIsum.col(pos).template cast<value_t>() / ss;
                 delta_0_u_.col(pos) =
-                    (d0u_factor / sqrt_ss) *
+                    d0u_factor_sqrt_ss *
                     (delta_0_j.array() * (1.0 - delta_0_j.array())).sqrt();
 
                 // update 1st/1st upper/2nd upper
@@ -142,23 +144,13 @@ struct UpperBound {
                 // and update current max of d1 + d1u + d2u
                 // and d1, d1u, d2u that achieve that max.
                 if (grid_range.is_regular(gp)) {
-                    for (auto it = tile.begin_full(); it != tile.end_full();
-                         ++it) {
-                        if ((*it)[0] > 400 || (*it)[1] > 400) {
-                            std::cerr << "center: " << tile.center()
-                                      << std::endl;
-                            std::cerr << "radius: " << tile.radius()
-                                      << std::endl;
-                            std::cerr << "vertex: " << *it << std::endl;
-                        }
-                    }
                     update_d11u2u(tile.begin_full(), tile.end_full(), true, gp,
-                                  pos, ss, sqrt_ss, d1u_factor, v_diff,
+                                  pos, ss, d1u_factor_sqrt_ss, v_diff,
                                   deta_v_diff, thetas, model, n_models, n_tiles,
                                   slice_size, is_o, d11u2u, save_corner);
                 } else {
                     update_d11u2u(tile.begin(), tile.end(), false, gp, pos, ss,
-                                  sqrt_ss, d1u_factor, v_diff, deta_v_diff,
+                                  d1u_factor_sqrt_ss, v_diff, deta_v_diff,
                                   thetas, model, n_models, n_tiles, slice_size,
                                   is_o, d11u2u, save_corner);
                 }
@@ -170,19 +162,18 @@ struct UpperBound {
               class ThetasType, class ModelType, class ISType, class D11U2UType,
               class SaveCornerType>
     void update_d11u2u(Iter begin, Iter end, bool is_reg, size_t gp, size_t pos,
-                       size_t ss, value_t sqrt_ss, value_t d1u_factor,
-                       VDiffType& v_diff, DetaVDiffType& deta_v_diff,
-                       const ThetasType& thetas, const ModelType& model,
-                       size_t n_models, size_t n_tiles, size_t slice_size,
-                       const ISType& is_o, D11U2UType& d11u2u,
-                       SaveCornerType save_corner) {
+                       size_t ss, value_t d1u_factor_sqrt_ss, VDiffType& v_diff,
+                       DetaVDiffType& deta_v_diff, const ThetasType& thetas,
+                       const ModelType& model, size_t n_models, size_t n_tiles,
+                       size_t slice_size, const ISType& is_o,
+                       D11U2UType& d11u2u, SaveCornerType save_corner) {
         for (; begin != end; ++begin) {
             auto&& v = *begin;  // vertex
 
             v_diff = v - thetas.col(gp);
             model.eta_transform(gp, v_diff, deta_v_diff);
-            value_t d1u = std::sqrt(model.cov_quad(gp, deta_v_diff)) *
-                          (d1u_factor / sqrt_ss);
+            value_t d1u =
+                std::sqrt(model.cov_quad(gp, deta_v_diff)) * d1u_factor_sqrt_ss;
             value_t d2u = model.max_cov_quad(gp, v_diff);
             d2u += v_diff.squaredNorm() * model.max_eta_hess_cov(gp);
             d2u *= 0.5;

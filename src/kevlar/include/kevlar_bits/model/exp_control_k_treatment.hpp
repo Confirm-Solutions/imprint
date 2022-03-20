@@ -246,6 +246,10 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
         const Eigen::Ref<const colvec_type<value_t>>& thresholds)
         : base_t(2, 0, n_samples), censor_time_(censor_time) {
         set_thresholds(thresholds);
+
+        max_cov_.setOnes();
+        max_cov_(0, 0) = 2;
+        max_cov_ *= n_samples;
     }
 
     /*
@@ -268,9 +272,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
         auto pars = params();
         pars.array() = grid_range.thetas().array().exp();
 
-        auto pars_lower = params_lower();
-        pars_lower.array() =
-            (grid_range.thetas() - grid_range.radii()).array().exp();
+        // auto pars_lower = params_lower();
+        // pars_lower.array() =
+        //     (grid_range.thetas() - grid_range.radii()).array().exp();
     }
 
     /*
@@ -292,13 +296,40 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     }
 
     value_t max_cov_quad(
-        size_t j,
+        size_t,
         const Eigen::Ref<const colvec_type<value_t>>& v) const override {
-        auto lmda_lower = lmda_control_lower(j);
-        auto hr_lower = hzrd_rate_lower(j);
-        auto mean_1 = 1. / lmda_lower;
-        return n_samples() * mean_1 * mean_1 *
-               (v[1] * v[1] + v[0] * v[0] / (hr_lower * hr_lower));
+        return v.dot(max_cov_ * v);
+        // auto lmda_lower = lmda_control_lower(j);
+        // auto hr_lower = hzrd_rate_lower(j);
+        // auto mean_1 = 1. / lmda_lower;
+        // return n_samples() * mean_1 * mean_1 *
+        //        (v[1] * v[1] + v[0] * v[0] / (hr_lower * hr_lower));
+    }
+
+    /*
+     * Deta = [
+     *  [e^{\theta_1} 0]
+     *  [e^{\theta_1 + \theta_2} e^{\theta_1 + \theta_2}]
+     * ]
+     * \theta_1 = \log(\lambda_c)
+     * \theta_2 = \log(\lambda_t / \lambda_c)
+     */
+    void eta_transform(size_t j,
+                       const Eigen::Ref<const colvec_type<value_t>>& v,
+                       colvec_type<value_t>& out) const override {
+        value_t lmda_c = lmda_control(j);
+        value_t lmda_t = lmda_c * hzrd_rate(j);
+
+        mat_type<value_t, 2, 2> deta;
+        deta(0, 0) = lmda_c;
+        deta(0, 1) = 0;
+        deta.row(1).array() = lmda_t;
+
+        out = deta * v;
+    }
+
+    value_t max_eta_hess_cov(size_t) const override {
+        return 3 * std::sqrt(n_samples());
     }
 
     /*
@@ -327,14 +358,14 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     const auto& thresholds__() const { return thresholds_; }
 
    private:
-    auto params_lower() {
-        return Eigen::Map<mat_type<value_t>>(buff_.data(), n_arms(),
-                                             n_gridpts_);
-    }
-    auto params_lower() const {
-        return Eigen::Map<const mat_type<value_t>>(buff_.data(), n_arms(),
-                                                   n_gridpts_);
-    }
+    // auto params_lower() {
+    //     return Eigen::Map<mat_type<value_t>>(buff_.data(), n_arms(),
+    //                                          n_gridpts_);
+    // }
+    // auto params_lower() const {
+    //     return Eigen::Map<const mat_type<value_t>>(buff_.data(), n_arms(),
+    //                                                n_gridpts_);
+    // }
     auto params() {
         return Eigen::Map<mat_type<value_t>>(
             buff_.data() + n_gridpts_ * n_arms(), n_arms(), n_gridpts_);
@@ -344,9 +375,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
             buff_.data() + n_gridpts_ * n_arms(), n_arms(), n_gridpts_);
     }
     auto hzrd_rate(size_t j) const { return params()(1, j); }
-    auto hzrd_rate_lower(size_t j) const { return params_lower()(1, j); }
+    // auto hzrd_rate_lower(size_t j) const { return params_lower()(1, j); }
     auto lmda_control(size_t j) const { return params()(0, j); }
-    auto lmda_control_lower(size_t j) const { return params_lower()(0, j); }
+    // auto lmda_control_lower(size_t j) const { return params_lower()(0, j); }
 
     const value_t censor_time_;
     colvec_type<value_t> thresholds_;
@@ -356,6 +387,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
                 // buff_(1,j,0) = lower hazard rate at jth gridpoint.
                 // buff_(0,j,1) = lambda of control at jth gridpoint.
                 // buff_(1,j,1) = hazard rate at jth gridpoint.
+    const mat_type<value_t, 2, 2> max_cov_;
 };
 
 }  // namespace kevlar
