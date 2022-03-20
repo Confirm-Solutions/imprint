@@ -75,7 +75,11 @@
         "thread": "cpp",
         "typeinfo": "cpp",
         "valarray": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "filesystem": "cpp",
+        "locale": "cpp",
+        "mprealsupport": "cpp",
+        "nonlinearoptimization": "cpp"
     },
     "C_Cpp.errorSquiggles": "Enabled"
 }
