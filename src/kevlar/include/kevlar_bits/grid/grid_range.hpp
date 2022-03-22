@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include <vector>
 #include <kevlar_bits/grid/decl.hpp>
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/grid/utils.hpp>
@@ -327,6 +328,15 @@ struct GridRange {
         thetas_.swap(new_thetas);
         radii_.swap(new_radii);
         sim_sizes_.swap(new_sim_sizes);
+
+        // make sure to reset the viewers for the tile objects!
+        pos = 0;
+        for (size_t i = 0; i < n_gridpts(); ++i) {
+            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
+                tiles_[pos].center(thetas_.col(i));
+                tiles_[pos].radius(radii_.col(i));
+            }
+        }
     }
 
     /*

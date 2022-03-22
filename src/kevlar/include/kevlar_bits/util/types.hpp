@@ -9,8 +9,9 @@ using colvec_type = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 template <class T>
 using rowvec_type = Eigen::Matrix<T, 1, Eigen::Dynamic>;
 
-template <class T, int _Options = Eigen::ColMajor>
-using mat_type = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, _Options>;
+template <class T, int _Rows = Eigen::Dynamic, int _Cols = Eigen::Dynamic,
+          int _Options = Eigen::ColMajor>
+using mat_type = Eigen::Matrix<T, _Rows, _Cols, _Options>;
 
 /*
  * Orientation type definitions.

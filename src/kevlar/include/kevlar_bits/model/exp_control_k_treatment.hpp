@@ -244,8 +244,16 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     ExpControlkTreatment(
         size_t n_samples, value_t censor_time,
         const Eigen::Ref<const colvec_type<value_t>>& thresholds)
-        : base_t(2, 0, n_samples), censor_time_(censor_time) {
+        : base_t(2, 0, n_samples),
+          max_eta_hess_cov_(3 * std::sqrt(n_samples)),
+          censor_time_(censor_time) {
         set_thresholds(thresholds);
+
+        // temporarily const-cast just to initialize the values
+        auto& max_cov_nc_ = const_cast<mat_type<value_t, 2, 2>&>(max_cov_);
+        max_cov_nc_.setOnes();
+        max_cov_nc_(0, 0) = 2;
+        max_cov_nc_ *= n_samples;
     }
 
     /*
@@ -263,14 +271,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
 
         n_gridpts_ = grid_range.n_gridpts();
 
-        buff_.resize(n_arms() * n_gridpts_ * 2);
+        buff_.resize(n_arms(), n_gridpts_);
 
-        auto pars = params();
-        pars.array() = grid_range.thetas().array().exp();
-
-        auto pars_lower = params_lower();
-        pars_lower.array() =
-            (grid_range.thetas() - grid_range.radii()).array().exp();
+        buff_.array() = grid_range.thetas().array().exp();
     }
 
     /*
@@ -292,13 +295,35 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     }
 
     value_t max_cov_quad(
-        size_t j,
+        size_t,
         const Eigen::Ref<const colvec_type<value_t>>& v) const override {
-        auto lmda_lower = lmda_control_lower(j);
-        auto hr_lower = hzrd_rate_lower(j);
-        auto mean_1 = 1. / lmda_lower;
-        return n_samples() * mean_1 * mean_1 *
-               (v[1] * v[1] + v[0] * v[0] / (hr_lower * hr_lower));
+        return v.dot(max_cov_ * v);
+    }
+
+    /*
+     * Deta = [
+     *  [e^{\theta_1} 0]
+     *  [e^{\theta_1 + \theta_2} e^{\theta_1 + \theta_2}]
+     * ]
+     * \theta_1 = \log(\lambda_c)
+     * \theta_2 = \log(\lambda_t / \lambda_c)
+     */
+    void eta_transform(size_t j,
+                       const Eigen::Ref<const colvec_type<value_t>>& v,
+                       colvec_type<value_t>& out) const override {
+        value_t lmda_c = lmda_control(j);
+        value_t lmda_t = lmda_c * hzrd_rate(j);
+
+        mat_type<value_t, 2, 2> deta;
+        deta(0, 0) = lmda_c;
+        deta(0, 1) = 0;
+        deta.row(1).array() = lmda_t;
+
+        out = deta * v;
+    }
+
+    value_t max_eta_hess_cov(size_t) const override {
+        return max_eta_hess_cov_;
     }
 
     /*
@@ -315,7 +340,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
      * Users should not interact with this method.
      * It is exposed purely for internal purposes (pickling).
      */
-    void set_internal(uint_t n_gridpts, const colvec_type<value_t>& buff) {
+    void set_internal(uint_t n_gridpts, const mat_type<value_t>& buff) {
         n_gridpts_ = n_gridpts;
         buff_ = buff;
     }
@@ -327,35 +352,17 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     const auto& thresholds__() const { return thresholds_; }
 
    private:
-    auto params_lower() {
-        return Eigen::Map<mat_type<value_t>>(buff_.data(), n_arms(),
-                                             n_gridpts_);
-    }
-    auto params_lower() const {
-        return Eigen::Map<const mat_type<value_t>>(buff_.data(), n_arms(),
-                                                   n_gridpts_);
-    }
-    auto params() {
-        return Eigen::Map<mat_type<value_t>>(
-            buff_.data() + n_gridpts_ * n_arms(), n_arms(), n_gridpts_);
-    }
-    auto params() const {
-        return Eigen::Map<const mat_type<value_t>>(
-            buff_.data() + n_gridpts_ * n_arms(), n_arms(), n_gridpts_);
-    }
-    auto hzrd_rate(size_t j) const { return params()(1, j); }
-    auto hzrd_rate_lower(size_t j) const { return params_lower()(1, j); }
-    auto lmda_control(size_t j) const { return params()(0, j); }
-    auto lmda_control_lower(size_t j) const { return params_lower()(0, j); }
+    auto lmda_control(size_t j) const { return buff_(0, j); }
+    auto hzrd_rate(size_t j) const { return buff_(1, j); }
 
+    const value_t max_eta_hess_cov_;  // caches max_eta_hess_cov() result
     const value_t censor_time_;
     colvec_type<value_t> thresholds_;
     uint_t n_gridpts_ = 0;
-    colvec_type<value_t>
-        buff_;  // buff_(0,j,0) = lower lambda of control at jth gridpoint.
-                // buff_(1,j,0) = lower hazard rate at jth gridpoint.
-                // buff_(0,j,1) = lambda of control at jth gridpoint.
-                // buff_(1,j,1) = hazard rate at jth gridpoint.
+    mat_type<value_t>
+        buff_;  // buff_(0,j) = lambda of control at jth gridpoint.
+                // buff_(1,j) = hazard rate at jth gridpoint.
+    const mat_type<value_t, 2, 2> max_cov_;
 };
 
 }  // namespace kevlar

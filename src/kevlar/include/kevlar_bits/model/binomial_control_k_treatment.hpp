@@ -414,6 +414,16 @@ struct BinomialControlkTreatment
     }
 
     /*
+     * Identity transformation.
+     */
+    void eta_transform(size_t, const Eigen::Ref<const colvec_type<value_t>>& v,
+                       colvec_type<value_t>& out) const override {
+        out = v;
+    }
+
+    value_t max_eta_hess_cov(size_t) const override { return 0; }
+
+    /*
      * Set the critical thresholds.
      */
     void set_thresholds(const Eigen::Ref<const colvec_type<value_t>>& thrs) {

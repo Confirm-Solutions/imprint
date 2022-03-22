@@ -20,6 +20,13 @@ struct MockHyperPlane : HyperPlane<double> {
     using base_t::base_t;
 };
 
+/*
+ * We overload this function to be compatible with legacy version.
+ * Legacy version does not distinguish tiles that are split by surfaces.
+ * In particular, it assumes every tile is on one side of any surface,
+ * and it is associated with the side where the center of the tile lies.
+ * Hence, this is overloaded to return true no matter what.
+ */
 template <class TileType>
 inline bool is_oriented(const TileType& tile, const MockHyperPlane& hp,
                         orient_type& ori) {
