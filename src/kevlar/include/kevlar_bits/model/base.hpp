@@ -23,6 +23,10 @@ struct ModelBase {
         size_t, const Eigen::Ref<const colvec_type<value_t>>&) const = 0;
     virtual value_t max_cov_quad(
         size_t, const Eigen::Ref<const colvec_type<value_t>>&) const = 0;
+    virtual void eta_transform(size_t,
+                               const Eigen::Ref<const colvec_type<value_t>>&,
+                               colvec_type<value_t>&) const = 0;
+    virtual value_t max_eta_hess_cov(size_t) const = 0;
     virtual uint_t n_models() const = 0;
     virtual std::unique_ptr<model_state_t> make_state() const = 0;
 

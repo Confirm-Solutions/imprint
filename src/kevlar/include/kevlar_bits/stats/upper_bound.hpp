@@ -116,59 +116,25 @@ struct UpperBound {
 
         colvec_type<value_t> d11u2u(n_models);  // d1 + d1u + d2u for each model
         colvec_type<value_t> v_diff(n_params);  // buffer to store vertex-gridpt
+        colvec_type<value_t> deta_v_diff;       // Deta^T v_diff
 
         size_t pos = 0;
         for (size_t gp = 0; gp < n_gridpts; ++gp) {
             auto ss = sim_sizes[gp];
             auto sqrt_ss = std::sqrt(ss);
+            auto d0u_factor_sqrt_ss = d0u_factor / sqrt_ss;
+            auto d1u_factor_sqrt_ss = d1u_factor / sqrt_ss;
 
-            // if gridpt is regular, do specialized routine,
-            // since we know there's only one tile associated with this gridpt.
-            if (grid_range.is_regular(gp)) {
-                // update 0th/0th upper
-                auto delta_0_j = delta_0_.col(pos);
-                delta_0_j = typeIsum.col(pos).template cast<value_t>() / ss;
-                delta_0_u_.col(pos) =
-                    (d0u_factor / sqrt_ss) *
-                    (delta_0_j.array() * (1.0 - delta_0_j.array())).sqrt();
-
-                // update 1st order term
-                size_t slice_offset = 0;
-                for (size_t k = 0; k < n_params;
-                     ++k, slice_offset += slice_size) {
-                    Eigen::Map<const mat_type<value_t> > grad_k(
-                        is_o.grad_sum().data() + slice_offset, n_models,
-                        n_tiles);
-                    delta_1_.col(pos).array() +=
-                        (radii(k, gp) / sim_sizes[gp]) *
-                        grad_k.col(pos).array().abs();
-                }
-
-                // update 1st/2nd order upper terms
-                // TODO: these two lines assume that cov/max_cov are diagonal.
-                value_t var = model.cov_quad(gp, radii.col(gp)) / sim_sizes[gp];
-                value_t hess_bd = model.max_cov_quad(gp, radii.col(gp));
-
-                delta_1_u_.col(pos).fill(std::sqrt(var) * d1u_factor);
-                delta_2_u_.col(pos).fill(0.5 * hess_bd);
-
-                ++pos;
-                continue;
-            }
-
-            // else, iterate through each tile and check every corner explicitly
-
-            // iterate over tiles
             for (size_t i = 0; i < grid_range.n_tiles(gp); ++i, ++pos) {
                 // update 0th/0th upper
                 auto delta_0_j = delta_0_.col(pos);
                 delta_0_j = typeIsum.col(pos).template cast<value_t>() / ss;
                 delta_0_u_.col(pos) =
-                    (d0u_factor / sqrt_ss) *
+                    d0u_factor_sqrt_ss *
                     (delta_0_j.array() * (1.0 - delta_0_j.array())).sqrt();
 
                 // update 1st/1st upper/2nd upper
-                auto& tile = tiles[pos];
+                const auto& tile = tiles[pos];
 
                 // set current max value of d1 + d1u + d2u = -inf for all
                 // models.
@@ -177,42 +143,69 @@ struct UpperBound {
                 // iterate over all vertices of the tile
                 // and update current max of d1 + d1u + d2u
                 // and d1, d1u, d2u that achieve that max.
-                for (const auto& v : tile) {
-                    v_diff = v - thetas.col(gp);
-                    value_t d1u = std::sqrt(model.cov_quad(gp, v_diff)) *
-                                  (d1u_factor / sqrt_ss);
-                    value_t d2u = 0.5 * model.max_cov_quad(gp, v_diff);
-
-                    for (size_t m = 0; m < n_models; ++m) {
-                        // compute current v^T grad_f
-                        value_t d1 = 0;
-                        size_t slice_offset = 0;
-                        for (size_t k = 0; k < n_params;
-                             ++k, slice_offset += slice_size) {
-                            Eigen::Map<const mat_type<value_t> > grad_k(
-                                is_o.grad_sum().data() + slice_offset, n_models,
-                                n_tiles);
-                            d1 += v_diff[k] * grad_k(m, pos);
-                        }
-                        d1 /= ss;
-
-                        // check if we have new maximum
-                        value_t new_max = d1 + d1u + d2u;
-                        bool is_new = (new_max > d11u2u[m]);
-
-                        // save new maximum sum and the components
-                        if (is_new) {
-                            d11u2u[m] = new_max;
-                            delta_1_(m, pos) = d1;
-                            delta_1_u_(m, pos) = d1u;
-                            delta_2_u_(m, pos) = d2u;
-                            save_corner(m, pos, v);
-                        }
-
-                    }  // end for-loop on models
-                }      // end for-loop on vertices
-            }          // end for-loop on tiles
+                if (grid_range.is_regular(gp)) {
+                    update_d11u2u(tile.begin_full(), tile.end_full(), true, gp,
+                                  pos, ss, d1u_factor_sqrt_ss, v_diff,
+                                  deta_v_diff, thetas, model, n_models, n_tiles,
+                                  slice_size, is_o, d11u2u, save_corner);
+                } else {
+                    update_d11u2u(tile.begin(), tile.end(), false, gp, pos, ss,
+                                  d1u_factor_sqrt_ss, v_diff, deta_v_diff,
+                                  thetas, model, n_models, n_tiles, slice_size,
+                                  is_o, d11u2u, save_corner);
+                }
+            }  // end for-loop on tiles
         }
+    }
+
+    template <class Iter, class VDiffType, class DetaVDiffType,
+              class ThetasType, class ModelType, class ISType, class D11U2UType,
+              class SaveCornerType>
+    void update_d11u2u(Iter begin, Iter end, bool is_reg, size_t gp, size_t pos,
+                       size_t ss, value_t d1u_factor_sqrt_ss, VDiffType& v_diff,
+                       DetaVDiffType& deta_v_diff, const ThetasType& thetas,
+                       const ModelType& model, size_t n_models, size_t n_tiles,
+                       size_t slice_size, const ISType& is_o,
+                       D11U2UType& d11u2u, SaveCornerType save_corner) {
+        for (; begin != end; ++begin) {
+            auto&& v = *begin;  // vertex
+
+            v_diff = v - thetas.col(gp);
+            model.eta_transform(gp, v_diff, deta_v_diff);
+            value_t d1u =
+                std::sqrt(model.cov_quad(gp, deta_v_diff)) * d1u_factor_sqrt_ss;
+            value_t d2u = model.max_cov_quad(gp, v_diff);
+            d2u += v_diff.squaredNorm() * model.max_eta_hess_cov(gp);
+            d2u *= 0.5;
+
+            for (size_t m = 0; m < n_models; ++m) {
+                // compute current v^T grad_f
+                value_t d1 = 0;
+                size_t slice_offset = 0;
+                for (size_t k = 0; k < deta_v_diff.size();
+                     ++k, slice_offset += slice_size) {
+                    Eigen::Map<const mat_type<value_t> > grad_k(
+                        is_o.grad_sum().data() + slice_offset, n_models,
+                        n_tiles);
+                    d1 += deta_v_diff[k] * grad_k(m, pos);
+                }
+                d1 /= ss;
+
+                // check if we have new maximum
+                value_t new_max = d1 + d1u + d2u;
+                bool is_new = (new_max > d11u2u[m]);
+
+                // save new maximum sum and the components
+                if (is_new) {
+                    d11u2u[m] = new_max;
+                    delta_1_(m, pos) = d1;
+                    delta_1_u_(m, pos) = d1u;
+                    delta_2_u_(m, pos) = d2u;
+                    save_corner(m, pos, v);
+                }
+
+            }  // end for-loop on models
+        }      // end for-loop on vertices
     }
 
     // Components that make up an upper bound.
