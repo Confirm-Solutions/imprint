@@ -82,13 +82,13 @@ TEST_F(upper_bound_fixture, delta_0) {
     expect_double_eq_mat(actual, expected);
 }
 
-TEST_F(upper_bound_fixture, delta_0_u) {
-    auto d0 = ub.delta_0().array();
-    const auto& actual = ub.delta_0_u();
-    Eigen::MatrixXd expected =
-        qnorm(1 - 0.5 * delta) * (d0 * (1.0 - d0) / sim_size).sqrt();
-    expect_double_eq_mat(actual, expected);
-}
+// TEST_F(upper_bound_fixture, delta_0_u) {
+//     auto d0 = ub.delta_0().array();
+//     const auto& actual = ub.delta_0_u();
+//     Eigen::MatrixXd expected =
+//         qnorm(1 - 0.5 * delta) * (d0 * (1.0 - d0) / sim_size).sqrt();
+//     expect_double_eq_mat(actual, expected);
+// }
 
 // TEST_F(upper_bound_fixture, delta_1)
 //{
