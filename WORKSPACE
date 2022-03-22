@@ -18,11 +18,14 @@ http_archive(
 
 # Rules CC
 http_archive(
-    name = "rules_cc",
-    sha256 = "9a446e9dd9c1bb180c86977a8dc1e9e659550ae732ae58bd2e8fd51e15b2c91d",
-    strip_prefix = "rules_cc-262ebec3c2296296526740db4aefce68c80de7fa",
-    urls = ["https://github.com/bazelbuild/rules_cc/archive/262ebec3c2296296526740db4aefce68c80de7fa.zip"],
+||||||| parent of 738d35e... Add extra dependency and simplify dependency graph
+http_archive(
+    name = "com_google_tcmalloc",
+    strip_prefix = "tcmalloc-a3717bc4fcade63c642f9b991fbdd64299896762",
+    urls = ["https://github.com/google/tcmalloc/archive/a3717bc4fcade63c642f9b991fbdd64299896762.zip"],
 )
+
+http_archive(
 
 # fmt
 http_archive(
