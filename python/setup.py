@@ -10,9 +10,11 @@ ParallelCompile("NPY_NUM_BUILD_JOBS").install()
 # Define some variables for ease of interpretation
 CWD = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CWD, '..')
-KEVLAR_DIR = os.path.join(ROOT_DIR, 'src/kevlar')
-EIGEN_INCLUDE_DIR = os.path.join(KEVLAR_DIR, 'third_party/eigen-3.4.0')
-KEVLAR_INCLUDE_DIR = os.path.join(KEVLAR_DIR, 'include')
+EXTERNAL_DIR = os.path.join(ROOT_DIR, 'bazel-kevlar/external')
+EIGEN_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'eigen')
+KTHOHR_STATS_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_stats/include')
+KTHOHR_GCEM_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_gcem/include')
+KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'src/kevlar/include')
 PYKEVLAR_INCLUDE_DIR = os.path.join(CWD, 'src')
 DEBUG = False
 
@@ -53,6 +55,8 @@ ext_modules = [
         sorted(glob(PYKEVLAR_INCLUDE_DIR + '/**/*.cpp', recursive=True)),
         include_dirs=[
             EIGEN_INCLUDE_DIR,
+            KTHOHR_STATS_INCLUDE_DIR,
+            KTHOHR_GCEM_INCLUDE_DIR,
             KEVLAR_INCLUDE_DIR,
             PYKEVLAR_INCLUDE_DIR,
         ],
