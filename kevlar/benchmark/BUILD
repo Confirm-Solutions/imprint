@@ -2,7 +2,7 @@
     name = type_,
     srcs = ["{}.cpp".format(type_)],
     deps = [
-        "//src/kevlar",
+        "//kevlar",
         "@com_github_google_benchmark//:benchmark_main",
     ],
 ) for type_ in [
