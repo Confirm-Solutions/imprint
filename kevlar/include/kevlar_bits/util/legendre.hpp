@@ -148,34 +148,34 @@ inline Vec legder(
     return der;
 }
 
-inline Mat
-leggauss(int deg) { /*
-                    Computes the nodes and weights for Gauss-Legendre
-                    quadrature. These nodes and weights will correctly integrate
-                    polynomials of degree < 2*deg over the interval [-1, 1] with
-                    the weight function w(x) = 1.
+inline Mat leggauss(
+    int deg) { /*
+               Computes the nodes and weights for Gauss-Legendre
+               quadrature. These nodes and weights will correctly integrate
+               polynomials of degree < 2*deg over the interval [-1, 1] with
+               the weight function w(x) = 1.
 
-                    Input
-                    ----------
-                    deg : int
-                        Number of sample points and weights (must be >= 1)
+               Input
+               ----------
+               deg : int
+                   Number of sample points and weights (must be >= 1)
 
-                    Output
-                    -------
-                    x : array
-                        1D array containing the nodes
-                    w : array
-                        1D array containing the weights
+               Output
+               -------
+               x : array
+                   1D array containing the nodes
+               w : array
+                   1D array containing the weights
 
-                    Notes
-                    -----
-                    The results have only been tested up to degree 100, higher
-                    degrees may be problematic. The weights are determined by
-                    using the fact that w_k = c / (L'_n(x_k) * L_{n-1}(x_k))
-                    where c is a constant independent of k and x_k is the kth
-                    root of L_n, and then scaling the results to get the right
-                    value when integrating 1.
-                    */
+               Notes
+               -----
+               The results have only been tested up to degree 100, higher
+               degrees may be problematic. The weights are determined by
+               using the fact that w_k = c / (L'_n(x_k) * L_{n-1}(x_k))
+               where c is a constant independent of k and x_k is the kth
+               root of L_n, and then scaling the results to get the right
+               value when integrating 1.
+               */
 
     // First approximation of roots. We use the fact that the companion
     // matrix is symmetric in this case in order to obtain better zeros.

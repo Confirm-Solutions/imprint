@@ -26,18 +26,32 @@ sudo apt install clang-11 --install-suggests
 
 ## Build
 
+__Note that we deprecated `CMake` build and is not maintained.__
+
+To build `kevlar`, run the following:
 ```
-bazel build -c dbg //src/kevlar:kevlar
+bazel build //kevlar:kevlar
 ```
+Note that `kevlar` is a header-only library,
+so this will simply collect all the headers.
 
 To run all tests, run the following:
 ```
-bazel test //...
+bazel test -c dbg //kevlar/test/... 
 ```
+If there are compilation issues related to `C++17` standard not being set,
+pass an additional flag `--cxxopt='-std=c++17'`.
+
+To run a particular test, run the following:
+```
+bazel test -c dbg //kevlar/test:name-of-test
+```
+where `name-of-test` is the same name as the subdirectory in `kevlar/test/`
+besides `testutil`.
 
 To run the examples in `example/`, do the following:
 ```
-bazel run //src/kevlar/example:name-of-example
+bazel run //kevlar/example:name-of-example
 ```
 where `name-of-example` is the same name of the example `.cpp` file in `example/` folder.
 
