@@ -1,5 +1,22 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+rules_python_version = "740825b7f74930c62f44af95c9a4c1bd428d2c53"  # Latest @ 2021-06-23
+
+# Python rules
+http_archive(
+    name = "rules_python",
+    strip_prefix = "rules_python-{}".format(rules_python_version),
+    url = "https://github.com/bazelbuild/rules_python/archive/{}.zip".format(rules_python_version),
+)
+
+# Python PIP dependencies
+load("@rules_python//python:pip.bzl", "pip_install")
+
+pip_install(
+    name = "pykevlar_deps",
+    requirements = "//python:requirements.txt",
+)
+
 # GoogleTest/GoogleMock framework. Used by most unit-tests.
 http_archive(
     name = "com_google_googletest",
@@ -23,6 +40,30 @@ http_archive(
     strip_prefix = "rules_cc-262ebec3c2296296526740db4aefce68c80de7fa",
     urls = ["https://github.com/bazelbuild/rules_cc/archive/262ebec3c2296296526740db4aefce68c80de7fa.zip"],
 )
+
+PYBIND_BAZEL_VERSION = "72cbbf1fbc830e487e3012862b7b720001b70672"
+
+PYBIND_VERSION = "2.9.1"
+
+http_archive(
+    name = "pybind11_bazel",
+    sha256 = "fec6281e4109115c5157ca720b8fe20c8f655f773172290b03f57353c11869c2",
+    strip_prefix = "pybind11_bazel-{}".format(PYBIND_BAZEL_VERSION),
+    urls = ["https://github.com/pybind/pybind11_bazel/archive/{}.zip".format(PYBIND_BAZEL_VERSION)],
+)
+
+# We still require the pybind library.
+http_archive(
+    name = "pybind11",
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
+    sha256 = "c6160321dc98e6e1184cc791fbeadd2907bb4a0ce0e447f2ea4ff8ab56550913",
+    strip_prefix = "pybind11-{}".format(PYBIND_VERSION),
+    urls = ["https://github.com/pybind/pybind11/archive/v{}.tar.gz".format(PYBIND_VERSION)],
+)
+
+load("@pybind11_bazel//:python_configure.bzl", "python_configure")
+
+python_configure(name = "local_config_python")
 
 # fmt
 http_archive(

@@ -45,7 +45,7 @@ in the build procedures below,
 the user is expected to use the Homebrew-provided `clang`
 and define the environment variables `CC, CXX` before calling `bazel`:__
 ```
-brew install llvm
+brew install llvm libomp
 CC=/path/to/brew/clang CXX=/path/to/brew/clang++ bazel ...
 ```
 
