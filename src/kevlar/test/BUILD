@@ -20,7 +20,6 @@ cc_library(
         ":testutil",
         "//src/kevlar",
         "@com_google_googletest//:gtest_main",
-        "@eigen",
     ],
 ) for type_ in [
     "grid",

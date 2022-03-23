@@ -3,6 +3,7 @@
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/macros.hpp>
+#include <stats.hpp>
 
 namespace kevlar {
 
@@ -97,14 +98,13 @@ struct UpperBound {
         const auto slice_size = n_models * n_tiles;
         const auto& sim_sizes = grid_range.sim_sizes();
         const auto& typeIsum = is_o.type_I_sum();
-        const auto& radii = grid_range.radii();
         const auto& thetas = grid_range.thetas();
         const auto& tiles = grid_range.tiles();
         constexpr value_t neg_inf = -std::numeric_limits<value_t>::infinity();
 
         // pre-compute some constants
-        value_t d0u_factor = qnorm(1. - delta * delta_prop_0to1);
-        value_t d1u_factor =
+        const value_t d0u_factor = 1. - delta * delta_prop_0to1;
+        const value_t d1u_factor =
             std::sqrt(1. / ((1.0 - delta_prop_0to1) * delta) - 1.);
 
         // populate 0th order and upper bound
@@ -120,18 +120,24 @@ struct UpperBound {
 
         size_t pos = 0;
         for (size_t gp = 0; gp < n_gridpts; ++gp) {
-            auto ss = sim_sizes[gp];
-            auto sqrt_ss = std::sqrt(ss);
-            auto d0u_factor_sqrt_ss = d0u_factor / sqrt_ss;
-            auto d1u_factor_sqrt_ss = d1u_factor / sqrt_ss;
+            const auto ss = sim_sizes[gp];
+            const auto sqrt_ss = std::sqrt(ss);
+            const auto d1u_factor_sqrt_ss = d1u_factor / sqrt_ss;
 
             for (size_t i = 0; i < grid_range.n_tiles(gp); ++i, ++pos) {
-                // update 0th/0th upper
+                // update 0th order
                 auto delta_0_j = delta_0_.col(pos);
-                delta_0_j = typeIsum.col(pos).template cast<value_t>() / ss;
-                delta_0_u_.col(pos) =
-                    d0u_factor_sqrt_ss *
-                    (delta_0_j.array() * (1.0 - delta_0_j.array())).sqrt();
+                auto typeIsum_j = typeIsum.col(pos);
+                delta_0_j = typeIsum_j.template cast<value_t>() / ss;
+
+                // update 0th order upper
+                auto delta_0_u_j = delta_0_u_.col(pos);
+                for (size_t m = 0; m < delta_0_u_j.size(); ++m) {
+                    delta_0_u_j[m] =
+                        ::stats::qbeta(d0u_factor, typeIsum_j[m] + 1,
+                                       ss - typeIsum_j[m]) -
+                        delta_0_j[m];
+                }
 
                 // update 1st/1st upper/2nd upper
                 const auto& tile = tiles[pos];
