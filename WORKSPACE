@@ -1,21 +1,5 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-http_archive(
-    name = "rules_fuzzing",
-    sha256 = "a5734cb42b1b69395c57e0bbd32ade394d5c3d6afbfe782b24816a96da24660d",
-    strip_prefix = "rules_fuzzing-0.1.1",
-    urls = ["https://github.com/bazelbuild/rules_fuzzing/archive/v0.1.1.zip"],
-)
-
-# Protobuf
-load("@rules_fuzzing//fuzzing:repositories.bzl", "rules_fuzzing_dependencies")
-
-rules_fuzzing_dependencies()
-
-load("@rules_fuzzing//fuzzing:init.bzl", "rules_fuzzing_init")
-
-rules_fuzzing_init()
-
 # GoogleTest/GoogleMock framework. Used by most unit-tests.
 http_archive(
     name = "com_google_googletest",
@@ -32,6 +16,7 @@ http_archive(
     urls = ["https://github.com/google/benchmark/archive/16703ff83c1ae6d53e5155df3bb3ab0bc96083be.zip"],
 )
 
+# Rules CC
 http_archive(
     name = "rules_cc",
     sha256 = "9a446e9dd9c1bb180c86977a8dc1e9e659550ae732ae58bd2e8fd51e15b2c91d",
@@ -39,6 +24,7 @@ http_archive(
     urls = ["https://github.com/bazelbuild/rules_cc/archive/262ebec3c2296296526740db4aefce68c80de7fa.zip"],
 )
 
+# fmt
 http_archive(
     name = "fmtlib",
     patch_cmds = [
@@ -55,6 +41,22 @@ http_archive(
 # ====================================
 # GOOGLE TCMALLOC + DEPENDENCIES
 # ====================================
+
+http_archive(
+    name = "rules_fuzzing",
+    sha256 = "a5734cb42b1b69395c57e0bbd32ade394d5c3d6afbfe782b24816a96da24660d",
+    strip_prefix = "rules_fuzzing-0.1.1",
+    urls = ["https://github.com/bazelbuild/rules_fuzzing/archive/v0.1.1.zip"],
+)
+
+# Protobuf
+load("@rules_fuzzing//fuzzing:repositories.bzl", "rules_fuzzing_dependencies")
+
+rules_fuzzing_dependencies()
+
+load("@rules_fuzzing//fuzzing:init.bzl", "rules_fuzzing_init")
+
+rules_fuzzing_init()
 
 http_archive(
     name = "com_google_absl",
