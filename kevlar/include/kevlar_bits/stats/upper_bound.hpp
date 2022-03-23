@@ -132,7 +132,7 @@ struct UpperBound {
 
                 // update 0th order upper
                 auto delta_0_u_j = delta_0_u_.col(pos);
-                for (size_t m = 0; m < delta_0_u_j.size(); ++m) {
+                for (int m = 0; m < delta_0_u_j.size(); ++m) {
                     delta_0_u_j[m] =
                         ::stats::qbeta(d0u_factor, typeIsum_j[m] + 1,
                                        ss - typeIsum_j[m]) -
@@ -188,7 +188,7 @@ struct UpperBound {
                 // compute current v^T grad_f
                 value_t d1 = 0;
                 size_t slice_offset = 0;
-                for (size_t k = 0; k < deta_v_diff.size();
+                for (int k = 0; k < deta_v_diff.size();
                      ++k, slice_offset += slice_size) {
                     Eigen::Map<const mat_type<value_t> > grad_k(
                         is_o.grad_sum().data() + slice_offset, n_models,
