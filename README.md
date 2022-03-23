@@ -20,7 +20,7 @@ pip install -vvv -e .
 
 ## Reinstall
 ```
-pip uninstall pykevlar
+pip uninstall -y pykevlar
 cd python/
 rm -rf ./build ./dist ./*egg-info
 find . -type f -name "*.so" -exec rm {} \;

@@ -18,7 +18,7 @@ RUN sudo \
 RUN id && \
     conda install -y python=3.9 && \
     conda install -y grpcio==1.42 && \
-    pip install "ray[default]"
+    pip install ray==1.11.0
  
 # Build and install Kevlar
 ENV GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -i id_rsa.docker -o IdentitiesOnly=yes'
