@@ -13,7 +13,7 @@ Run the following commands:
 git clone git@github.com:mikesklar/kevlar.git
 cd kevlar/
 pre-commit install
-python generate_bazelrc.py
+./generate_bazelrc
 ```
 
 From here, we refer to the installation instructions
