@@ -14,13 +14,14 @@ process = subprocess.Popen(['bazel', 'info', 'output_base'],
                      stderr=subprocess.PIPE)
 stdout, _ = process.communicate()
 BAZEL_OUTPUT_BASE = stdout.decode('utf-8')
+BAZEL_EXTERNAL = os.path.join(BAZEL_OUTPUT_BASE, "external")
 
 # Define some variables for ease of interpretation
 CWD = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CWD, '..')
-EIGEN_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'eigen')
-KTHOHR_STATS_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'kthohr_stats/include')
-KTHOHR_GCEM_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'kthohr_gcem/include')
+EIGEN_INCLUDE_DIR = os.path.join(BAZEL_EXTERNAL, 'eigen')
+KTHOHR_STATS_INCLUDE_DIR = os.path.join(BAZEL_EXTERNAL, 'kthohr_stats/include')
+KTHOHR_GCEM_INCLUDE_DIR = os.path.join(BAZEL_EXTERNAL, 'kthohr_gcem/include')
 KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'kevlar/include')
 PYKEVLAR_INCLUDE_DIR = os.path.join(CWD, 'src')
 
