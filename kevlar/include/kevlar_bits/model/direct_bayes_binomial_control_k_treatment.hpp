@@ -39,14 +39,6 @@ class DirectBayesBinomialControlkTreatment
         const Eigen::Ref<const colvec_type<ValueType>> &thresholds)
         : base_t(n_arms, 0, n_samples, thresholds) {}
 
-    static mat_t fast_invert(mat_t S, const vec_t &d) {
-        for (int k = 0; k < d.size(); ++k) {
-            auto offset = (d[k] / (1 + d[k] * S(k, k))) * (S.col(k) * S.row(k));
-            S -= offset;
-        }
-        return S;
-    }
-
     static mat_t faster_invert(const vec_t &D_inverse, const value_t O) {
         //(1) compute multiplier on the new rank-one component
         auto multiplier = -O / (1 + O * D_inverse.sum());
@@ -69,21 +61,19 @@ class DirectBayesBinomialControlkTreatment
     static vec_t conditional_exceed_prob_given_sigma(
         value_t sigma_sq, value_t mu_sig_sq, const vec_t &sample_I,
         const vec_t &thetahat, const vec_t &logit_thresholds, const vec_t &mu_0,
-        const bool use_fast_inverse = false) {
+        const bool use_fast_inverse = true) {
         const int d = sample_I.size();
         mat_t S_0 = vec_t::Constant(d, sigma_sq).asDiagonal();
         S_0.array() += mu_sig_sq;
 
-        // V_0 = solve(S_0)
-        // but because this is a known case of the form
-        // aI + bJ, we can use the explicit inverse formula, given by : 1 /
-        // a I - J *(b / (a(a + db))) Note, by the way, that it's probably
-        // possible to use significant precomputation here
-        mat_t V_0 = vec_t::Constant(d, 1 / sigma_sq).asDiagonal();
-        V_0.array() -= (mu_sig_sq / sigma_sq) / (sigma_sq + d * mu_sig_sq);
+        vec_t sigma_sq_inv = vec_t::Constant(d, 1. / sigma_sq);
+        mat_t V_0 = sigma_sq_inv.asDiagonal();
+        auto shift = -1 * (mu_sig_sq / sigma_sq) / (sigma_sq + d * mu_sig_sq);
+        V_0.array() += shift;
         mat_t Sigma_posterior;
         if (use_fast_inverse) {
-            Sigma_posterior = fast_invert(S_0, sample_I);
+            vec_t V_0 = 1. / (sigma_sq_inv + sample_I).array();
+            Sigma_posterior = faster_invert(V_0, shift);
         } else {
             mat_t precision_posterior = sample_I.asDiagonal();
             precision_posterior += V_0;

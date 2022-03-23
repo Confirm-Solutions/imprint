@@ -89,25 +89,29 @@ DirectBayesBinomialControlkTreatment<> get_test_class() {
 }
 
 TEST_F(base_fixture, TestConditionalExceedProbGivenSigma) {
-    mat_t got = DirectBayesBinomialControlkTreatment<>::
-        conditional_exceed_prob_given_sigma(
-            1.10517092, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
-            Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
-            Eigen::Vector<value_t, 1>{-0.40546511},
-            Eigen::Vector4d{0, 0, 0, 0});
-    Eigen::Vector4d want;
-    want << 0.9892854091921082, 0.0656701203047288, 0.999810960134644,
-        0.9999877861068269;
-    EXPECT_TRUE(got.isApprox(want, tol));
-    got = DirectBayesBinomialControlkTreatment<>::
-        conditional_exceed_prob_given_sigma(
-            1.01445965e-8, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
-            Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
-            Eigen::Vector<value_t, 1>{-0.40546511},
-            Eigen::Vector4d{0, 0, 0, 0});
-    want << 0.9999943915784785, 0.999994391552775, 0.9999943915861994,
-        0.9999943915892988;
-    EXPECT_TRUE(got.isApprox(want, tol));
+    for (bool use_fast : {true, false}) {
+        mat_t got = DirectBayesBinomialControlkTreatment<>::
+            conditional_exceed_prob_given_sigma(
+                1.10517092, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
+                Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422,
+                                0.94446161},
+                Eigen::Vector<value_t, 1>{-0.40546511},
+                Eigen::Vector4d{0, 0, 0, 0}, use_fast);
+        Eigen::Vector4d want;
+        want << 0.9892854091921082, 0.0656701203047288, 0.999810960134644,
+            0.9999877861068269;
+        EXPECT_TRUE(got.isApprox(want, tol));
+        got = DirectBayesBinomialControlkTreatment<>::
+            conditional_exceed_prob_given_sigma(
+                1.01445965e-8, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
+                Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422,
+                                0.94446161},
+                Eigen::Vector<value_t, 1>{-0.40546511},
+                Eigen::Vector4d{0, 0, 0, 0}, use_fast);
+        want << 0.9999943915784785, 0.999994391552775, 0.9999943915861994,
+            0.9999943915892988;
+        EXPECT_TRUE(got.isApprox(want, tol));
+    }
 };
 
 TEST_F(base_fixture, TestGetFalseRejections) {
@@ -128,20 +132,14 @@ TEST_F(base_fixture, TestGetFalseRejections) {
     EXPECT_TRUE(got.isApprox(want, tol));
 };
 
-TEST_F(base_fixture, TestFastInvert) {
-    auto S = Eigen::Matrix4d();
-    S << 1.2051709180756478, 0.1, 0.1, 0.1, 0.1, 1.2051709180756478, 0.1, 0.1,
-        0.1, 0.1, 1.2051709180756478, 0.1, 0.1, 0.1, 0.1, 1.2051709180756478;
-    auto d = Eigen::Vector4d();
-    d << 12.32, 10.08, 11.219999999999999, 10.080000000000002;
-    const auto got = DirectBayesBinomialControlkTreatment<>::fast_invert(S, d);
-    auto want = Eigen::Matrix4d();
-    want << 0.07596619108756637, 0.00042244834619945633, 0.0003827289587913419,
-        0.000422448346199456, 0.00042244834619945633, 0.09154316740682344,
-        0.00046077407089149705, 0.0005085929343690617, 0.0003827289587913419,
-        0.00046077407089149705, 0.08289278392798395, 0.00046077407089149727,
-        0.000422448346199456, 0.0005085929343690617, 0.00046077407089149727,
-        0.09154316740682344;
+TEST_F(base_fixture, TestFasterInvert) {
+    auto v = Eigen::Vector4d{1, 2, 3, 4};
+    double d = 0.5;
+    const auto got = DirectBayesBinomialControlkTreatment<>::faster_invert(
+        1. / v.array(), d);
+    mat_t m = v.asDiagonal();
+    m.array() += d;
+    mat_t want = m.inverse();
     EXPECT_TRUE(want.isApprox(got, tol));
 };
 
