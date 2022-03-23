@@ -1,5 +1,4 @@
 #include <iostream>
-#define EIGEN_INITIALIZE_MATRICES_BY_NAN
 
 #include <gtest/gtest.h>
 #include <kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp>

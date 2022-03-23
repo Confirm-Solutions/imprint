@@ -1,11 +1,11 @@
+#include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/grid/gridder.hpp>
+#include <kevlar_bits/grid/hyperplane.hpp>
+#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
+#include <random>
 #include <testutil/base_fixture.hpp>
 #include <testutil/model/binomial_control_k_treatment_legacy.hpp>
-#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/grid/hyperplane.hpp>
-#include <kevlar_bits/grid/gridder.hpp>
-#include <random>
 
 namespace kevlar {
 

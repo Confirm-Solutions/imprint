@@ -16,6 +16,7 @@ cc_library(
 [cc_test(
     name = type_,
     srcs = glob(["{}/**/*.cpp".format(type_)]),
+    defines = ["EIGEN_INITIALIZE_MATRICES_BY_NAN"],
     deps = [
         ":testutil",
         "//kevlar",

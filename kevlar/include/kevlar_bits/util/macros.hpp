@@ -34,11 +34,12 @@
 #endif
 #endif
 
-#ifndef print
-#define print(t) (std::cout << __LINE__ << ": " << #t << '\n' << t << "\n\n")
+#ifndef PRINT
+#define PRINT(t) \
+    (std::cout << __LINE__ << ": " << #t << '\n' << t << "\n" << std::endl)
 #endif
 
-#ifndef assert_good
-#define assert_good(t) \
+#ifndef ASSERT_GOOD
+#define ASSERT_GOOD(t) \
     assert(!t.array().isNaN().any() && !t.array().isInf().any())
 #endif
