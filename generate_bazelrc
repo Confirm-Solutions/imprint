@@ -25,6 +25,7 @@ def main():
 '''
 build --cxxopt="-std=c++17"
 build --cxxopt="-Wall"
+build --cxxopt="-fopenmp"
 
 # Linux GCC
 build:gcc --action_env=CC=gcc
