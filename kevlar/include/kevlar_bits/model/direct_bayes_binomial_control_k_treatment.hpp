@@ -29,17 +29,15 @@ class DirectBayesBinomialControlkTreatment
     using uint_t = uint32_t;
     using base_t = BinomialControlkTreatment<
         ValueType, uint32_t, GridRange<ValueType, uint32_t, Tile<ValueType>>>;
+    using vec_t = typename base_t::vec_t;
+    using mat_t = typename base_t::mat_t;
     using base_t::make_state;
     using base_t::set_grid_range;
-    using typename base_t::mat_t;
-    using typename base_t::vec_t;
 
     DirectBayesBinomialControlkTreatment(
         size_t n_arms, size_t n_samples,
         const Eigen::Ref<const colvec_type<ValueType>> &thresholds)
-        : base_t(n_arms, 0, n_samples, thresholds) {
-        assert(thresholds.size() == n_arms);
-    }
+        : base_t(n_arms, 0, n_samples, thresholds) {}
 
     static mat_t fast_invert(mat_t S, const vec_t &d) {
         for (int k = 0; k < d.size(); ++k) {
@@ -49,7 +47,7 @@ class DirectBayesBinomialControlkTreatment
         return S;
     }
 
-    static mat_t faster_invert(const vec_t &D_inverse, const double O) {
+    static mat_t faster_invert(const vec_t &D_inverse, const value_t O) {
         //(1) compute multiplier on the new rank-one component
         auto multiplier = -O / (1 + O * D_inverse.sum());
         mat_t M = multiplier * D_inverse * D_inverse.transpose();
@@ -57,7 +55,7 @@ class DirectBayesBinomialControlkTreatment
         return M;
     }
 
-    static double faster_determinant(const vec_t D_inverse, const double O) {
+    static value_t faster_determinant(const vec_t D_inverse, const value_t O) {
         // This function uses "Sherman-Morrison for determinants"
         // https://en.wikipedia.org/wiki/Matrix_determinant_lemma
         // Note: this can be embedded inside of faster_invert to take advantage
@@ -69,7 +67,7 @@ class DirectBayesBinomialControlkTreatment
     }
 
     static vec_t conditional_exceed_prob_given_sigma(
-        double sigma_sq, double mu_sig_sq, const vec_t &sample_I,
+        value_t sigma_sq, value_t mu_sig_sq, const vec_t &sample_I,
         const vec_t &thetahat, const vec_t &logit_thresholds, const vec_t &mu_0,
         const bool use_fast_inverse = false) {
         const int d = sample_I.size();
@@ -98,10 +96,14 @@ class DirectBayesBinomialControlkTreatment
             (sample_I.array() * thetahat.array() + (V_0 * mu_0).array())
                 .matrix();
 
-        const auto z_scores = (mu_posterior.array() - logit_thresholds[0]) /
+        mat_t z_scores(mu_posterior.size(), logit_thresholds.size());
+        for (int i = 0; i < logit_thresholds.size(); ++i) {
+            z_scores.col(i) = (mu_posterior.array() - logit_thresholds(i)) /
                               Sigma_posterior.diagonal().array().sqrt();
+        }
         // James suggestion:
-        // vec_t some_vec = (sample_I.array() * thetahat.array() + (V_0.matrix()
+        // vec_t some_vec = (sample_I.array() * thetahat.array() +
+        // (V_0.matrix()
         // * mu_0).array()).matrix(); vec_t z_scores = Sigma_posterior *
         // some_vec; z_scores.array() = (z_scores.array()-thresholds[0]) /
         // Sigma_posterior.diagonal().array().sqrt();
@@ -110,14 +112,14 @@ class DirectBayesBinomialControlkTreatment
 
     // let's evaluate the endpoints of the prior in logspace-sigma:
     // determine endpoints:
-    static std::pair<vec_t, vec_t> get_quadrature(const double alpha_prior,
-                                                  const double beta_prior,
+    static std::pair<vec_t, vec_t> get_quadrature(const value_t alpha_prior,
+                                                  const value_t beta_prior,
                                                   const int n_points,
                                                   const int n_arm_size) {
         // Shared for a given prior
         // TODO: consider constexpr
-        const double a = std::log(1e-8);
-        const double b = std::log(1e3);
+        const value_t a = std::log(1e-8);
+        const value_t b = std::log(1e3);
         auto pair = leggauss(n_points);
         // TODO: transpose this in leggauss for efficiency
         vec_t quadrature_points = pair.row(0);
@@ -200,8 +202,8 @@ class DirectBayesBinomialControlkTreatment
     struct StateType : base_t::StateType {
        private:
         template <class BitsType>
-        KEVLAR_STRONG_INLINE auto phase_III_internal(size_t a_star,
-                                                     BitsType &bits_i) {
+        KEVLAR_STRONG_INLINE auto rej_len_internal(size_t a_star,
+                                                   BitsType &bits_i) {
             // pairwise z-test
             auto n = this->outer_.n_samples();
             Eigen::Map<const colvec_type<uint_t>> ss_astar(
@@ -239,6 +241,9 @@ class DirectBayesBinomialControlkTreatment
             const auto &gr_view = this->outer().grid_range();
 
             int pos = 0;
+
+            // TODO return number of rejected hypotheses at each threshold
+
             // for (int i = 0; i < outer_.n_gridpts(); ++i) {
             //     auto bits_i = bits.col(i);
 

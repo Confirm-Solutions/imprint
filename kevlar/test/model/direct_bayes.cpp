@@ -39,7 +39,7 @@ const value_t threshold = 0.3;
 const size_t n_thetas = 10;
 
 vec_t get_thresholds() {
-    vec_t thresholds(n_arms);
+    vec_t thresholds(1);
     thresholds.fill(threshold);
     return thresholds;
 }
@@ -93,7 +93,7 @@ TEST_F(base_fixture, TestConditionalExceedProbGivenSigma) {
         conditional_exceed_prob_given_sigma(
             1.10517092, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
             Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
-            Eigen::Vector4d{-0.40546511, -0.40546511, -0.40546511, -0.40546511},
+            Eigen::Vector<value_t, 1>{-0.40546511},
             Eigen::Vector4d{0, 0, 0, 0});
     Eigen::Vector4d want;
     want << 0.9892854091921082, 0.0656701203047288, 0.999810960134644,
@@ -103,7 +103,7 @@ TEST_F(base_fixture, TestConditionalExceedProbGivenSigma) {
         conditional_exceed_prob_given_sigma(
             1.01445965e-8, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
             Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
-            Eigen::Vector4d{-0.40546511, -0.40546511, -0.40546511, -0.40546511},
+            Eigen::Vector<value_t, 1>{-0.40546511},
             Eigen::Vector4d{0, 0, 0, 0});
     want << 0.9999943915784785, 0.999994391552775, 0.9999943915861994,
         0.9999943915892988;
