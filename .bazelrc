@@ -1,4 +1,6 @@
-build --action_env=BAZEL_CXXOPTS="-std=c++17:-g:-Wall" --action_env=CC=clang
+build --cxxopt="-std=c++17"
+build --cxxopt="-Wall"
+build --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 
 build:asan --strip=never
 build:asan --copt -fsanitize=address
@@ -7,4 +9,3 @@ build:asan --copt -O1
 build:asan --copt -g
 build:asan --copt -fno-omit-frame-pointer
 build:asan --linkopt -fsanitize=address
-
