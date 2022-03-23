@@ -6,7 +6,7 @@ PACKAGE_VERSION = "0.1"
 [py_binary(
     name = name,
     srcs = ["examples/{}.py".format(name)],
-    data = ["core.so"],
+    data = ["pykevlar/core.so"],
     deps = [
         ":pykevlar_lib",
     ],
@@ -22,7 +22,8 @@ PACKAGE_VERSION = "0.1"
 py_library(
     name = "pykevlar_lib",
     srcs = glob(["pykevlar/**/*py"]),
-    data = ["core.so"],
+    data = ["pykevlar/core.so"],
+    imports = ["."],
     deps = [
         requirement("numpy"),
         requirement("pybind11"),
@@ -30,7 +31,7 @@ py_library(
 )
 
 pybind_extension(
-    name = "core",
+    name = "pykevlar/core",
     srcs = glob([
         "src/**/*cpp",
         "src/**/*hpp",
@@ -43,11 +44,11 @@ genrule(
     name = "pykevlar_wheel",
     srcs = [
         "README.md",
-        ":core.so",
+        "pykevlar/core.so",
     ] + glob(["**/*py"]),
     outs = ["dist/pykevlar-{}-py3-none-any.whl".format(PACKAGE_VERSION)],
     cmd_bash = """
-    cp $(location core.so) python/
+    cp $(location pykevlar/core.so) python/
     cd python/
     VERSION={0} python3 setup.py bdist_wheel
     cd ..
