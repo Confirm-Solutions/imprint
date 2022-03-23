@@ -77,7 +77,7 @@ which are given by
     \text{$\eta$ transform}&: D_\theta\eta(\theta) v \\
     \text{Covariance quadratic form}&: u^\top \var{T}_{\eta} u \\
     \text{Max covariance quadratic form}&:
-    v^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T}_{\eta} (D\eta(\theta))} v \\
+    \sup\limits_{\theta \in R} \bracket{v^\top (D\eta(\theta))^\top \var{T}_{\eta(\theta)} (D\eta(\theta)) v} \\
     \text{Max covariance and $\eta$ hessian}&: 
     \norm{v}^2
     \sum\limits_{k=1}^d
@@ -213,13 +213,13 @@ Using Eq.~\ref{eq:eta-jac},~\ref{eq:t-cov},
 Note the incredible simplification due to our choice of the $\eta$ transformation.
 This gives us
 \begin{align*}
-    v^\top
     \sup\limits_{\theta \in R} \bracket{%
+    v^\top
         D_\theta \eta(\theta)^\top 
         \var{T}_\eta 
         D_\theta \eta(\theta)
-    }
     v
+    }
     &=
     n v^\top
     \begin{bmatrix}
