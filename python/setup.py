@@ -3,19 +3,29 @@ import sys
 from glob import glob
 from setuptools import setup, find_packages
 from pybind11.setup_helpers import Pybind11Extension, ParallelCompile
+import subprocess
 
 # Optional multithreaded build
 ParallelCompile("NPY_NUM_BUILD_JOBS").install()
 
+# Get bazel output base
+process = subprocess.Popen(['bazel', 'info', 'output_base'],
+                     stdout=subprocess.PIPE,
+                     stderr=subprocess.PIPE)
+stdout, _ = process.communicate()
+BAZEL_OUTPUT_BASE = stdout.decode('utf-8')
+
 # Define some variables for ease of interpretation
 CWD = os.path.abspath(os.path.dirname(__file__))
 ROOT_DIR = os.path.join(CWD, '..')
-EXTERNAL_DIR = os.path.join(ROOT_DIR, 'bazel-kevlar/external')
-EIGEN_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'eigen')
-KTHOHR_STATS_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_stats/include')
-KTHOHR_GCEM_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_gcem/include')
-KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'src/kevlar/include')
+EIGEN_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'eigen')
+KTHOHR_STATS_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'kthohr_stats/include')
+KTHOHR_GCEM_INCLUDE_DIR = os.path.join(BAZEL_OUTPUT_BASE, 'kthohr_gcem/include')
+KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'kevlar/include')
 PYKEVLAR_INCLUDE_DIR = os.path.join(CWD, 'src')
+
+# Debug flag
+# TODO: make this a command-line argument
 DEBUG = False
 
 # Get long description by reading README.md (as one should).
