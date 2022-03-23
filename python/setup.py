@@ -14,7 +14,7 @@ EXTERNAL_DIR = os.path.join(ROOT_DIR, 'bazel-kevlar/external')
 EIGEN_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'eigen')
 KTHOHR_STATS_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_stats/include')
 KTHOHR_GCEM_INCLUDE_DIR = os.path.join(EXTERNAL_DIR, 'kthohr_gcem/include')
-KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'src/kevlar/include')
+KEVLAR_INCLUDE_DIR = os.path.join(ROOT_DIR, 'kevlar/include')
 PYKEVLAR_INCLUDE_DIR = os.path.join(CWD, 'src')
 DEBUG = False
 
