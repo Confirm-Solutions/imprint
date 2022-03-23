@@ -9,7 +9,7 @@ cc_library(
     ]),
     includes = ["."],
     deps = [
-        "//src/kevlar",
+        "//kevlar",
     ],
 )
 
@@ -18,7 +18,7 @@ cc_library(
     srcs = glob(["{}/**/*.cpp".format(type_)]),
     deps = [
         ":testutil",
-        "//src/kevlar",
+        "//kevlar",
         "@com_google_googletest//:gtest_main",
     ],
 ) for type_ in [
