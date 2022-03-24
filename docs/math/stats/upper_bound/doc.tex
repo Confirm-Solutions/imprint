@@ -1,126 +1,259 @@
-\documentclass[10pt, a4paper]{article}
-\usepackage[english]{babel}
+\documentclass[10pt]{article}
+\usepackage{cite}
 \usepackage{fullpage}
 \input{../../../latex/mathtools}
+
+\newcommand{\new}{\operatorname{new}}
 
 \begin{document}
 \title{Generalized Grid Upper Bound}
 \author{James Yang}
 \maketitle
 
-\section*{Introduction}
+\section{Introduction}\label{sec:intro}
 
-The current formulation of upper bound assumes that the 
+The current formulation of the upper bound estimate assumes that the 
 (rectangular) gridding occurs in the (canonical) natural parameter space.
 However, it is sometimes more suitable to grid 
 a differently parametrized space.
-For example, the Exponential control k treatment model
-works better under the parametrization of $\lambda_{c}, h$
+For example, an exponential model where the control and treatment arms are assumed to be 
+exponentially distributed with hazards $\lambda_c, \lambda_t$, respectively,
+equipped with the logrank test
+can be greatly optimized under the parametrization of $\lambda_{c}, h$
 where $\lambda_c$ is the natural parameter of the control arm
-and $h$ is the hazard rate.
+and $h := \lambda_t / \lambda_c$ is the hazard rate.
 Moreover, for better scaling, we may want to grid 
 rather the $\log(\lambda_{c}), \log(h)$.
 Such parametrization defines a mapping from 
 \emph{the grid space} to the natural parameter space.
-We wish to construct the upper bound under any such parametrization,
+We wish to construct the upper bound estimate under any parametrization
+from a grid space to the natural parameter space,
 provided that the mapping is sufficiently smooth.
 
 In the subsequent sections,
-we will use the notation $\theta \in \R^p$ to denote 
-a point in the grid-space and $\eta = \eta(\theta) \in \R^d$
-as the canonical natural parameter.
-Assume that $\eta$ is twice-continuously differentiable.
+we will use the notation $\theta \in \R^s$ to denote 
+a point in the grid space and $\eta = \eta(\theta) \in \R^d$
+as the canonical natural parameter. 
 
-\section*{Upper Bound Changes}
+\section{Original Upper Bound Estimate}\label{sec:orig-ub}
 
-The 0th order Monte Carlo term and its upper bound
-need no change from reparametrization.
-As in Michael's thesis, we will denote $f(\theta) = P_\theta(A)$
-where $A$ is the event of false rejection.
+For completion, we give a short overview of the old version
+of the upper bound estimate.
 
-\subsection*{Gradient Term: $\delta_1$}
+We begin with a set of multiple hypotheses $H_1,\ldots, H_p$.
+We define a \emph{configuration} of the multiple hypotheses
+as an element of $\set{0,1}^p$ where the ith coordinate is 1
+if and only if $H_i$ is true.
 
+Let $f(\eta) := \PPP_{\eta}\paren{A}$ where $A$ is the event of rejection.
+Since exponential families are sufficiently smooth,
+$f(\eta)$ is twice-continuously differentiable.
+A second-order Taylor expansion gives us
 \begin{align*}
-    \nabla f(\theta)
-    :=
-    \nabla_{\theta} P_\theta(A) 
+    f(\eta)
     &=
-    \nabla_{\theta} \int_A \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
-    =
-    \int_A \nabla_{\theta} \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
-    \\&=
-    \int_A (D_{\theta}\eta)^\top 
-    \nabla_{\eta} \frac{P_{\eta}}{P_{\eta_0}} dP_{\eta_0}
-\end{align*}
-where $\eta_0 = \eta(\theta_0)$.
-If $\theta_0$ is the point at which we are Taylor expanding,
-it suffices to compute this gradient at $\theta = \theta_0$.
-This results in
-\begin{align*}
-    \nabla_{\theta} P_{\theta_0}(A) 
-    &=
-    \int_A (D_{\theta}\eta(\theta_0))^\top (T - \nabla_\eta A(\eta_0)) dP_{\theta_0}
+    f(\eta_0)
+    + 
+    \nabla f(\eta_0)^\top (\eta - \eta_0)
+    +
+    \int_0^1
+    (1-\alpha)
+    (\eta - \eta_0)^\top
+    \nabla^2 f(\eta_0 + \alpha (\eta-\eta_0)) 
+    (\eta - \eta_0) 
+    d\alpha
 \end{align*}
 
-Hence, our gradient Monte Carlo estimate will be
+Given a bounded set of $\eta$ values, $R$,
+we obtain an upper bound of the true Type I error:
 \begin{align*}
-    \hat{\nabla f}(\theta_0)
-    :=
-    D_{\theta} \eta(\theta_0)^\top 
-    \frac{1}{N}
-    \sum\limits_{i=1}^N
-    (T(X_i)-\nabla_\eta A(\eta_0)) \indic{X_i \in A}
-\end{align*}
-
-Note that the Jacobian is known when defining a model
-and is simulation-independent.
-Further, it only changes how we compute the upper bound
-and does not affect the InterSum updates (updating the gradient array).
-
-\subsection*{Gradient Upper Bound Term: $\delta_1^u$}
-
-We follow a similar progression as in the original method in Michael's thesis.
-Once we can show for any corner difference $v_m$, 
-there exists a corresponding random $c_m$ such that
-\[
-    P_\theta\paren{v_m^\top \nabla f(\theta) \leq c_m} \geq 1-\delta
-\]
-then we have
-\[
-    P_\theta\paren{\sup\limits_{v\in R_0} v^\top \nabla f(\theta) \leq \max\limits_{m} c_m} \geq 1-\delta
-\]
-
-Using Cantelli's inequality
-with $Y = v_m^\top \hat{\nabla f(\theta)} = \frac{1}{N} \sum\limits_{i=1}^N v_m^\top \hat{\nabla f(\theta)}_i$,
-we just need to provide an upper bound on the variance of $v_m^\top \hat{\nabla f(\theta)}_i$,
-where $\hat{\nabla f(\theta)}_i := D_\theta \eta(\theta)^\top (T(X_i)-\nabla_\eta A(\eta))$.
-In that endeavor,
-\begin{align*}
-    \var{v_m^\top \hat{\nabla f(\theta)}_i}
+    \sup\limits_{\eta \in R}
+    f(\eta)
     &=
-    v_m^\top \var{\hat{\nabla f(\theta)}_i} v_m
-    \leq 
-    v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{max}}} (D_\theta \eta) v_m
-\end{align*}
-The rest of the calculations remain the same.
-
-Hence, our 1st order upper bound term is simply
-\begin{align*}
-    \hat{\delta}_1^u
-    &=
-    \sqrt{
-        \frac{v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{max}}} (D_\theta \eta) v_m}{N}
-        \paren{\frac{1}{\delta} - 1}
+    f(\eta_0)
+    +
+    \sup\limits_{\eta \in R}
+    \bracket{%
+        \nabla f(\eta_0)^\top (\eta - \eta_0)
+        +
+        \int_0^1
+        (1-\alpha)
+        {(\eta - \eta_0)}^\top
+        \nabla^2 f(\eta_0 + \alpha (\eta-\eta_0)) 
+        (\eta - \eta_0) 
+        d\alpha
+    }
+    \\&\leq
+    f(\eta_0)
+    +
+    \sup\limits_{v \in R-\eta_0}
+    \bracket{%
+        \nabla f(\eta_0)^\top v
+        +
+        \frac{1}{2}
+        v^\top
+        \sup\limits_{\eta \in R} \var{T_{\tau_{\max}}}_{\eta}
+        v 
     }
 \end{align*}
 
-\subsection*{Hessian Term}
+An obvious estimate for $f(\eta_0)$ is simply
+\begin{align*}
+    \hat{f}(\eta_0)
+    :=
+    \frac{1}{N}
+    \sum\limits_{i=1}^N
+    \indic{X_i \in A}
+\end{align*}
+and using Clopper-Pearson, for any $\delta_1 \in [0,1]$,
+we have an exact upper bound $\hat{\delta}_0^u$ for this estimate such that
+\begin{align*}
+    \PPP_{\eta_0}\paren{%
+        f(\eta_0) < \hat{f}(\eta_0) + \hat{\delta}_0^u
+    }
+    =
+    1-\delta_1
+\end{align*}
 
-For any corner difference $v$,
-we will first upper bound
+From here, we further assume that $R$ is a convex hull of a finite set of points,
+$v_1,\ldots, v_M$ so that the supremum is attained at one of the points by convexity.
+Using Cantelli's inequality,
+we showed that for any fixed $\delta_2 \in [0,1]$,
+there exists random $\hat{c}_m$, $m=1,\ldots, M$,
+such that 
+\begin{align*}
+    \PPP_{\eta_0}\paren{%
+        \sup\limits_{v\in R-\eta_0}
+        \bracket{%
+            \nabla f(\eta_0)^\top v
+            +
+            \frac{1}{2}
+            v^\top 
+            \sup\limits_{\eta \in R} \var{T_{\tau_{\max}}}_{\eta}
+            v
+        }
+        \leq 
+        \max\limits_{m=1,\ldots, M} \hat{c}_m
+    }
+    \geq
+    1-\delta_2
+\end{align*}
+where $T_{t}$ is the sufficient statistic at time $t$
+and $\tau_{\max}$ is a (fixed) maximum time.
+In particular, we have
+\begin{align*}
+    \hat{c}_m
+    &=
+    \widehat{\nabla f}(\eta_0)^\top v_m
+    +
+    \sqrt{%
+        \frac{v_m^\top \var{T_{\tau_{\max}}}_{\eta_0} v_m}{N}
+        \paren{\frac{1}{\delta_2}-1}
+    }
+    +
+    \frac{1}{2}
+    v_m^\top 
+    \sup\limits_{\eta \in R} \var{T_{\tau_{\max}}}_{\eta}
+    v_m
+\end{align*}
+where 
+\begin{align*}
+    \widehat{\nabla f}(\eta_0) 
+    :=
+    \frac{1}{N} \sum\limits_{i=1}^N
+    (T(X_i) - \nabla A(\eta_0)) \indic{X_i \in A}
+\end{align*}
+
+Combining the two estimates, we get that for any $\eta \in R$,
+\begin{align*}
+    &\PPP_{\eta_0}\paren{%
+        \sup\limits_{\eta \in R} f(\eta)
+        >
+        \hat{f}(\eta_0) + \delta_0^u
+        +
+        \max\limits_{m=1,\ldots, M} \hat{c}_m
+    }
+    \leq
+    \PPP_{\eta_0}\paren{%
+        \hat{f}(\eta_0) + \delta_0^u
+        <
+        f(\eta_0)
+    }
+    \\&\qquad +
+    \PPP_{\eta_0}\paren{%
+        \max\limits_{m=1,\ldots, M} \hat{c}_m
+        <
+        \sup\limits_{v\in R-\eta_0}
+        \bracket{%
+            \nabla f(\eta_0)^\top v
+            +
+            \frac{1}{2}
+            v^\top 
+            \sup\limits_{\eta \in R} \var{T_{\tau_{\max}}}_{\eta}
+            v
+        }
+    }
+    \\&\qquad \leq
+    \delta_1 + \delta_2
+\end{align*}
+
+Given a bounded subset of the natural parameter space $H$
+and a finite disjoint covering of $H$, $\set{R_j}_{j=1}^M$,
+where, without loss of generality, each $R_j$ belongs to
+exactly one configuration of the multiple hypotheses,
+we construct the upper bound estimates on each $R_j$.
+This gives us a point-wise (in $\eta$) guarantee
+that the true Type I error at $\eta$ is no larger than the upper bound estimate
+with probability at least $ 1-\delta$
+where $\delta := \delta_1 + \delta_2$.
+
+We define a few notations before we conclude this section:
+\begin{align*}
+    \hat{\delta}_0 &:= \hat{f}(\eta) \\
+    \hat{\delta}_0^u &:= \text{(Clopper-Pearson upper bound with level $\delta_1$)} - \hat{\delta}_0 \\
+    \hat{\delta}_1 &:= \widehat{\nabla f}(\eta_0)^\top v_{m^*} \\
+    \hat{\delta}_1^u &:= \sqrt{%
+        \frac{v_{m^*}^\top \var{T_{\tau_{\max}}} v_{m^*}}{N} 
+        \paren{\frac{1}{\delta_2}-1}
+    } \\
+    \hat{\delta}_2^u &:= \frac{1}{2} 
+    v_{m^*}^\top \var{T_{\tau_{\max}}} v_{m^*}
+\end{align*}
+where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
+
+\section{Generalized Upper Bound Estimate}\label{sec:gen-ub}
+
+In Section~\ref{sec:orig-ub}, we discussed the old version of the upper bound estimate.
+Note that we assumed the gridding occured in the canonical natural parameter space.
+In this section, we extend this framework to allow gridding in a different space $\Theta$
+where there exists a twice-continuously differentiable mapping $\eta(\cdot) : \Theta \to \Xi$
+that maps from the grid space to the natural parameter space, $\Xi$.
+
+Since we changed the gridding space, we must change the Taylor expansion
+to be with respect to $\Theta$ space.
+We abuse notation by denoting $f(\theta)$ as $f(\eta(\theta))$
+and $f(\eta)$ as in Section~\ref{sec:orig-ub}.
+Then, for any $\theta, \theta_0$,
+\begin{align*}
+    f(\theta)
+    &=
+    f(\theta_0)
+    +
+    \nabla f(\theta_0) (\theta - \theta_0)
+    +
+    \int_0^1 (1-\alpha) 
+    (\theta-\theta_0)^\top
+    \nabla^2 f(\theta_0 + \alpha (\theta-\theta_0))
+    (\theta-\theta_0)
+    d\alpha
+\end{align*}
+Note that all derivatives are with respect to $\theta$.
+
+Next, we bound the hessian term
 \begin{align*}
     \int_0^1 (1-\alpha) v^\top \nabla^2 f(\theta_0 + \alpha v) v d\alpha
 \end{align*}
+where $v = \theta-\theta_0$.
 
 It suffices to bound $\nabla^2 f(\theta)$.
 \begin{align*}
@@ -142,7 +275,7 @@ we have that
 \end{align*}
 ~\cite{skorski:2019:hess}.
 
-By the same proof as in the thesis,
+It is easy to see that
 \begin{align*}
     -\var{T_{\tau_{\max}}}_{\eta}
     \preceq
@@ -186,7 +319,7 @@ This gives us the first bound:
     \label{eq:hess-second-term}
 \end{align}
 
-We next bound second term in Eq.~\ref{eq:hess-second-term}.
+We next bound the second term in Eq.~\ref{eq:hess-second-term}.
 \begin{align*}
     \int_A \abs{(T(x) - \nabla A(\eta))_k} P_\eta(x) dx
     &\leq
@@ -219,35 +352,169 @@ Combining with Eq.~\ref{eq:hess-second-term},
         \norm{\nabla^2 \eta_k(\theta)}_{op}
         \sqrt{\var{T_k}_{\eta(\theta)}}
     }
+    \\&=: 
+    U_1(v) + U_2(v)
 \end{align*}
-
-This gives us our upper bound for the hessian term:
-\begin{align*}
-    \hat{\delta}_2^u
-    &=
-    \frac{1}{2}
-    \paren{%
-        v_m^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v_m
-        +
-        \norm{v_m}^2
-        \sum\limits_{k=1}^d 
-        \sup\limits_{\theta \in R}
-        \bracket{%
-            \norm{\nabla^2 \eta_k(\theta)}_{op}
-            \sqrt{\var{T_k}_{\eta(\theta)}}
-        }
-    }
-\end{align*}
-for some corner vector $v_m$.
-
+where $U_i$ are defined to be the respective terms.
 Note that the second term becomes 0 for any linear transformation $\eta$.
 In particular, for the identity transformation, it simplifies to the usual formula
 \begin{align*}
-    \frac{1}{2}
     v_m^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_\eta v_m
 \end{align*}
 
-\bibliographystyle{unsrt}
-\bibliography{references}
+In summary, we have the bound:
+\begin{align*}
+    \sup\limits_{\theta \in R}
+    f(\theta)
+    &=
+    f(\theta_0)
+    +
+    \sup\limits_{v \in R-\theta_0}
+    \bracket{%
+        \nabla f(\theta_0)^\top v
+        +
+        \int_0^1 (1-\alpha)
+        v^\top \nabla^2 f(\theta_0 + \alpha v) v 
+        d\alpha
+    }
+    \\&\leq
+    f(\theta_0)
+    +
+    \sup\limits_{v \in R-\theta_0}
+    \bracket{%
+        \nabla f(\theta_0)^\top v
+        +
+        \frac{1}{2}
+        \paren{U_1(v) + U_2(v)}
+    }
+\end{align*}
+
+\subsection{Constant Order Terms: $\hat{\delta}_0, \hat{\delta}_0^u$}
+
+The Monte Carlo term $\hat{\delta}_0$ and its corresponding upper bound
+$\hat{\delta}_0^u$ need no change from reparametrization
+other than the initial evaluation of $\eta_0 := \eta(\theta_0)$.
+
+\subsection{First Order Term: $\hat{\delta}_1$}
+
+The first order terms are affected by the $\eta$ transformation.
+\begin{align*}
+    \nabla f(\theta)
+    :=
+    \nabla_{\theta} P_\theta(A) 
+    &=
+    \nabla_{\theta} \int_A \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    =
+    \int_A \nabla_{\theta} \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    \\&=
+    \int_A (D_{\theta}\eta)^\top 
+    \nabla_{\eta} \frac{P_{\eta}}{P_{\eta_0}} dP_{\eta_0}
+\end{align*}
+where $\eta_0 = \eta(\theta_0)$.
+If $\theta_0$ is the point at which we are Taylor expanding,
+it suffices to compute this gradient at $\theta = \theta_0$.
+This results in
+\begin{align*}
+    \nabla_{\theta} P_{\theta_0}(A) 
+    &=
+    \int_A (D_{\theta}\eta(\theta_0))^\top (T - \nabla_\eta A(\eta_0)) dP_{\eta_0}
+\end{align*}
+
+Hence, our new gradient Monte Carlo estimate will be
+\begin{align*}
+    \widehat{\nabla f}(\theta_0)
+    :=
+    D_{\theta} \eta(\theta_0)^\top 
+    \frac{1}{N}
+    \sum\limits_{i=1}^N
+    (T(X_i)-\nabla_\eta A(\eta_0)) \indic{X_i \in A}
+\end{align*}
+
+Note that the Jacobian of $\eta$ is known when defining a model 
+and is simulation-independent.
+Hence, we may save the same gradient estimate as in Section~\ref{sec:orig-ub}
+and later multiply by $D_{\theta} \eta(\theta_0)^\top$.    
+
+\subsection{Higher Order Upper Bound Terms: $\hat{\delta}_1, \hat{\delta}_1^u, \hat{\delta}_2^u$}
+    
+Similar to Section~\ref{sec:orig-ub},
+once we can show for any $v_m = \theta_m - \theta_0$, 
+where $\theta_m$ are the vertices of a convex hull $R \subseteq \Theta$,
+$m=1,\ldots, M$,
+there exists a corresponding random $\hat{c}_m$ such that
+\[
+    \PPP_{\theta_0}\paren{%
+        \nabla f(\theta_0)^\top v_m
+        +
+        \frac{1}{2}\paren{U_1(v_m) + U_2(v_m)}
+        \leq 
+        \hat{c}_m
+    } 
+    \geq 1-\delta_2
+\]
+then we have
+\[
+    \PPP_{\theta_0}\paren{%
+        \sup\limits_{v\in R-\theta_0} 
+        \bracket{%
+            \nabla f(\theta_0)^\top v
+            + 
+            \frac{1}{2}\paren{U_1(v) + U_2(v)}
+        }
+        \leq 
+        \max\limits_{m=1,\ldots, M} \hat{c}_m
+    } 
+    \geq 
+    1-\delta_2
+\]
+by convexity of $U_1, U_2$ and that $R$ is a convex hull.
+
+Using Cantelli's inequality
+with $Y = \widehat{\nabla f}(\theta_0)^\top v_m = \frac{1}{N} \sum\limits_{i=1}^N \widehat{\nabla f}(\theta_0)_i^\top v_m$,
+we only need to provide an upper bound on the variance of $\widehat{\nabla f}(\theta_0)_i^\top v_m$,
+where $\widehat{\nabla f}(\theta_0)_i := D_\theta \eta(\theta_0)^\top (T(X_i)-\nabla_\eta A(\eta_0))$.
+In that endeavor,
+\begin{align*}
+    \var{\widehat{\nabla f}(\theta)_i^\top v_m}
+    &=
+    v_m^\top \var{\widehat{\nabla f}(\theta)_i} v_m
+    \leq 
+    v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{\max}}} (D_\theta \eta) v_m
+\end{align*}
+The rest of the calculations remain the same.
+
+Hence, 
+\begin{align*}
+    \hat{c}_m
+    :=
+    \widehat{\nabla f}(\theta_0)^\top v_m
+    +
+    \sqrt{
+        \frac{v_m^\top (D_\theta \eta(\theta_0))^\top \var{T_{\tau_{\max}}}_{\eta_0} (D_\theta \eta(\theta_0)) v_m}{N}
+        \paren{\frac{1}{\delta_2} - 1}
+    }
+    +
+    \frac{1}{2}\paren{U_1(v_m) + U_2(v_m)}
+\end{align*}
+
+This gives us our new upper bound estimates:
+\begin{align*}
+    \hat{\delta}_{0, \new} &:= \hat{\delta}_0 \\
+    \hat{\delta}_{0, \new}^u &:= \hat{\delta}_0^u \\
+    \hat{\delta}_{1, \new} &:= D_\theta \eta(\theta_0)^\top \hat{\delta}_1 \\
+    \hat{\delta}_{1, \new}^u &:= \sqrt{%
+        \frac{v_{m^*}^\top D\eta(\theta_0)^\top \var{T_{\tau_{\max}}}_{\eta_0} D\eta(\theta_0) v_{m^*}}{N} 
+        \paren{\frac{1}{\delta_2}-1}
+    } \\
+    \hat{\delta}_{2, \new}^u &:= 
+    \frac{1}{2} (U_1(v_{m^*}) + U_2(v_{m^*}))
+\end{align*}
+where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
+
+
+
+
+\bibliography{references}{}
+\bibliographystyle{plain}
 
 \end{document}
