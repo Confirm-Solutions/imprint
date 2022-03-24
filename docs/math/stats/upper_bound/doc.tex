@@ -13,26 +13,25 @@
 \section{Introduction}\label{sec:intro}
 
 The current formulation of the upper bound estimate assumes that the 
-(rectangular) gridding occurs in the (canonical) natural parameter space.
+(rectangular) gridding occurs in the (canonical) natural parameter space $\Xi$.
 However, it is sometimes more suitable to grid 
-a differently parametrized space.
-For example, an exponential model where the control and treatment arms are assumed to be 
+a different space $\Theta$ that parametrizes $\Xi$.
+For example, an exponential model with the control and treatment arms assumed to be 
 exponentially distributed with hazards $\lambda_c, \lambda_t$, respectively,
 equipped with the logrank test
 can be greatly optimized under the parametrization of $\lambda_{c}, h$
-where $\lambda_c$ is the natural parameter of the control arm
-and $h := \lambda_t / \lambda_c$ is the hazard rate.
+where $h := \lambda_t / \lambda_c$ is the hazard rate.
 Moreover, for better scaling, we may want to grid 
-rather the $\log(\lambda_{c}), \log(h)$.
-Such parametrization defines a mapping from 
+the $(\log(\lambda_{c}), \log(h))$ space.
+Such a parametrization defines a mapping from 
 \emph{the grid space} to the natural parameter space.
-We wish to construct the upper bound estimate under any parametrization
-from a grid space to the natural parameter space,
+We wish to construct the upper bound estimate under any 
+such parametrization,
 provided that the mapping is sufficiently smooth.
 
 In the subsequent sections,
-we will use the notation $\theta \in \R^s$ to denote 
-a point in the grid space and $\eta = \eta(\theta) \in \R^d$
+we will use the notation $\theta \in \Theta \subseteq \R^s$ to denote 
+a point in the grid space and $\eta = \eta(\theta) \in \Xi \subseteq \R^d$
 as the canonical natural parameter. 
 
 \section{Original Upper Bound Estimate}\label{sec:orig-ub}
@@ -44,8 +43,14 @@ We begin with a set of multiple hypotheses $H_1,\ldots, H_p$.
 We define a \emph{configuration} of the multiple hypotheses
 as an element of $\set{0,1}^p$ where the ith coordinate is 1
 if and only if $H_i$ is true.
+We assume that we have i.i.d. draws of $X^i \sim \PPP_\eta$
+where $\PPP_\eta$ forms an exponential family.
+For adaptive trials, we assume that there exists a finite time horizon $\tau_{\max}$
+so that $X^i \in \R^{\tau_{\max}}$, though we only observe up to a stopping time $\tau$.
+We denote $T_{t}$ as the sufficient statistic of $(X_1,\ldots,X_t)$.
 
-Let $f(\eta) := \PPP_{\eta}\paren{A}$ where $A$ is the event of rejection.
+Let $f(\eta) := \PPP_{\eta}\paren{X \in A}$ 
+where $A$ is the event of false rejection.
 Since exponential families are sufficiently smooth,
 $f(\eta)$ is twice-continuously differentiable.
 A second-order Taylor expansion gives us
@@ -63,6 +68,7 @@ A second-order Taylor expansion gives us
     (\eta - \eta_0) 
     d\alpha
 \end{align*}
+Note that the derivatives are with respect to $\eta$.
 
 Given a bounded set of $\eta$ values, $R$,
 we obtain an upper bound of the true Type I error:
@@ -96,6 +102,7 @@ we obtain an upper bound of the true Type I error:
         v 
     }
 \end{align*}
+where $R-\eta_0 := \set{\eta-\eta_0 : \eta \in R}$.
 
 An obvious estimate for $f(\eta_0)$ is simply
 \begin{align*}
@@ -103,7 +110,7 @@ An obvious estimate for $f(\eta_0)$ is simply
     :=
     \frac{1}{N}
     \sum\limits_{i=1}^N
-    \indic{X_i \in A}
+    \indic{X^i \in A}
 \end{align*}
 and using Clopper-Pearson, for any $\delta_1 \in [0,1]$,
 we have an exact upper bound $\hat{\delta}_0^u$ for this estimate such that
@@ -138,8 +145,6 @@ such that
     \geq
     1-\delta_2
 \end{align*}
-where $T_{t}$ is the sufficient statistic at time $t$
-and $\tau_{\max}$ is a (fixed) maximum time.
 In particular, we have
 \begin{align*}
     \hat{c}_m
@@ -161,21 +166,22 @@ where
     \widehat{\nabla f}(\eta_0) 
     :=
     \frac{1}{N} \sum\limits_{i=1}^N
-    (T(X_i) - \nabla A(\eta_0)) \indic{X_i \in A}
+    (T(X^i) - \nabla A(\eta_0)) \indic{X^i \in A}
 \end{align*}
 
-Combining the two estimates, we get that for any $\eta \in R$,
+Combining the two estimates,
 \begin{align*}
     &\PPP_{\eta_0}\paren{%
         \sup\limits_{\eta \in R} f(\eta)
         >
-        \hat{f}(\eta_0) + \delta_0^u
+        \hat{f}(\eta_0) + \hat{\delta}_0^u
         +
         \max\limits_{m=1,\ldots, M} \hat{c}_m
     }
     \leq
+    \\&\qquad 
     \PPP_{\eta_0}\paren{%
-        \hat{f}(\eta_0) + \delta_0^u
+        \hat{f}(\eta_0) + \hat{\delta}_0^u
         <
         f(\eta_0)
     }
@@ -197,7 +203,7 @@ Combining the two estimates, we get that for any $\eta \in R$,
     \delta_1 + \delta_2
 \end{align*}
 
-Given a bounded subset of the natural parameter space $H$
+Given a bounded subset of the natural parameter space $H \subseteq \Xi$
 and a finite disjoint covering of $H$, $\set{R_j}_{j=1}^M$,
 where, without loss of generality, each $R_j$ belongs to
 exactly one configuration of the multiple hypotheses,
@@ -354,12 +360,14 @@ Combining with Eq.~\ref{eq:hess-second-term},
     }
     \\&=: 
     U_1(v) + U_2(v)
+    =:
+    U(v)
 \end{align*}
 where $U_i$ are defined to be the respective terms.
-Note that the second term becomes 0 for any linear transformation $\eta$.
+Note that $U_2(v) = 0$ for any linear transformation $\eta$.
 In particular, for the identity transformation, it simplifies to the usual formula
 \begin{align*}
-    v_m^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_\eta v_m
+    U(v) = U_1(v) = v^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_\eta v
 \end{align*}
 
 In summary, we have the bound:
@@ -384,8 +392,7 @@ In summary, we have the bound:
     \bracket{%
         \nabla f(\theta_0)^\top v
         +
-        \frac{1}{2}
-        \paren{U_1(v) + U_2(v)}
+        \frac{1}{2} U(v)
     }
 \end{align*}
 
@@ -427,7 +434,7 @@ Hence, our new gradient Monte Carlo estimate will be
     D_{\theta} \eta(\theta_0)^\top 
     \frac{1}{N}
     \sum\limits_{i=1}^N
-    (T(X_i)-\nabla_\eta A(\eta_0)) \indic{X_i \in A}
+    (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}
 \end{align*}
 
 Note that the Jacobian of $\eta$ is known when defining a model 
@@ -446,7 +453,7 @@ there exists a corresponding random $\hat{c}_m$ such that
     \PPP_{\theta_0}\paren{%
         \nabla f(\theta_0)^\top v_m
         +
-        \frac{1}{2}\paren{U_1(v_m) + U_2(v_m)}
+        \frac{1}{2}U(v_m)
         \leq 
         \hat{c}_m
     } 
@@ -459,7 +466,7 @@ then we have
         \bracket{%
             \nabla f(\theta_0)^\top v
             + 
-            \frac{1}{2}\paren{U_1(v) + U_2(v)}
+            \frac{1}{2}U(v)
         }
         \leq 
         \max\limits_{m=1,\ldots, M} \hat{c}_m
@@ -467,12 +474,12 @@ then we have
     \geq 
     1-\delta_2
 \]
-by convexity of $U_1, U_2$ and that $R$ is a convex hull.
+by convexity of $U$ and that $R$ is a convex hull.
 
 Using Cantelli's inequality
 with $Y = \widehat{\nabla f}(\theta_0)^\top v_m = \frac{1}{N} \sum\limits_{i=1}^N \widehat{\nabla f}(\theta_0)_i^\top v_m$,
 we only need to provide an upper bound on the variance of $\widehat{\nabla f}(\theta_0)_i^\top v_m$,
-where $\widehat{\nabla f}(\theta_0)_i := D_\theta \eta(\theta_0)^\top (T(X_i)-\nabla_\eta A(\eta_0))$.
+where $\widehat{\nabla f}(\theta_0)_i := D_\theta \eta(\theta_0)^\top (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}$.
 In that endeavor,
 \begin{align*}
     \var{\widehat{\nabla f}(\theta)_i^\top v_m}
@@ -494,7 +501,7 @@ Hence,
         \paren{\frac{1}{\delta_2} - 1}
     }
     +
-    \frac{1}{2}\paren{U_1(v_m) + U_2(v_m)}
+    \frac{1}{2} U(v_m)
 \end{align*}
 
 This gives us our new upper bound estimates:
@@ -507,7 +514,7 @@ This gives us our new upper bound estimates:
         \paren{\frac{1}{\delta_2}-1}
     } \\
     \hat{\delta}_{2, \new}^u &:= 
-    \frac{1}{2} (U_1(v_{m^*}) + U_2(v_{m^*}))
+    \frac{1}{2} U(v_{m^*})
 \end{align*}
 where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
 
