@@ -291,7 +291,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
         auto hr = hzrd_rate(j);
         auto mean_1 = 1. / lmda_control(j);
         return n_samples() * mean_1 * mean_1 *
-               (v[1] * v[1] + v[0] * v[0] / (hr * hr));
+               (v[0] * v[0] + v[1] * v[1] / (hr * hr));
     }
 
     value_t max_cov_quad(
@@ -315,9 +315,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
         value_t lmda_t = lmda_c * hzrd_rate(j);
 
         mat_type<value_t, 2, 2> deta;
-        deta(0, 0) = lmda_c;
+        deta(0, 0) = -lmda_c;
         deta(0, 1) = 0;
-        deta.row(1).array() = lmda_t;
+        deta.row(1).array() = -lmda_t;
 
         out = deta * v;
     }
