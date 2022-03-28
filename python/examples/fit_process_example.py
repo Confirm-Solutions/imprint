@@ -1,3 +1,11 @@
+from logging import basicConfig, getLogger
+from logging import DEBUG as log_level
+#from logging import INFO as log_level
+basicConfig(level = log_level,
+            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
+            datefmt ='%Y-%m-%d %H:%M:%S')
+logger = getLogger(__name__)
+
 import pykevlar.core as core
 import pykevlar.driver as driver
 import numpy as np
@@ -18,6 +26,11 @@ seed = 69
 thresh = 2.1
 lower = -0.5
 upper = 0.5
+
+logger.info("n_arms: %d" % n_arms)
+logger.info("sim_size: %d" % sim_size)
+logger.info("n_thetas_1d: %d" % n_thetas_1d)
+logger.info("n_threads: %d" % n_threads)
 
 # set numpy random seed
 np.random.seed(seed)
@@ -46,10 +59,10 @@ gr.create_tiles(null_hypos)
 start = timer()
 gr.prune()
 end = timer()
-print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
+logger.info("Prune time: {t}".format(t=timedelta(seconds=end-start)))
 
-print("Gridpts: {n}".format(n=gr.n_gridpts()))
-print("Tiles: {n}".format(n=gr.n_tiles()))
+logger.info("Gridpts: {n}".format(n=gr.n_gridpts()))
+logger.info("Tiles: {n}".format(n=gr.n_tiles()))
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
@@ -58,5 +71,5 @@ bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 start = timer()
 is_o = driver.fit_process(bckt, gr, sim_size, seed, n_threads)
 end = timer()
-print("Fit time: {t}".format(t=timedelta(seconds=end-start)))
-print((is_o.type_I_sum() / sim_size))
+logger.info("Fit time: {t}".format(t=timedelta(seconds=end-start)))
+logger.info((is_o.type_I_sum() / sim_size))

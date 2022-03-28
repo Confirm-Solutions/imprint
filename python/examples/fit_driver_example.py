@@ -1,8 +1,3 @@
-import pykevlar.core as core
-import pykevlar.driver as driver
-from pykevlar.batcher import SimpleBatch
-import numpy as np
-import os
 from logging import basicConfig, getLogger
 from logging import DEBUG as log_level
 #from logging import INFO as log_level
@@ -11,6 +6,12 @@ basicConfig(level = log_level,
             datefmt ='%Y-%m-%d %H:%M:%S')
 logger = getLogger(__name__)
 
+import pykevlar.core as core
+import pykevlar.driver as driver
+from pykevlar.batcher import SimpleBatch
+import numpy as np
+import os
+
 # ========== Toggleable ===============
 n_arms = 3      # prioritize 3 first, then do 4
 sim_size = 1E5
@@ -18,10 +19,6 @@ n_thetas_1d = 64
 n_threads = os.cpu_count()
 max_batch_size = -1
 
-logger.info("n_arms: %d, sim_size %d, n_thetas_1d: "
-            "%d, n_threads: %d, max_batch_size: %d" %
-            (n_arms, sim_size, n_thetas_1d,
-             n_threads, max_batch_size))
 # ========== End Toggleable ===============
 
 ph2_size = 50
@@ -30,6 +27,12 @@ seed = 69
 thresh = 1.96
 lower = -0.5
 upper = 0.5
+
+logger.info("n_arms: %d" % n_arms)
+logger.info("sim_size: %d" % sim_size)
+logger.info("n_thetas_1d: %d" % n_thetas_1d)
+logger.info("n_threads: %d" % n_threads)
+logger.info("max_batch_size: %d" % max_batch_size)
 
 # set numpy random seed
 np.random.seed(seed)
