@@ -1,0 +1,56 @@
+load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+load("@pykevlar_deps//:requirements.bzl", "requirement")
+
+PACKAGE_VERSION = "0.1"
+
+[py_binary(
+    name = name,
+    srcs = ["examples/{}.py".format(name)],
+    data = ["core.so"],
+    deps = [
+        ":pykevlar_lib",
+    ],
+) for name in [
+    "adagrid_bin_example",
+    "adagrid_exp_example",
+    "bckt_example",
+    "eckt_example",
+    "fit_driver_example",
+    "fit_process_example",
+]]
+
+py_library(
+    name = "pykevlar_lib",
+    srcs = glob(["pykevlar/**/*py"]),
+    data = ["core.so"],
+    deps = [
+        requirement("numpy"),
+        requirement("pybind11"),
+    ],
+)
+
+pybind_extension(
+    name = "core",
+    srcs = glob([
+        "src/**/*cpp",
+        "src/**/*hpp",
+    ]),
+    includes = ["src/"],
+    deps = ["//kevlar"],
+)
+
+genrule(
+    name = "pykevlar_wheel",
+    srcs = [
+        "README.md",
+        ":core.so",
+    ] + glob(["**/*py"]),
+    outs = ["dist/pykevlar-{}-py3-none-any.whl".format(PACKAGE_VERSION)],
+    cmd_bash = """
+    cp $(location core.so) python/
+    cd python/
+    VERSION={0} python3 setup.py bdist_wheel
+    cd ..
+    cp python/dist/pykevlar-{0}-py3-none-any.whl $@
+    """.format(PACKAGE_VERSION),
+)
