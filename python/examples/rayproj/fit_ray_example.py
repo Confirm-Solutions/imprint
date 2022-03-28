@@ -9,15 +9,25 @@ logger = getLogger(__name__)
 import pykevlar.core as core
 import pykevlar.driver as driver
 from pykevlar.batcher import SimpleBatch
+
 import numpy as np
-import os
+# import os
+from timeit import default_timer as timer
+from datetime import timedelta
+
+import ray
+
+ray.init(address='ray://yokojitsu:10001')
+alive_nodes = [n for n in ray.nodes() if n['Alive']]
+logger.info("ray available nodes: %d" % len(alive_nodes))
+logger.info("ray available resources: %d" % ray.cluster_resources()['CPU'])
 
 # ========== Toggleable ===============
-n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 100000
+n_arms = 4      # prioritize 3 first, then do 4
+sim_size = 1000000
 n_thetas_1d = 64
-n_threads = os.cpu_count()
-max_batch_size = 10000
+n_threads = 8 # os.cpu_count()
+max_batch_size = int(sim_size / n_threads / ray.cluster_resources()['CPU'])
 
 # ========== End Toggleable ===============
 
@@ -36,6 +46,14 @@ logger.info("max_batch_size: %d" % max_batch_size)
 
 # set numpy random seed
 np.random.seed(seed)
+
+@ray.remote
+def call_kevlar(batch, sim_size):
+    return driver.fit_process(model=bckt,
+                              grid_range=batch,
+                              sim_size=sim_size,
+                              base_seed=seed,
+                              n_threads=n_threads)
 
 # define null hypos
 null_hypos = []
@@ -63,12 +81,15 @@ batcher = SimpleBatch(gr, max_batch_size, null_hypos)
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
+    
+# Call kevlar via ray remote
+ray_objs = []
+for batch, sim_size in batcher:
+    ray_objs.append(call_kevlar.remote(batch, sim_size))
+res = ray.get(ray_objs)
 
-# run a mock-call of fit_driver
-# Currently, it will yield each batched result.
-# TODO: once this doesn't yield anymore, modify this part.
 batch_num = 0
-for is_o in driver.fit_driver(batcher, bckt, seed, n_threads):
-    batch_num = batch_num + 1
+for is_o in res:
     logger.info(is_o.type_I_sum() / sim_size)
-    np.savetxt("output_%03d.txt" % batch_num, (is_o.type_I_sum() / sim_size), delimiter="\n")
+    batch_num = batch_num + 1
+    np.savetxt("ray_output_%03d.txt" % batch_num, (is_o.type_I_sum() / sim_size), delimiter="\n")
