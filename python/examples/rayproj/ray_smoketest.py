@@ -21,15 +21,10 @@ logger.info("ray number of nodes: %d" % len(alive_nodes))
 logger.info("ray number of resources: %d" % ray.cluster_resources()['CPU'])
 
 # ========== Toggleable ===============
-
 n_arms = 3      # prioritize 3 first, then do 4
 sim_size = 100000
 n_thetas_1d = 64
 n_threads = 8 #os.cpu_count()
-
-# ray nodes used
-n_ray_nodes = 1
-
 # ========== End Toggleable ===============
 
 ph2_size = 50
@@ -38,6 +33,9 @@ seed = 69
 thresh = 2.1
 lower = -0.5
 upper = 0.5
+
+# ray nodes used
+n_ray_nodes = 1
 
 logger.info("n_arms: %d" % n_arms)
 logger.info("sim_size: %d" % sim_size)
