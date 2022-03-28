@@ -1,10 +1,11 @@
 #pragma once
+#include <omp.h>
+
 #include <cstddef>
+#include <kevlar_bits/util/macros.hpp>
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <omp.h>
-#include <kevlar_bits/util/macros.hpp>
 
 namespace kevlar {
 

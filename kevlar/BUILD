@@ -3,26 +3,23 @@ load("//:configs.bzl", "define_compiler_config_settings")
 define_compiler_config_settings()
 
 COMPILER_SPECIFIC_COPTS = select({
-    ":llvm_compiler" : [
+    ":llvm_compiler": [
         "-fopenmp",
     ],
-    ":gcc_compiler" : [
+    ":gcc_compiler": [
         "-fopenmp",
     ],
 })
 
 COMPILER_SPECIFIC_LINKOPTS = select({
-    ":llvm_compiler" : [
-        "-lomp",
-    ],
-    ":gcc_compiler" : [
+    ":llvm_compiler": ["-lomp"],
+    ":gcc_compiler": [
         "-fopenmp",
     ],
 })
 
 cc_library(
     name = "kevlar",
-    includes = ["include"],
     hdrs = glob(["include/**"]),
     copts = COMPILER_SPECIFIC_COPTS,
     defines = [
@@ -31,7 +28,11 @@ cc_library(
         # so there is no room for Eigen to further parallelize
         "EIGEN_DONT_PARALLELIZE",
     ],
+    includes = ["include"],
     linkopts = COMPILER_SPECIFIC_LINKOPTS,
     visibility = ["//visibility:public"],
-    deps = ["@eigen", "@kthohr_stats"],
+    deps = [
+        "@eigen",
+        "@kthohr_stats",
+    ],
 )

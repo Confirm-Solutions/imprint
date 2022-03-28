@@ -87,7 +87,7 @@ cc_library(
     name = 'eigen',
     srcs = [],
     includes = ['.'],
-    hdrs = glob(['Eigen/**']),
+    hdrs = glob(['Eigen/**', 'unsupported/Eigen/**']),
     visibility = ['//visibility:public'],
 )
 """,
@@ -101,11 +101,12 @@ cc_library(
 # ====================================
 
 KTHOHR_GCEM_VERSION = "1.14.1"
+
 KTHOHR_STATS_VERSION = "3.1.2"
 
 http_archive(
     name = "kthohr_gcem",
-    build_file_content = 
+    build_file_content =
         """
 cc_library(
     name = "kthohr_gcem",

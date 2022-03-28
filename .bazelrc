@@ -1,6 +1,6 @@
 build --cxxopt="-std=c++17"
 build --cxxopt="-Wall"
-build --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+build --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 
 build:asan --strip=never
 build:asan --copt -fsanitize=address
