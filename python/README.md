@@ -41,9 +41,8 @@ pip install -vvv -e .
 To reinstall the top-level Python package,
 run the following:
 ```
-rm -rf ./build ./dist ./*egg-info
-find . -type f -name "*.so" -exec rm {} \;
-find . -type f -name "*.o" -exec rm {} \;
+cd python
+touch ./src/core.pp
 pip install -vvv -e .
 ```
 
