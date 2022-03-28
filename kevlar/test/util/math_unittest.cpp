@@ -1,6 +1,7 @@
+#include <Eigen/Core>
+#include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <testutil/base_fixture.hpp>
-#include <Eigen/Core>
 
 namespace kevlar {
 
@@ -27,6 +28,19 @@ INSTANTIATE_TEST_SUITE_P(MathSuite, ipow_fixture,
                                           testing::Values(-3, -2, -1, 0, 1, 2,
                                                           3)));
 
+TEST(MathSuite, normal_cdf) {
+    Eigen::Vector<double, 11> x = {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5};
+
+    // scipy.stats.norm.cdf(np.arange(-5, 6, 1))
+    Eigen::Vector<double, 11> want = {
+        2.86651572e-07, 3.16712418e-05, 1.34989803e-03, 2.27501319e-02,
+        1.58655254e-01, 5.00000000e-01, 8.41344746e-01, 9.77249868e-01,
+        9.98650102e-01, 9.99968329e-01, 9.99999713e-01};
+    auto got = normal_cdf(x);
+    for (int i = 0; i < 11; ++i) {
+        EXPECT_NEAR(got(i), want(i), 1e-8);
+    }
+};
 // TEST qnorm
 struct qnorm_fixture : base_fixture,
                        testing::WithParamInterface<std::tuple<double, double>> {
