@@ -19,21 +19,16 @@ conda activate kevlar
 ```
 
 If one wishes to have a local installation of the Python 
-package dependencies such as `pybind11`, 
-simply run:
+package dependencies such as `pybind11`, simply run:
 ```
 conda install pybind11
 ```
 See [Dependencies](#dependencies) for the full list of dependencies.
 
-We refer to the C++ core engine [README](../kevlar/README.md)
-to install the dependencies and build `//kevlar:kevlar`.
-
-Finally, we install the top-level Python package
-in editable mode (`-e`) for development:
 ```
 pip install -r requirements.txt
-pip install -vvv -e .
+bazel build --config clang //python:pykevlar_wheel
+pip install bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
 ```
 
 ## Reinstall
@@ -41,25 +36,14 @@ pip install -vvv -e .
 To reinstall the top-level Python package,
 run the following:
 ```
-rm -rf ./build ./dist ./*egg-info
-find . -type f -name "*.so" -exec rm {} \;
-find . -type f -name "*.o" -exec rm {} \;
-pip install -vvv -e .
+bazel build --config clang //python:pykevlar_wheel
+pip install --force-reinstall bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
 ```
 
 TODO: we should probably make a shell script wrapping that.
 
-A simple, hacky method is to first `touch` any `.cpp` file
-in `src/`, as our setup script will automatically
-rebuild all source files, then install as usual.
-An example script is the following:
-```
-touch src/core.cpp
-pip install -vvv -e .
-```
-
 ## Smoke test
 
 ```
-PYTHONPATH=. time python ./examples/fit_driver_example.py
+bazel run --config clang -c opt //python:fit_driver_example
 ```
