@@ -1,21 +1,22 @@
+#!/usr/bin/env python3
+
 import os
-import re
 import subprocess
 from sys import platform
+from string import Template
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_PATH = os.path.join(ROOT_DIR, '.bazelrc')
 
 
 def run_cmd(cmd):
-    process = subprocess.Popen(
-        cmd.split(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    if stderr.decode('utf-8') != "":
-        raise RuntimeError(stderr)
-    return stdout.decode('utf-8').rstrip()
+    try:
+        output = subprocess.check_output(
+            cmd.split(' '), stderr=subprocess.STDOUT).decode()
+    except subprocess.CalledProcessError as e:
+        output = e.output.decode()
+        raise RuntimeError(output)
+    return output.rstrip()
 
 
 def main():
@@ -45,15 +46,21 @@ build:clang --linkopt -fopenmp
             omp_prefix = run_cmd('brew --prefix libomp')
             omp_path = os.path.join(omp_prefix, 'lib')
 
-            f.write(
-f'''
+            mac_build = Template(
+'''
 # Mac Homebrew Clang
-build:mac --action_env=CC={clang_path}
-build:mac --linkopt -L{omp_path}
+build:mac --action_env=CC=${clang_path}
+build:mac --linkopt -L${omp_path}
 build:mac --linkopt -lomp
 # Tell Bazel not to use the full Xcode toolchain on Mac OS
 build:mac --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 '''
+            )
+            f.write(
+                mac_build.substitute(
+                    clang_path=clang_path,
+                    omp_path=omp_path,
+                )
             )
 
         # Add asan build
@@ -68,6 +75,8 @@ build:asan --copt -fno-omit-frame-pointer
 build:asan --linkopt -fsanitize=address
 '''
         )
+
+        # TODO: add ubsan + msan builds also
 
 
 if __name__ == '__main__':
