@@ -50,6 +50,7 @@ f'''
 # Mac Homebrew Clang
 build:mac --action_env=CC={clang_path}
 build:mac --linkopt -L{omp_path}
+build:mac --linkopt -lomp
 # Tell Bazel not to use the full Xcode toolchain on Mac OS
 build:mac --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 '''
