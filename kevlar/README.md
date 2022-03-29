@@ -40,19 +40,20 @@ export PATH="/some/dir:$PATH"
 
 __Note: `CMake` build has been deprecated and is not maintained.__
 
-__Note: If the system-provided `clang` complains about unrecognized option `-fopenmp`
-in the build procedures below,
-the user is expected to use the Homebrew-provided `clang`
-and define the environment variables `CC, CXX` before calling `bazel`:__
+__Note: On Mac, users are expected to use the Homebrew-provided `clang`
+and `libomp` before calling `bazel` and pass an additional flag to all `bazel` calls below:__
 ```
 brew install llvm libomp
-CC=/path/to/brew/clang CXX=/path/to/brew/clang++ bazel ...
+bazel ... --config=mac
 ```
 
-__Note: For Linux users who wish to use `clang`:__
+__Note: For Linux users who wish to use `clang`,
+install `clang` and add a flag to the `bazel` calls below:__
 ```
 sudo apt install clang-11 --install-suggests
+bazel ... --config=clang
 ```
+For `gcc`, pass `--config=gcc` instead.
 
 __To build `kevlar`__:
 ```
