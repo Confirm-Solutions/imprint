@@ -1,3 +1,4 @@
+
 build --cxxopt="-std=c++17"
 build --cxxopt="-Wall"
 
@@ -10,9 +11,8 @@ build:clang --action_env=CC=clang
 build:clang --linkopt -fopenmp
 
 # Mac Homebrew Clang
-# TODO: we should really write a bazel rule to find these paths
-build:mac --action_env=CC=/opt/homebrew/Cellar/llvm/13.0.1_1/bin/clang
-build:mac --linkopt -L/opt/homebrew/Cellar/libomp
+build:mac --action_env=CC=/usr/local/opt/llvm/bin/clang
+build:mac --linkopt -L/usr/local/opt/libomp/lib
 # Tell Bazel not to use the full Xcode toolchain on Mac OS
 build:mac --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 
