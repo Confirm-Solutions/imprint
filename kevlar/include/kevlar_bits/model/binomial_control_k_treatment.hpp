@@ -145,12 +145,12 @@ struct BinomialControlkTreatment
          * that reject.
          */
         void rej_len(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-            auto& bits = outer_.gbits_;
-            auto& gr_view = outer_.grid_range();
+            const auto& bits = outer_.gbits_;
+            const auto& gr_view = outer_.grid_range();
 
             int pos = 0;
             for (int i = 0; i < outer_.n_gridpts(); ++i) {
-                auto bits_i = bits.col(i);
+                const auto bits_i = bits.col(i);
 
                 // Phase II
                 int a_star =
@@ -222,7 +222,7 @@ struct BinomialControlkTreatment
        private:
         template <class BitsType>
         KEVLAR_STRONG_INLINE auto phase_III_internal(size_t a_star,
-                                                     BitsType& bits_i) {
+                                                     const BitsType& bits_i) {
             // pairwise z-test
             auto n = outer_.n_samples();
             Eigen::Map<const colvec_type<uint_t>> ss_astar(

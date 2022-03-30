@@ -18,8 +18,6 @@ struct InterSum {
           grad_buff_(n_params) {
         type_I_sum_.setZero();
         grad_sum_.setZero();
-        rej_len_.setZero();
-        grad_buff_.setZero();
     }
 
     /*
@@ -95,7 +93,6 @@ struct InterSum {
         type_I_sum_.setZero(n_models, n_tiles);
         grad_sum_.setZero(n_models * n_tiles * n_params);
         n_params_ = n_params;
-        rej_len_.setZero(n_tiles);
     }
 
     mat_type<uint_t>& type_I_sum() { return type_I_sum_; }

@@ -19,31 +19,37 @@ struct binomial_fixture : benchmark::Fixture {
     using bckt_t = BinomialControlkTreatment<double, uint32_t, grid_range_t>;
     using is_t = InterSum<double, uint32_t>;
 
-    size_t n_thetas_1d = 32;
+    size_t n_thetas_1d = 64;
     double lower = -0.5;
-    double upper = 1.5;
-    size_t n_sim = 100;
+    double upper = 0.5;
+    size_t n_sim = 1000;
     double alpha = 0.025;
     double delta = 0.025;
-    size_t grid_dim = 2;
-    size_t grid_radius = grid_t::radius(n_thetas_1d, lower, upper);
+    size_t grid_dim = 3;
     size_t n_samples = 250;
     size_t ph2_size = 50;
     double thresh = 1.96;
-    Eigen::VectorXd theta_1d;
-    Eigen::VectorXd thresholds;
+    size_t n_threads = 1;//std::thread::hardware_concurrency();
 };
 
 BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
+    size_t grid_radius = grid_t::radius(n_thetas_1d, lower, upper);
+
+    Eigen::VectorXd theta_1d;
+    Eigen::VectorXd thresholds;
+
     // initialize threshold
     thresholds.resize(1);
     thresholds << thresh;
 
     // define hyperplanes
     std::vector<hp_t> hps;
-    colvec_type<double> normal(grid_dim);
-    normal << 1, -1;
-    hps.emplace_back(normal, 0);
+    for (size_t k = 1; k < grid_dim; ++k) {
+        colvec_type<double> normal(grid_dim);
+        normal[0] = 1;
+        normal[k] = -1;
+        hps.emplace_back(normal, 0);
+    }
 
     // create grid
     theta_1d = grid_t::make_grid(n_thetas_1d, lower, upper);
@@ -54,7 +60,7 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
             grid_range.thetas()(i, j) = theta_1d[bits()(i)];
         }
     }
-    grid_range.radii().array() = Gridder::radius(n_thetas_1d, lower, upper);
+    grid_range.radii().array() = grid_radius;
     grid_range.sim_sizes().array() = n_sim;
 
     grid_range.create_tiles(hps);
@@ -66,8 +72,7 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     is_t is_o;
 
     for (auto _ : state) {
-        fit<std::mt19937>(model, grid_range, is_o, n_sim, 0,
-                          std::thread::hardware_concurrency());
+        fit<std::mt19937>(model, grid_range, is_o, n_sim, 0, n_threads);
     }
 }
 
