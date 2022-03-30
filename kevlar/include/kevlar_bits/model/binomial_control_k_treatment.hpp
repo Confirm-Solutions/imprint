@@ -63,6 +63,7 @@ struct BinomialControlkTreatment
                 n_total_uniques_ += pu.size();
             }
         }
+        const auto& outer() const { return outer_; }
 
         /*
          * Generate RNG for the simulation.
@@ -465,11 +466,13 @@ struct BinomialControlkTreatment
             probs_.data() + n_arms() * n_gridpts(), n_arms(), n_gridpts());
     }
 
+   protected:
     using vec_t = colvec_type<value_t>;
     using uvec_t = colvec_type<uint_t>;
     using mat_t = mat_type<value_t>;
     using umat_t = mat_type<uint_t>;
 
+   private:
     std::vector<vec_t> probs_unique_;  // probs_unique_[i] = unique prob vector
                                        // sorted (ascending) for arm i.
     uvec_t strides_;  // strides_[i] = number of unique probs for arm i-1 with 0
