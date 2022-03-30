@@ -51,6 +51,7 @@ struct MockGridRange {
     auto n_params() const { return d_; }
     bool is_regular(size_t) const { return true; }
     auto n_tiles(size_t) const { return 1; }
+    auto n_tiles() const { return n_; }
 
    private:
     size_t d_;
@@ -86,8 +87,7 @@ TEST_P(test_update_fixture, test_update) {
 
     gr_t gr(n_params, n_gridpts);
     state_t mms(n_models, n_gridpts, n_params, gr);
-    InterSum<double, uint32_t> is;
-    is.reset(n_models, n_gridpts, n_params);
+    InterSum<double, uint32_t> is(n_models, gr.n_tiles(), n_params);
     is.update(mms);
 
     colvec_type<uint32_t> v(n_gridpts);
