@@ -12,8 +12,8 @@ from pykevlar.batcher import SimpleBatch
 
 import numpy as np
 # import os
-from timeit import default_timer as timer
-from datetime import timedelta
+# from timeit import default_timer as timer
+# from datetime import timedelta
 
 import ray
 
@@ -26,7 +26,7 @@ logger.info("ray available resources: %d" % ray.cluster_resources()['CPU'])
 n_arms = 4      # prioritize 3 first, then do 4
 sim_size = 1000000
 n_thetas_1d = 64
-n_threads = 8 # os.cpu_count()
+n_threads = 2 # os.cpu_count()
 max_batch_size = int(sim_size / n_threads / ray.cluster_resources()['CPU'])
 
 # ========== End Toggleable ===============
