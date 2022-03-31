@@ -6,6 +6,5 @@
 #
 
 -i https://pypi.org/simple
--e .
 numpy==1.22.2
 pybind11==2.9.1
