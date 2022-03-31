@@ -1,7 +1,8 @@
 #pragma once
 #define _USE_MATH_DEFINES
-#include <Eigen/Core>
 #include <cmath>
+#include <Eigen/Dense>
+#include <unsupported/Eigen/SpecialFunctions>
 
 namespace kevlar {
 namespace details {
@@ -60,6 +61,14 @@ template <>
 struct Log2<1> {
     static constexpr size_t value = 0;
 };
+
+template <class T>
+auto normal_cdf(const T& x) {
+    // TODO constexpr
+    auto x2 = (x.array() / std::sqrt(2));
+    auto x3 = x2.array().erf();
+    return 0.5 * (1 + x3.array());
+}
 
 // Inverse Normal CDF (Acklam's algorithm)
 // https://stackedboxes.org/2017/05/01/acklams-normal-quantile-function/
