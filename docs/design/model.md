@@ -90,6 +90,12 @@ can be computed simply in terms of the mean parameters.
 [Simulating](#simulating) gives another justification
 for having `models` attach to a `GridRange`.
 
+__In summary__:
+- The framework guarantees that a `model` will be attached
+to a `GridRange` on which it will simulate.
+- The attaching procedure gives the opportunity for a `model` to cache
+any information that can potentially speed-up the simulations.
+
 ### Simulating
 
 A `model` needs to define the simulation procedure
@@ -126,7 +132,7 @@ should (in principle) only depend on the sufficient statistic.
 However, it is entirely up to the user how to sample RNG and save the necessary information
 (sometimes we may need to save a quantity other than the sufficient statistic!).
 The user has complete autonomy in deciding what data structure is most
-beneficial for computing the false rejections.
+beneficial for the simulation procedure.
 
 Lastly, the simulation procedure must
 compute the false rejections for all tiles in `GridRange`.
@@ -134,9 +140,7 @@ Note that from the framework perspective,
 the model is free to choose the meaning of "false rejection"
 (e.g. controlling FWER).
 
-In summary:
-- The framework guarantees that a `model` will be attached
-to a `GridRange` on which it will simulate.
+__In summary__:
 - A `model` is given an RNG and must provide a simulation function that (conceptually):
     - Generates data for each grid-point.
     - Saves any necessary information (usually sufficient statistic).
@@ -145,6 +149,35 @@ to a `GridRange` on which it will simulate.
 ### `InterSum` Update
 
 An `InterSum` object essentially stores the sum of false rejections
-and the gradient estimates for each tile in the attached `GridRange` object of the `model`.
+and the gradient estimates for each tile in the attached `GridRange` object of the `model`
+(see [TODO: link `InterSum` page]() for more information).
+Recall that an `InterSum` contains the minimal simulation-dependent information
+needed to create an `UpperBound` object.
+The simulation-dependent information is precisely:
+
+- False rejections for each tile in `GridRange`.
+- Score estimates for each grid-point in `GridRange`.
+
+See the [UpperBound](../math/stats/upper_bound/doc.pdf) document 
+for the mathematical details for why this the case.
+
+The false rejections per tile have already been discussed in [Simulating](#simulating).
+The only extra information needed from `model` is then the score estimate.
+
+__In summary__:
+- After a simulation of a `model`, 
+the `InterSum` object is updated to accrue information.
+- For this update, it only requires:
+    - False rejections for each tile.
+    - Score estimates for each grid-point.
 
 ### `UpperBound` Update
+
+An `UpperBound` object stores the components that comprise the upper bound estimate.
+It is computed from a `model`, its attached `GridRange` object, 
+and its corresponding `InterSum` object that accrued information across all the simulations.
+The only model-specific quantities are:
+
+- Jacobian of parameter transform.
+- Quadratic form of the covariance of the sufficient statistic.
+- Maximum 
