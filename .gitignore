@@ -13,6 +13,8 @@ DartConfiguration.tcl
 /python/dist/
 .spyproject/
 
+# ignore rc because we are tracking generator now
+.bazelrc 
 bazel
 bazel-bazel-test
 bazel-bin
