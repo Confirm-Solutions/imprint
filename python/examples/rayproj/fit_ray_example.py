@@ -6,6 +6,16 @@ basicConfig(level = log_level,
             datefmt ='%Y-%m-%d %H:%M:%S')
 logger = getLogger(__name__)
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+import ray
+ray.init(address='ray://yokojitsu:10001')
+alive_nodes = [n for n in ray.nodes() if n['Alive']]
+logger.info("ray available nodes: %d" % len(alive_nodes))
+logger.info("ray available resources: %d" % ray.cluster_resources()['CPU'])
+
+#############################################
+
 import pykevlar.core as core
 import pykevlar.driver as driver
 from pykevlar.batcher import SimpleBatch
@@ -14,13 +24,6 @@ import numpy as np
 # import os
 # from timeit import default_timer as timer
 # from datetime import timedelta
-
-import ray
-
-ray.init(address='ray://yokojitsu:10001')
-alive_nodes = [n for n in ray.nodes() if n['Alive']]
-logger.info("ray available nodes: %d" % len(alive_nodes))
-logger.info("ray available resources: %d" % ray.cluster_resources()['CPU'])
 
 # ========== Toggleable ===============
 n_arms = 4      # prioritize 3 first, then do 4
@@ -44,14 +47,6 @@ logger.info("n_threads: %d" % n_threads)
 
 # set numpy random seed
 np.random.seed(seed)
-
-@ray.remote
-def call_kevlar(batch, sim_size):
-    return driver.fit_process(model=bckt,
-                              grid_range=batch,
-                              sim_size=sim_size,
-                              base_seed=seed,
-                              n_threads=n_threads)
 
 # define null hypos
 null_hypos = []
@@ -83,7 +78,16 @@ batcher = SimpleBatch(gr, max_batch_size, null_hypos)
 
 # create BCKT
 bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
-    
+
+#############################################
+@ray.remote
+def call_kevlar(batch, sim_size):
+    return driver.fit_process(model=bckt,
+                              grid_range=batch,
+                              sim_size=sim_size,
+                              base_seed=seed,
+                              n_threads=n_threads)
+
 # Call kevlar via ray remote
 ray_objs = []
 for batch, sim_size in batcher:
