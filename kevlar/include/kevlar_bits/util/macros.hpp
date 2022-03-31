@@ -1,4 +1,5 @@
 #pragma once
+#include <iomanip>
 #include <iostream>
 
 /*
@@ -35,8 +36,10 @@
 #endif
 
 #ifndef PRINT
-#define PRINT(t) \
-    (std::cout << __LINE__ << ": " << #t << '\n' << t << "\n" << std::endl)
+#define PRINT(t)                                                         \
+    (std::cout << std::setprecision(9) << __LINE__ << ": " << #t << '\n' \
+               << t << "\n"                                              \
+               << std::endl)
 #endif
 
 #ifndef ASSERT_GOOD
