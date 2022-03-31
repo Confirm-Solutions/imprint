@@ -26,8 +26,7 @@ logger.info("ray available resources: %d" % ray.cluster_resources()['CPU'])
 n_arms = 4      # prioritize 3 first, then do 4
 sim_size = 1000000
 n_thetas_1d = 64
-n_threads = 2 # os.cpu_count()
-max_batch_size = int(sim_size / n_threads / ray.cluster_resources()['CPU'])
+n_threads = 4 # os.cpu_count()
 
 # ========== End Toggleable ===============
 
@@ -42,7 +41,6 @@ logger.info("n_arms: %d" % n_arms)
 logger.info("sim_size: %d" % sim_size)
 logger.info("n_thetas_1d: %d" % n_thetas_1d)
 logger.info("n_threads: %d" % n_threads)
-logger.info("max_batch_size: %d" % max_batch_size)
 
 # set numpy random seed
 np.random.seed(seed)
@@ -69,6 +67,10 @@ theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
 grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
         .reshape(-1, n_arms)
 gr = core.GridRange(n_arms, grid.shape[0])
+
+max_batch_size = int(gr.n_gridpts() / ray.cluster_resources()['CPU']) + 1
+logger.info("max_batch_size: %d" % max_batch_size)
+
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
 radii = gr.radii()
@@ -88,8 +90,8 @@ for batch, sim_size in batcher:
     ray_objs.append(call_kevlar.remote(batch, sim_size))
 res = ray.get(ray_objs)
 
-batch_num = 0
+# batch_num = 0
 for is_o in res:
     logger.info(is_o.type_I_sum() / sim_size)
-    batch_num = batch_num + 1
-    np.savetxt("ray_output_%03d.txt" % batch_num, (is_o.type_I_sum() / sim_size), delimiter="\n")
+    # batch_num = batch_num + 1
+    # np.savetxt("ray_output_%05d.txt" % batch_num, (is_o.type_I_sum() / sim_size), delimiter="\n")
