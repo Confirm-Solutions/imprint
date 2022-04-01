@@ -1,11 +1,13 @@
 #pragma once
+#include <iomanip>
+#include <iostream>
 
 /*
  * likely/unlikely forces branch prediction to predict true/false.
  * This forcing behavior is only enabled if compiler is GCC or Clang.
  * Otherwise, they are simply identity macros.
  *
- * This is the Linux kernel way: 
+ * This is the Linux kernel way:
  * https://stackoverflow.com/questions/20916472/why-use-condition-instead-of-condition/20916491#20916491
  */
 #ifndef likely
@@ -19,8 +21,9 @@
 #endif
 
 /*
- * KEVLAR_STRONG_INLINE is a stronger version of the inline, 
- * using __forceinline on MSVC, always_inline on GCC/clang, and otherwise just use inline.
+ * KEVLAR_STRONG_INLINE is a stronger version of the inline,
+ * using __forceinline on MSVC, always_inline on GCC/clang, and otherwise just
+ * use inline.
  */
 #ifndef KEVLAR_STRONG_INLINE
 #if defined(_MSC_VER)
@@ -30,4 +33,16 @@
 #else
 #define KEVLAR_STRONG_INLINE inline
 #endif
+#endif
+
+#ifndef PRINT
+#define PRINT(t)                                                         \
+    (std::cout << std::setprecision(9) << __LINE__ << ": " << #t << '\n' \
+               << t << "\n"                                              \
+               << std::endl)
+#endif
+
+#ifndef ASSERT_GOOD
+#define ASSERT_GOOD(t) \
+    assert(!t.array().isNaN().any() && !t.array().isInf().any())
 #endif
