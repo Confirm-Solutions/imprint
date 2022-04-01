@@ -94,30 +94,44 @@ This section will cover the subroutines mentioned in [Overview](#overview).
 
 Every `model` should have the opportunity to cache information
 from the given `GridRange` object before any simulations occur.
-For example, if a `model` defines the grid to be in some space
+For example, if a `model` assumes the grid lies in some space
 that parametrizes the mean parameter space of the exponential family,
 it is usually advantageous to transform the grid-points
-into the mean parameters,
-since quantities such as the log-partition function
-can usually be computed simply in terms of the mean parameters.
-
+into the mean parameters first before any simulations occur,
+since simulation-dependent quantities such as the log-partition function
+can usually be computed cheaply in terms of the mean parameters.
 [Simulating](#simulating) gives another justification
 for having `models` attach to a `GridRange`.
+
+As mentioned in the previous paragraph,
+a `model` defines the context of the grid-points.
+It is the user's responsibility to construct a `GridRange` object
+that adheres to the convention of the `model` they wish to simulate.
+For example, a `model` assuming exponentially distributed data
+may expect the grid-points to lie in the log-hazard space
+rather than the natural parametere space (negative hazard).
+The user is then responsible for constructing grid-points
+in the log-hazard space.
+This promise is solely between the user and the `model` of interest;
+the rest of the `kevlar` framework does not use the context of a `GridRange` object
+for a given `model`, since they must be agnostic to the specific `model` types.
 
 __In summary__:
 - The framework guarantees that a `model` will be attached
 to a `GridRange` on which it will simulate.
 - The attaching procedure gives the opportunity for a `model` to cache
 any information that can potentially speed-up the simulations.
+- A `model` defines the context of the grid-points.
+It is the user's responsibility to construct grid-points in the expected space that they belong.
 
 ### Simulating
 
 A `model` needs to define the simulation procedure
 beginning with the data generation to computing the false rejections for each tile of `GridRange`.
 
-It is important that the `model` is aware of the `GridRange` ahead of time.
-From an optimization point of view, this is extremely crucial.
-As a simple example, consider a binomial distribution with size `n` 
+From an optimization point of view, 
+it is important that the `model` is aware of the `GridRange` ahead of time.
+As a simple example, consider a (one-arm) binomial distribution with size `n` 
 and parameters `p_i` for `i=1,...,d` (`d` grid-points).
 Using Skhorokhod's embedding, it is enough to sample 
 _`n` uniform random variables_ `U_j` (`j=1,...,n`) and evaluate the indicators
@@ -125,10 +139,10 @@ that `U_j < p_i`.
 This is because such an indicator follows a Bernoulli with parameter `p_i`
 and the sum over `j` will give us a binomial distribution with size `n`, parameter `p_i`.
 This certainly correlates the binomials for each of the parameters `p_i`,
-but this _does not_ invalidate our math.
+but this __does not__ invalidate our math.
 In fact, this correlation only helps smooth-out the Type I error profile.
 Furthermore, assuming `U_j` and `p_i` are sorted,
-we can compute _all_ binomials by reading `U` and `p` exactly once.
+we can compute _all_ binomials by reading `U` and `p` _exactly once_.
 Moreover, if the model assumes independent binomial draws for `k` arms
 and there are `d` grid-points, 
 it is enough to only save the _unique_ parameter values for each arm,
@@ -136,13 +150,13 @@ and hence, enough to only compute binomials for these unique parameters.
 For this particular binomial model, the number of unique parameter values
 is typically `O(log(d))`, which introduces massive memory and computation savings.
 Note that this optimization is only possible because 
-a `model` attaches itself to the full `GridRange`.
+a `model` is aware of the whole range of grid-points.
 
 After sampling the RNG,
 we typically have to further compute the sufficient statistic,
 e.g. for the binomial example, the binomials are the sufficient statistic.
 Note that an exponential family only depends on the data through the sufficient statistic,
-so the test statistic used in computing false rejections 
+so the test statistic used to compute false rejections 
 should (in principle) only depend on the sufficient statistic.
 However, it is entirely up to the user how to sample RNG and save the necessary information
 (sometimes we may need to save a quantity other than the sufficient statistic!).
@@ -173,7 +187,7 @@ The simulation-dependent information is precisely:
 - False rejections for each tile.
 - Score estimates for each grid-point.
 
-See [UpperBound](../math/stats/upper_bound/doc.pdf) 
+See [TODO: UpperBound page instead?](../math/stats/upper_bound/doc.pdf) 
 for the mathematical details for why this the case.
 
 The false rejections per tile has already been discussed in [Simulating](#simulating).
@@ -193,12 +207,23 @@ It is computed from a `model`, its attached `GridRange` object,
 and its corresponding `InterSum` object that accrued information across all the simulations.
 The only model-specific quantities are:
 
-- Jacobian operator of parameter transform (multiply Jacobian to an input vector `v`).
+- Jacobian operator of the transformation that maps grid-points to natural parameters.
 - Quadratic form of the covariance of the sufficient statistic.
 - Upper bound on the quadratic form of the hessian.
 
+We explain the reasoning at a high-level.
+The first quantity is required since a `model` defines 
+the space in which the grid-points lie,
+and `UpperBound` requires the Jacobian of the transform
+that maps grid-points to the natural parameters.
+Hence, this Jacobian is a model-specific quantity.
+The second quantity is obviously model-specific
+since a model defines the data distribution.
+The third quantity will, in general, be model-specific
+since the hessian also depends on the underlying data distribution.
+
 See [UpperBound](../math/stats/upper_bound/doc.pdf) 
-for the mathematical details.
+for further mathematical details.
 See [Exponential Model](../math/model/exp_control_k_treatment/doc.pdf)
 for a concrete example of these specifications.
 
