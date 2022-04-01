@@ -255,13 +255,184 @@ Then, for any $\theta, \theta_0$,
 \end{align*}
 Note that all derivatives are with respect to $\theta$.
 
-Next, we bound the hessian term
+For now, assume we have a function $U(v)$ such that
+\begin{align*}
+    \sup\limits_{\theta \in R}
+    v^\top \nabla^2 f(\theta) v
+    \leq
+    U(v)
+\end{align*}
+for any $v$.
+In Section~\ref{ssec:hess-quadform-bound},
+we will propose ways of finding such a $U$.
+Then,
 \begin{align*}
     \int_0^1 (1-\alpha) v^\top \nabla^2 f(\theta_0 + \alpha v) v d\alpha
+    \leq
+    \frac{1}{2} U(v)
 \end{align*}
 where $v = \theta-\theta_0$.
 
-It suffices to bound $\nabla^2 f(\theta)$.
+In summary, we have the bound:
+\begin{align*}
+    \sup\limits_{\theta \in R}
+    f(\theta)
+    &=
+    f(\theta_0)
+    +
+    \sup\limits_{v \in R-\theta_0}
+    \bracket{%
+        \nabla f(\theta_0)^\top v
+        +
+        \int_0^1 (1-\alpha)
+        v^\top \nabla^2 f(\theta_0 + \alpha v) v 
+        d\alpha
+    }
+    \\&\leq
+    f(\theta_0)
+    +
+    \sup\limits_{v \in R-\theta_0}
+    \bracket{%
+        \nabla f(\theta_0)^\top v
+        +
+        \frac{1}{2} U(v)
+    }
+\end{align*}
+
+\subsection{Constant Order Terms: $\hat{\delta}_0, \hat{\delta}_0^u$}
+
+The Monte Carlo term $\hat{\delta}_0$ and its corresponding upper bound
+$\hat{\delta}_0^u$ need no change from reparametrization
+other than the initial evaluation of $\eta_0 := \eta(\theta_0)$.
+
+\subsection{First Order Term: $\hat{\delta}_1$}
+
+The first order terms are affected by the $\eta$ transformation.
+\begin{align*}
+    \nabla f(\theta)
+    :=
+    \nabla_{\theta} P_\theta(A) 
+    &=
+    \nabla_{\theta} \int_A \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    =
+    \int_A \nabla_{\theta} \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
+    \\&=
+    \int_A (D_{\theta}\eta)^\top 
+    \nabla_{\eta} \frac{P_{\eta}}{P_{\eta_0}} dP_{\eta_0}
+\end{align*}
+where $\eta_0 = \eta(\theta_0)$.
+If $\theta_0$ is the point at which we are Taylor expanding,
+it suffices to compute this gradient at $\theta = \theta_0$.
+This results in
+\begin{align*}
+    \nabla_{\theta} P_{\theta_0}(A) 
+    &=
+    \int_A (D_{\theta}\eta(\theta_0))^\top (T - \nabla_\eta A(\eta_0)) dP_{\eta_0}
+\end{align*}
+
+Hence, our new gradient Monte Carlo estimate will be
+\begin{align*}
+    \widehat{\nabla f}(\theta_0)
+    :=
+    D_{\theta} \eta(\theta_0)^\top 
+    \frac{1}{N}
+    \sum\limits_{i=1}^N
+    (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}
+\end{align*}
+
+Note that the Jacobian of $\eta$ is known when defining a model 
+and is simulation-independent.
+Hence, we may save the same gradient estimate as in Section~\ref{sec:orig-ub}
+and later multiply by $D_{\theta} \eta(\theta_0)^\top$.    
+
+\subsection{Higher Order Upper Bound Terms: $\hat{\delta}_1, \hat{\delta}_1^u, \hat{\delta}_2^u$}%
+\label{ssec:higher-order-ub-terms}
+    
+Similar to Section~\ref{sec:orig-ub},
+once we can show for any $v_m = \theta_m - \theta_0$, 
+where $\theta_m$ are the vertices of a convex hull $R \subseteq \Theta$,
+$m=1,\ldots, M$,
+there exists a corresponding random $\hat{c}_m$ such that
+\[
+    \PPP_{\theta_0}\paren{%
+        \nabla f(\theta_0)^\top v_m
+        +
+        \frac{1}{2}U(v_m)
+        \leq 
+        \hat{c}_m
+    } 
+    \geq 1-\delta_2
+\]
+then we have
+\[
+    \PPP_{\theta_0}\paren{%
+        \sup\limits_{v\in R-\theta_0} 
+        \bracket{%
+            \nabla f(\theta_0)^\top v
+            + 
+            \frac{1}{2}U(v)
+        }
+        \leq 
+        \max\limits_{m=1,\ldots, M} \hat{c}_m
+    } 
+    \geq 
+    1-\delta_2
+\]
+as soon as we further assume that $U$ is convex.
+
+Using Cantelli's inequality
+with $Y = \widehat{\nabla f}(\theta_0)^\top v_m = \frac{1}{N} \sum\limits_{i=1}^N \widehat{\nabla f}(\theta_0)_i^\top v_m$,
+we only need to provide an upper bound on the variance of $\widehat{\nabla f}(\theta_0)_i^\top v_m$,
+where $\widehat{\nabla f}(\theta_0)_i := D_\theta \eta(\theta_0)^\top (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}$.
+In that endeavor,
+\begin{align*}
+    \var{\widehat{\nabla f}(\theta)_i^\top v_m}
+    &=
+    v_m^\top \var{\widehat{\nabla f}(\theta)_i} v_m
+    \leq 
+    v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{\max}}} (D_\theta \eta) v_m
+\end{align*}
+The rest of the calculations remain the same.
+
+Hence, 
+\begin{align*}
+    \hat{c}_m
+    :=
+    \widehat{\nabla f}(\theta_0)^\top v_m
+    +
+    \sqrt{
+        \frac{v_m^\top (D_\theta \eta(\theta_0))^\top \var{T_{\tau_{\max}}}_{\eta_0} (D_\theta \eta(\theta_0)) v_m}{N}
+        \paren{\frac{1}{\delta_2} - 1}
+    }
+    +
+    \frac{1}{2} U(v_m)
+\end{align*}
+
+This gives us our new upper bound estimates:
+\begin{align*}
+    \hat{\delta}_{0, \new} &:= \hat{\delta}_0 \\
+    \hat{\delta}_{0, \new}^u &:= \hat{\delta}_0^u \\
+    \hat{\delta}_{1, \new} &:= v_{m^*}^\top D_\theta \eta(\theta_0)^\top \hat{\delta}_1 \\
+    \hat{\delta}_{1, \new}^u &:= \sqrt{%
+        \frac{v_{m^*}^\top D\eta(\theta_0)^\top \var{T_{\tau_{\max}}}_{\eta_0} D\eta(\theta_0) v_{m^*}}{N} 
+        \paren{\frac{1}{\delta_2}-1}
+    } \\
+    \hat{\delta}_{2, \new}^u &:= 
+    \frac{1}{2} U(v_{m^*})
+\end{align*}
+where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
+
+
+\subsection{Hessian Quadratic Form Bound}\label{ssec:hess-quadform-bound}
+
+As mentioned in Section~\ref{sec:gen-ub}, 
+we will now discuss a way to find the upper bound $U(v)$ to
+$\sup\limits_{\theta \in R} v^\top \nabla^2 f(\theta) v$.
+In Section~\ref{ssec:higher-order-ub-terms},
+we made the additional assumption that $U$ is convex,
+so it is crucial this assumption is met.
+
+We will first bound $\nabla^2 f(\theta)$.
 \begin{align*}
     \nabla^2 f(\theta)
     &=
@@ -338,9 +509,13 @@ We next bound the second term in Eq.~\ref{eq:hess-second-term}.
 
 Combining with Eq.~\ref{eq:hess-second-term},
 \begin{align*}
-    v^\top \sup\limits_{\theta \in R} \nabla^2 f(\theta) v
+    \sup\limits_{\theta \in R} 
+    v^\top \nabla^2 f(\theta) v
     &\leq
-    v^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v
+    \sup\limits_{\theta \in R} 
+    \bracket{
+        v^\top (D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta(\theta)} (D\eta(\theta)) v
+    }
     +
     \sum\limits_{k=1}^d 
     \sup\limits_{\theta \in R}
@@ -349,7 +524,10 @@ Combining with Eq.~\ref{eq:hess-second-term},
         \sqrt{\var{T_k}_{\eta(\theta)}}
     }
     \\&\leq
-    v^\top \sup\limits_{\theta \in R} \bracket{(D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta} (D\eta)} v
+    \sup\limits_{\theta \in R} 
+    \bracket{
+        v^\top (D\eta(\theta))^\top \var{T_{\tau_{\max}}}_{\eta(\theta)} (D\eta(\theta)) v
+    }
     +
     \norm{v}^2
     \sum\limits_{k=1}^d 
@@ -364,161 +542,20 @@ Combining with Eq.~\ref{eq:hess-second-term},
     U(v)
 \end{align*}
 where $U_i$ are defined to be the respective terms.
-Note that $U_2(v) = 0$ for any linear transformation $\eta$.
-In particular, for the identity transformation, it simplifies to the usual formula
+Note that $U$ is convex.
+Also note that $U_2(v) = 0$ for any linear transformation $\eta$.
+In particular, for the identity transformation, it simplifies to 
 \begin{align*}
-    U(v) = U_1(v) = v^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_\eta v
+    U(v) = U_1(v) = \sup\limits_{\theta \in R} v^\top \var{T_{\tau_{\max}}}_{\eta(\theta)} v
+\end{align*}
+which can be further bounded above by the usual formula
+\begin{align*}
+    v^\top \sup\limits_{\theta \in \R} \var{T_{\tau_{\max}}}_{\eta(\theta)} v
 \end{align*}
 
-In summary, we have the bound:
-\begin{align*}
-    \sup\limits_{\theta \in R}
-    f(\theta)
-    &=
-    f(\theta_0)
-    +
-    \sup\limits_{v \in R-\theta_0}
-    \bracket{%
-        \nabla f(\theta_0)^\top v
-        +
-        \int_0^1 (1-\alpha)
-        v^\top \nabla^2 f(\theta_0 + \alpha v) v 
-        d\alpha
-    }
-    \\&\leq
-    f(\theta_0)
-    +
-    \sup\limits_{v \in R-\theta_0}
-    \bracket{%
-        \nabla f(\theta_0)^\top v
-        +
-        \frac{1}{2} U(v)
-    }
-\end{align*}
-
-\subsection{Constant Order Terms: $\hat{\delta}_0, \hat{\delta}_0^u$}
-
-The Monte Carlo term $\hat{\delta}_0$ and its corresponding upper bound
-$\hat{\delta}_0^u$ need no change from reparametrization
-other than the initial evaluation of $\eta_0 := \eta(\theta_0)$.
-
-\subsection{First Order Term: $\hat{\delta}_1$}
-
-The first order terms are affected by the $\eta$ transformation.
-\begin{align*}
-    \nabla f(\theta)
-    :=
-    \nabla_{\theta} P_\theta(A) 
-    &=
-    \nabla_{\theta} \int_A \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
-    =
-    \int_A \nabla_{\theta} \frac{P_{\theta}}{P_{\theta_0}} dP_{\theta_0}
-    \\&=
-    \int_A (D_{\theta}\eta)^\top 
-    \nabla_{\eta} \frac{P_{\eta}}{P_{\eta_0}} dP_{\eta_0}
-\end{align*}
-where $\eta_0 = \eta(\theta_0)$.
-If $\theta_0$ is the point at which we are Taylor expanding,
-it suffices to compute this gradient at $\theta = \theta_0$.
-This results in
-\begin{align*}
-    \nabla_{\theta} P_{\theta_0}(A) 
-    &=
-    \int_A (D_{\theta}\eta(\theta_0))^\top (T - \nabla_\eta A(\eta_0)) dP_{\eta_0}
-\end{align*}
-
-Hence, our new gradient Monte Carlo estimate will be
-\begin{align*}
-    \widehat{\nabla f}(\theta_0)
-    :=
-    D_{\theta} \eta(\theta_0)^\top 
-    \frac{1}{N}
-    \sum\limits_{i=1}^N
-    (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}
-\end{align*}
-
-Note that the Jacobian of $\eta$ is known when defining a model 
-and is simulation-independent.
-Hence, we may save the same gradient estimate as in Section~\ref{sec:orig-ub}
-and later multiply by $D_{\theta} \eta(\theta_0)^\top$.    
-
-\subsection{Higher Order Upper Bound Terms: $\hat{\delta}_1, \hat{\delta}_1^u, \hat{\delta}_2^u$}
-    
-Similar to Section~\ref{sec:orig-ub},
-once we can show for any $v_m = \theta_m - \theta_0$, 
-where $\theta_m$ are the vertices of a convex hull $R \subseteq \Theta$,
-$m=1,\ldots, M$,
-there exists a corresponding random $\hat{c}_m$ such that
-\[
-    \PPP_{\theta_0}\paren{%
-        \nabla f(\theta_0)^\top v_m
-        +
-        \frac{1}{2}U(v_m)
-        \leq 
-        \hat{c}_m
-    } 
-    \geq 1-\delta_2
-\]
-then we have
-\[
-    \PPP_{\theta_0}\paren{%
-        \sup\limits_{v\in R-\theta_0} 
-        \bracket{%
-            \nabla f(\theta_0)^\top v
-            + 
-            \frac{1}{2}U(v)
-        }
-        \leq 
-        \max\limits_{m=1,\ldots, M} \hat{c}_m
-    } 
-    \geq 
-    1-\delta_2
-\]
-by convexity of $U$ and that $R$ is a convex hull.
-
-Using Cantelli's inequality
-with $Y = \widehat{\nabla f}(\theta_0)^\top v_m = \frac{1}{N} \sum\limits_{i=1}^N \widehat{\nabla f}(\theta_0)_i^\top v_m$,
-we only need to provide an upper bound on the variance of $\widehat{\nabla f}(\theta_0)_i^\top v_m$,
-where $\widehat{\nabla f}(\theta_0)_i := D_\theta \eta(\theta_0)^\top (T(X^i)-\nabla_\eta A(\eta_0)) \indic{X^i \in A}$.
-In that endeavor,
-\begin{align*}
-    \var{\widehat{\nabla f}(\theta)_i^\top v_m}
-    &=
-    v_m^\top \var{\widehat{\nabla f}(\theta)_i} v_m
-    \leq 
-    v_m^\top (D_\theta \eta)^\top \var{T_{\tau_{\max}}} (D_\theta \eta) v_m
-\end{align*}
-The rest of the calculations remain the same.
-
-Hence, 
-\begin{align*}
-    \hat{c}_m
-    :=
-    \widehat{\nabla f}(\theta_0)^\top v_m
-    +
-    \sqrt{
-        \frac{v_m^\top (D_\theta \eta(\theta_0))^\top \var{T_{\tau_{\max}}}_{\eta_0} (D_\theta \eta(\theta_0)) v_m}{N}
-        \paren{\frac{1}{\delta_2} - 1}
-    }
-    +
-    \frac{1}{2} U(v_m)
-\end{align*}
-
-This gives us our new upper bound estimates:
-\begin{align*}
-    \hat{\delta}_{0, \new} &:= \hat{\delta}_0 \\
-    \hat{\delta}_{0, \new}^u &:= \hat{\delta}_0^u \\
-    \hat{\delta}_{1, \new} &:= v_{m^*}^\top D_\theta \eta(\theta_0)^\top \hat{\delta}_1 \\
-    \hat{\delta}_{1, \new}^u &:= \sqrt{%
-        \frac{v_{m^*}^\top D\eta(\theta_0)^\top \var{T_{\tau_{\max}}}_{\eta_0} D\eta(\theta_0) v_{m^*}}{N} 
-        \paren{\frac{1}{\delta_2}-1}
-    } \\
-    \hat{\delta}_{2, \new}^u &:= 
-    \frac{1}{2} U(v_{m^*})
-\end{align*}
-where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
-
-
+Note that in general, we can make $U(v)$ even more conservative
+by taking further upper bounds to make the computations more tractable.
+The only constraint is that the resulting bound must be convex.
 
 
 \bibliography{references}{}
