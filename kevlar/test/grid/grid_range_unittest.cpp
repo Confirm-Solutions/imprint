@@ -6,8 +6,10 @@
 
 namespace kevlar {
 
-struct grid_range_fixture : base_fixture {
-   protected:
+struct grid_range_fixture:
+    base_fixture
+{
+protected:
     using value_t = double;
     using uint_t = uint32_t;
     using tile_t = Tile<value_t>;
@@ -17,9 +19,13 @@ struct grid_range_fixture : base_fixture {
     using vec_surf_t = std::vector<hp_t>;
 };
 
-TEST_F(grid_range_fixture, default_ctor) { gr_t gr; }
+TEST_F(grid_range_fixture, default_ctor)
+{
+    gr_t gr;
+}
 
-TEST_F(grid_range_fixture, ctor) {
+TEST_F(grid_range_fixture, ctor)
+{
     size_t d = 3, n = 10;
     gr_t gr(d, n);
 
@@ -28,13 +34,14 @@ TEST_F(grid_range_fixture, ctor) {
     EXPECT_EQ(gr.n_params(), d);
 }
 
-TEST_F(grid_range_fixture, create_tiles) {
+TEST_F(grid_range_fixture, create_tiles)
+{
     size_t d = 2, n = 4;
     gr_t gr(d, n);
     gr.thetas().col(0) << -0.5, -0.5;
-    gr.thetas().col(1) << -0.5, 0.5;
-    gr.thetas().col(2) << 0.5, -0.5;
-    gr.thetas().col(3) << 0.5, 0.5;
+    gr.thetas().col(1) << -0.5,  0.5;
+    gr.thetas().col(2) <<  0.5, -0.5;
+    gr.thetas().col(3) <<  0.5,  0.5;
     gr.radii().fill(0.5);
 
     colvec_type<value_t> normal(d);
@@ -60,9 +67,11 @@ TEST_F(grid_range_fixture, create_tiles) {
     EXPECT_EQ(gr.n_tiles(0), 4);
 
     // lower left tile splits:
-
+    
     // (T, T)
-    expected.emplace_back(gr.thetas().col(0), gr.radii().col(0));
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
     buff << -1, -1;
     expected.back().emplace_back(buff);
     buff << 0, -1;
@@ -72,7 +81,9 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.emplace_back(1 << 1 | 1 << 0);
 
     // (F, T)
-    expected.emplace_back(gr.thetas().col(0), gr.radii().col(0));
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
     buff << -1, -1;
     expected.back().emplace_back(buff);
     buff << -1, 0;
@@ -82,7 +93,9 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.emplace_back(1 << 1);
 
     // (T, F)
-    expected.emplace_back(gr.thetas().col(0), gr.radii().col(0));
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
     buff << -1, -1;
     expected.back().emplace_back(buff);
     buff << 0, -1;
@@ -92,7 +105,9 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.emplace_back(1 << 0);
 
     // (F, F)
-    expected.emplace_back(gr.thetas().col(0), gr.radii().col(0));
+    expected.emplace_back(
+            gr.thetas().col(0), 
+            gr.radii().col(0));
     buff << -1, -1;
     expected.back().emplace_back(buff);
     buff << -1, 0;
@@ -102,8 +117,10 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.emplace_back(0);
 
     // check each of the expected tiles
-    for (auto it = tiles.begin(); it != std::next(tiles.begin(), gr.n_tiles(0));
-         ++it) {
+    for (auto it = tiles.begin();
+            it != std::next(tiles.begin(), gr.n_tiles(0)); 
+                ++it)
+    {
         EXPECT_NE(std::find(expected.begin(), expected.end(), *it),
                   expected.end());
     }
@@ -134,7 +151,9 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.clear();
 
     // (T, T) tile
-    expected.emplace_back(gr.thetas().col(3), gr.radii().col(3));
+    expected.emplace_back(
+            gr.thetas().col(3),
+            gr.radii().col(3));
     buff << 0, 0;
     expected.back().emplace_back(buff);
     buff << 1, 0;
@@ -144,7 +163,9 @@ TEST_F(grid_range_fixture, create_tiles) {
     bits.emplace_back(1 << 0 | 1 << 1);
 
     // (F, T) tile
-    expected.emplace_back(gr.thetas().col(3), gr.radii().col(3));
+    expected.emplace_back(
+            gr.thetas().col(3),
+            gr.radii().col(3));
     buff << 0, 0;
     expected.back().emplace_back(buff);
     buff << 0, 1;
@@ -155,15 +176,18 @@ TEST_F(grid_range_fixture, create_tiles) {
 
     // check each of the expected tiles
     auto beg = std::next(tiles.begin(), pos);
-    for (auto it = beg; it != std::next(beg, gr.n_tiles(3)); ++it) {
+    for (auto it = beg;
+            it != std::next(beg, gr.n_tiles(3)); 
+                ++it)
+    {
         EXPECT_NE(std::find(expected.begin(), expected.end(), *it),
                   expected.end());
     }
     for (size_t i = 0; i < bits.size(); ++i) {
         for (size_t j = 0; j < sizeof(bits_t); ++j) {
-            EXPECT_EQ(bits[i] & (1 << j), gr.check_null(pos + i, j));
+            EXPECT_EQ(bits[i] & (1 << j), gr.check_null(pos+i, j));
         }
     }
 }
 
-}  // namespace kevlar
+} // namespace kevlar

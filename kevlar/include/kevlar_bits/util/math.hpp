@@ -43,6 +43,14 @@ inline Eigen::VectorXd invgamma_pdf(const T &x, double alpha, double beta) {
     return logpdf.exp();
 }
 
+template <class ValueType>
+constexpr inline auto sigmoid(ValueType x)
+{ 
+    using std::exp;
+    using Eigen::exp;
+    return 1./(1.+exp(-x)); 
+}
+
 template <class ValueType, class IntType>
 constexpr inline auto ipow(ValueType base, IntType exp) {
     if (exp == 0) return ValueType(1);
