@@ -89,8 +89,6 @@ We will then describe our implementation of the API.
 ## Model Specification
 
 This section will cover the subroutines mentioned in [Overview](#overview).
-The last subsection will combine the information needed from a `model`
-by each of the subroutines as a summary.
 
 ### Attaching `GridRange`
 
@@ -98,10 +96,10 @@ Every `model` should have the opportunity to cache information
 from the given `GridRange` object before any simulations occur.
 For example, if a `model` defines the grid to be in some space
 that parametrizes the mean parameter space of the exponential family,
-it is usually advantageous to compute the mean parameters 
-for each grid-point in `GridRange`,
+it is usually advantageous to transform the grid-points
+into the mean parameters,
 since quantities such as the log-partition function
-can be computed simply in terms of the mean parameters.
+can usually be computed simply in terms of the mean parameters.
 
 [Simulating](#simulating) gives another justification
 for having `models` attach to a `GridRange`.
@@ -128,16 +126,17 @@ This is because such an indicator follows a Bernoulli with parameter `p_i`
 and the sum over `j` will give us a binomial distribution with size `n`, parameter `p_i`.
 This certainly correlates the binomials for each of the parameters `p_i`,
 but this _does not_ invalidate our math.
+In fact, this correlation only helps smooth-out the Type I error profile.
 Furthermore, assuming `U_j` and `p_i` are sorted,
 we can compute _all_ binomials by reading `U` and `p` exactly once.
-Note that this optimization is only possible because 
-a `model` attaches itself to the full `GridRange`.
 Moreover, if the model assumes independent binomial draws for `k` arms
 and there are `d` grid-points, 
 it is enough to only save the _unique_ parameter values for each arm,
 and hence, enough to only compute binomials for these unique parameters.
 For this particular binomial model, the number of unique parameter values
 is typically `O(log(d))`, which introduces massive memory and computation savings.
+Note that this optimization is only possible because 
+a `model` attaches itself to the full `GridRange`.
 
 After sampling the RNG,
 we typically have to further compute the sufficient statistic,
@@ -167,22 +166,22 @@ __In summary__:
 An `InterSum` object essentially stores the sum of false rejections
 and the gradient estimates for each tile in the attached `GridRange` object of the `model`
 (see [TODO: link `InterSum` page]() for more information).
-Recall that an `InterSum` contains the minimal simulation-dependent information
+Recall that an `InterSum` object contains the minimal simulation-dependent information
 needed to create an `UpperBound` object.
 The simulation-dependent information is precisely:
 
-- False rejections for each tile in `GridRange`.
-- Score estimates for each grid-point in `GridRange`.
+- False rejections for each tile.
+- Score estimates for each grid-point.
 
-See the [UpperBound](../math/stats/upper_bound/doc.pdf) 
+See [UpperBound](../math/stats/upper_bound/doc.pdf) 
 for the mathematical details for why this the case.
 
-The false rejections per tile have already been discussed in [Simulating](#simulating).
-The only extra information needed from `model` is then the score estimate.
+The false rejections per tile has already been discussed in [Simulating](#simulating).
+The only extra information needed from `model` is then the score estimates.
 
 __In summary__:
 - After a simulation of a `model`, 
-the `InterSum` object is updated to accrue information.
+the `InterSum` object is updated to accrue simulation information.
 - For this update, it only requires:
     - False rejections for each tile.
     - Score estimates for each grid-point.
@@ -201,7 +200,7 @@ The only model-specific quantities are:
 See [UpperBound](../math/stats/upper_bound/doc.pdf) 
 for the mathematical details.
 See [Exponential Model](../math/model/exp_control_k_treatment/doc.pdf)
-for a concrete example of the model-specific upper bound quantities.
+for a concrete example of these specifications.
 
 ## Model API
 
