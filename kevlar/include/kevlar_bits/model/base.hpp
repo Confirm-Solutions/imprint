@@ -5,6 +5,80 @@
 
 namespace kevlar {
 
+namespace experimental {
+
+template <class ValueType>
+struct ModelBase
+{
+    using value_t = ValueType;
+    
+private:
+    colvec_type<value_t> critical_values_;
+
+public:
+
+    ModelBase() =default;
+    ModelBase(const Eigen::Ref<const colvec_type<value_t>>& cv)
+        : critical_values_(cv)
+    {}
+
+    size_t n_models() const { return critical_values_.size(); }
+    void critical_values(
+            const Eigen::Ref<const colvec_type<value_t>>& cv)
+    {
+        critical_values_ = cv;
+    }
+    const auto& critical_values() const { return critical_values_; }
+};
+
+template <class ValueType, class TileType>
+struct UpperBoundStateBase
+{
+private:
+    using value_t = ValueType;
+    using tile_t = TileType;
+
+public:
+    virtual ~UpperBoundStateBase() {};
+    virtual void apply_eta_jacobian(
+            const Eigen::Ref<const colvec_type<value_t>>& gridpt,
+            const Eigen::Ref<const colvec_type<value_t>>& v,
+            Eigen::Ref<colvec_type<value_t>> out) =0;
+    virtual value_t covar_quadform(
+            const Eigen::Ref<const colvec_type<value_t>>& gridpt,
+            const Eigen::Ref<const colvec_type<value_t>>& v) =0;
+    virtual value_t hessian_quadform_bound(
+            const tile_t& tile,
+            const Eigen::Ref<const colvec_type<value_t>>& v) =0;
+};
+
+template <class GenType, class ValueType, class UIntType>
+struct SimStateBase
+{
+    using gen_t = GenType;
+    using value_t = ValueType;
+    using uint_t = UIntType;
+
+    virtual ~SimStateBase() {};
+    virtual void simulate(
+            gen_t& gen, 
+            Eigen::Ref<colvec_type<uint_t>> rejection_length) =0;
+    virtual value_t score(
+            size_t gridpt_idx,
+            size_t arm_idx) =0;
+};
+
+template <class SimStateBaseType>
+struct SimGlobalStateBase
+{
+    using sim_state_base_t = SimStateBaseType;
+
+    virtual ~SimGlobalStateBase() {};
+    virtual std::unique_ptr<sim_state_base_t> make_sim_state() const =0;
+};
+
+} // namespace experimental
+
 template <class ValueType, class UIntType, class GridRangeType>
 struct ModelStateBase;
 

@@ -23,6 +23,7 @@ KEVLAR_STRONG_INLINE void fit_thread(ModelStateType& model_state,
     }
 }
 
+// TODO: get GenType from ModelType?
 template <class GenType, class ModelType, class GridRangeType,
           class InterSumType>
 inline void fit(const ModelType& model, const GridRangeType& grid_range,

@@ -219,7 +219,7 @@ struct GridRange {
             auto radius_j = radii_.col(j);
 
             // start the queue of tiles with one (regular) tile
-            bits_.emplace_back(0);
+            bits_.emplace_back(-1); // sets all null to 1
             tiles_.emplace_back(theta_j, radius_j);
 
             for (size_t s = 0; s < vec_surf.size(); ++s) {
@@ -237,7 +237,7 @@ struct GridRange {
                     }
 
                     // add new (regular) tile
-                    bits_.emplace_back(0);
+                    bits_.emplace_back(-1);
                     tiles_.emplace_back(theta_j, radius_j);
 
                     auto& c_bits = bits_[tiles_begin + i];

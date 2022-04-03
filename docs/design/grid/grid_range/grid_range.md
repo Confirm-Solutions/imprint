@@ -19,12 +19,14 @@ flowchart TB
         get_gridpts[Create a list of grid-points]
         get_radii[Create a list of radii]
         get_ss[Create a list of simulation sizes]
+        get_null_hypos[Create a list of null hypothesis surface objects]
         get_tiles[Create tiles]
         prune[Prune the grid range]
         
         get_gridpts --> get_tiles
         get_radii --> get_tiles
         get_ss --> get_tiles
+        get_null_hypos --> get_tiles
         get_tiles --> prune
     end
     user --> gr_subg
@@ -50,7 +52,9 @@ this is the set of grid-points under which we simulate a given model.
 An example is shown below with blue dots representing the grid-points
 and the gray-space representing the grid-space of interest:
 
-<img src="img_002.png" width="100" />
+<p align="center">
+    <img src="img_002.png" width="600" />
+</p>
 
 Note that the context, or meaning, of these points is defined by the model of interest.
 See [Model](../model/model.md#attaching-gridrange) for more detail.
@@ -72,17 +76,35 @@ around a small region `R` associated with each grid-point.
 While it is true that `R` need not contain the corresponding grid-point,
 accuracy is improved when it does. 
 So, if a user has a grid-space they wish to get Type I error guarantees on,
-we will assume that the space has been partitioned by a set of hypercubes
+we will assume that the space has been first partitioned by a set of hypercubes
 where each hypercube is defined by a grid-point as in [Grid-points](#grid-points)
 as the center and a radii vector that defines the radius along each direction.
+The following pictures shows an example of a grid partitioned by
+hypercubes with the same radii:
 
-## Simulation Sizes
+<p align="center">
+    <img src="img_003.png" width="600" />
+</p>
 
-## Tiles
+### Simulation Sizes
+
+For each grid-point that we wish to simulate under,
+we can associate it with a simulation size (number of simulations).
+In general, we would like to be able to have different simulation sizes
+for each grid-point because some points will result in a higher Type I error than others
+and we wish to get a more accurate estimate in those regions.
+During simulation, we can keep track of the number of finished simulations
+and stop updating for those that reached the desired simulation size.
+
+### Null Hypothesis Surfaces
+
+### Tiles
+
+Once the grid-point, radius, simulation size, 
+and null hypothesis surface information are provided,
+we can construct tile objects.
 
 See [TODO: Tile](tile.md) for more detail.
 
 TODO:
-- tiles
-- gridpoints
 - meaning of gridpoints (delegate to model.md)
