@@ -30,11 +30,12 @@ constexpr inline auto sigmoid(T x) {
 template <class T>
 constexpr inline auto logit(T p) {
     using Eigen::log;
-    return log(p.array() / (1 - p.array()));
+    using std::log;
+    return log(p / (1 - p));
 }
 
 template <class T>
-inline Eigen::VectorXd invgamma_pdf(const T &x, double alpha, double beta) {
+inline Eigen::VectorXd invgamma_pdf(const T& x, double alpha, double beta) {
     // https://github.com/scipy/scipy/blob/b5d8bab88af61d61de09641243848df63380a67f/scipy/stats/_continuous_distns.py#L3666
     const auto xd = x.template cast<double>();
     auto lbeta = std::log(beta);

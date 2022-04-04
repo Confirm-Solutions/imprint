@@ -33,8 +33,6 @@ class DirectBayesBinomialControlkTreatment
     using mat_t = typename base_t::mat_t;
     using base_t::make_state;
     using base_t::set_grid_range;
-    struct StateType;
-    friend StateType;
 
    private:
     vec_t quadrature_points_;
@@ -197,7 +195,8 @@ class DirectBayesBinomialControlkTreatment
             (posterior_reweight.array() * weighted_density_logspace.array());
         final_reweight /= final_reweight.sum();
 
-        const vec_t logit_efficacy_thresholds = logit(efficacy_thresholds);
+        const vec_t logit_efficacy_thresholds =
+            logit(efficacy_thresholds.array());
         mat_t exceed_probs(n_arms, n_integration_points);
         for (int i = 0; i < n_integration_points; ++i) {
             exceed_probs.col(i) = conditional_exceed_prob_given_sigma(
@@ -213,8 +212,7 @@ class DirectBayesBinomialControlkTreatment
 
     struct StateType : public base_t::StateType {
        private:
-        KEVLAR_STRONG_INLINE Eigen::Map<const colvec_type<uint_t>> get_ss(
-            int arm_i) {
+        KEVLAR_STRONG_INLINE auto get_ss(int arm_i) {
             Eigen::Map<const colvec_type<uint_t>> map(
                 this->suff_stat().data() + this->outer().strides()[arm_i],
                 this->outer().strides()[arm_i + 1] -
@@ -239,8 +237,8 @@ class DirectBayesBinomialControlkTreatment
             const double mu_sig_sq = 100;
 
             int pos = 0;
-            for (int i = 0; i < this->outer().n_gridpts(); ++i) {
-                auto bits_i = bits.col(i);
+            for (int grid_i = 0; grid_i < this->outer().n_gridpts(); ++grid_i) {
+                auto bits_i = bits.col(grid_i);
 
                 vec_t phat(n_arms);
                 for (int i = 0; i < n_arms; ++i) {
@@ -254,27 +252,34 @@ class DirectBayesBinomialControlkTreatment
                         this->outer().efficacy_thresholds_,
                         this->outer().n_samples(), mu_sig_sq);
 
-                size_t rej = 0;
-                for (; rej < critical_values.size(); ++rej) {
-                    if ((posterior_exceedance_probs.array() >
-                         critical_values(rej))
-                            .any()) {
-                        break;
-                    }
-                }
-                if (rej == 0) {
+                // assuming critical_values is sorted in descending order
+                bool do_optimized_update =
+                    (posterior_exceedance_probs.array() <=
+                     critical_values[critical_values.size() - 1])
+                        .all();
+                PRINT(phat);
+                PRINT(posterior_exceedance_probs);
+                if (do_optimized_update) {
+                    rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
+                    pos += gr_view.n_tiles(grid_i);
                     continue;
                 }
-                size_t num_models_rejecting = this->outer().n_models() - rej;
 
-                // Set rejection length for each tile
-                const auto n_ts = gr_view.n_tiles(i);
-                for (size_t n_t = 0; n_t < n_ts; ++n_t, ++pos) {
+                for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i);
+                     ++n_t, ++pos) {
+                    value_t max_null_prob_exceed = 0;
                     for (int arm_i = 0; arm_i < n_arms; ++arm_i) {
                         if (gr_view.check_null(pos, arm_i)) {
-                            rej_len(pos) = num_models_rejecting;
+                            max_null_prob_exceed =
+                                std::max(max_null_prob_exceed,
+                                         posterior_exceedance_probs[arm_i]);
                         }
                     }
+
+                    auto it = std::find_if(
+                        critical_values.begin(), critical_values.end(),
+                        [&](auto t) { return max_null_prob_exceed > t; });
+                    rej_len(pos) = std::distance(it, critical_values.end());
                 }
             }
         }

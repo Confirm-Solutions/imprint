@@ -31,6 +31,7 @@ using bckt_t = DirectBayesBinomialControlkTreatment<value_t>;
 const double mu_sig_sq = 100;
 const double alpha_prior = 0.0005;
 const double beta_prior = 0.000005;
+const double efficacy_threshold = 0.3;
 const int n_integration_points = 50;
 const int n_arm_size = 15;
 const auto tol = 1e-8;
@@ -41,7 +42,7 @@ const size_t n_thetas = 10;
 
 vec_t get_efficacy_thresholds(int n) {
     Eigen::Vector<value_t, Eigen::Dynamic> efficacy_thresholds(n);
-    efficacy_thresholds.fill(0.3);
+    efficacy_thresholds.fill(efficacy_threshold);
     return efficacy_thresholds;
 }
 
@@ -58,7 +59,7 @@ gr_t get_grid_range() {
     for (int i = 0; i < n_arms; ++i) {
         normal.setZero();
         normal(i) = -1;
-        hps.emplace_back(normal, 0);  // TODO set H0 threshold
+        hps.emplace_back(normal, logit(efficacy_threshold));
     }
 
     // populate theta as the cartesian product of theta_1d
@@ -162,7 +163,13 @@ TEST_F(base_fixture, TestRejLen) {
     state->gen_suff_stat();
     colvec_type<uint_t> actual(grid_range.n_tiles());
     state->rej_len(actual);
-    EXPECT_TRUE((actual.array() == 0).all());
+    colvec_type<uint_t> expected(grid_range.n_tiles());
+    expected << 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1;
+    EXPECT_EQ(expected, actual);
 };
 }  // namespace
 }  // namespace kevlar
