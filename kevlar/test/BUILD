@@ -21,6 +21,7 @@ cc_library(
         ":testutil",
         "//kevlar",
         "@com_google_googletest//:gtest_main",
+        "@fmtlib//:fmt",
     ],
 ) for type_ in [
     "grid",
