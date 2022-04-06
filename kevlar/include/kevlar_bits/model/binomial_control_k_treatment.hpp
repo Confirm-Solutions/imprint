@@ -217,6 +217,8 @@ struct BinomialControlkTreatment
                    outer_.n_samples() * p_(arm, gridpt);
         }
 
+        const colvec_type<uint_t>& suff_stat() { return suff_stat_; }
+
        private:
         template <class BitsType>
         KEVLAR_STRONG_INLINE auto phase_III_internal(size_t a_star,
@@ -453,10 +455,9 @@ struct BinomialControlkTreatment
     const auto& probs() const { return probs_; }
     const auto& gbits() const { return gbits_; }
     const auto& thresholds() const { return thresholds_; }
-
-   private:
     constexpr auto n_gridpts() const { return gbits_.cols(); }
 
+   private:
     auto p_() {
         return Eigen::Map<mat_type<value_t>>(
             probs_.data() + n_arms() * n_gridpts(), n_arms(), n_gridpts());
