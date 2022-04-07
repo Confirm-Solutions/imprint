@@ -26,5 +26,23 @@ static void BM_get_posterior_exceedance_probs(benchmark::State& state) {
 
 BENCHMARK(BM_get_posterior_exceedance_probs);
 
+static void BM_rej_len(benchmark::State& state) {
+    auto model = get_test_class();
+    auto grid_range = get_grid_range(64, 4);
+    model.set_grid_range(grid_range);
+    size_t seed = 3214;
+    std::mt19937 gen;
+    gen.seed(seed);
+    for (auto _ : state) {
+        auto mstate = model.make_state();
+        mstate->gen_rng(gen);
+        mstate->gen_suff_stat();
+        colvec_type<uint_t> rejs(grid_range.n_tiles());
+        mstate->rej_len(rejs);
+    }
+}
+
+BENCHMARK(BM_rej_len);
+
 }  // namespace
 }  // namespace kevlar

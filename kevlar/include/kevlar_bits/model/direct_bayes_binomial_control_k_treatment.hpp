@@ -130,15 +130,16 @@ class DirectBayesBinomialControlkTreatment
         const value_t b = std::log(1e3);
         auto pair = leggauss(n_integration_points);
         // TODO: transpose this in leggauss for efficiency
-        vec_t quadrature_points = pair.row(0);
-        vec_t quadrature_weights = pair.row(1);
+        vec_t quadrature_points = pair.row(0).cast<value_t>();
+        vec_t quadrature_weights = pair.row(1).cast<value_t>();
         quadrature_points =
             ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
         // sum(wts) = b-a so it averages to 1 over space
         quadrature_weights = quadrature_weights * ((b - a) / 2);
         // TODO: remove second alloc here
         vec_t density_logspace =
-            invgamma_pdf(quadrature_points, alpha_prior, beta_prior);
+            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
+                .template cast<value_t>();
         density_logspace.array() *= quadrature_points.array();
         auto weighted_density_logspace =
             density_logspace.array() * quadrature_weights.array();
@@ -257,8 +258,6 @@ class DirectBayesBinomialControlkTreatment
                     (posterior_exceedance_probs.array() <=
                      critical_values[critical_values.size() - 1])
                         .all();
-                PRINT(phat);
-                PRINT(posterior_exceedance_probs);
                 if (do_optimized_update) {
                     rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
                     pos += gr_view.n_tiles(grid_i);
