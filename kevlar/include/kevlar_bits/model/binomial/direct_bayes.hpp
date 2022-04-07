@@ -4,7 +4,7 @@
 #include <iostream>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
-#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
+#include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/legendre.hpp>
 #include <kevlar_bits/util/macros.hpp>

@@ -22,10 +22,9 @@ struct ControlkTreatmentBase {
     constexpr size_t n_arms() const { return n_arms_; }
 
     /* Helper static interface */
-    template <class GenType, class OutType>
-    static void uniform(double min, double max, GenType&& gen, OutType&& out,
-                        size_t m, size_t n) {
-        std::uniform_real_distribution<double> unif(min, max);
+    template <class GenType, class UnifType, class OutType>
+    static void uniform(size_t m, size_t n, GenType&& gen, UnifType&& unif,
+                        OutType&& out) {
         out = Eigen::MatrixXd::NullaryExpr(
             m, n, [&](auto, auto) { return unif(gen); });
     }

@@ -8,8 +8,11 @@
 #include <kevlar_bits/util/types.hpp>
 #include <limits>
 #include <random>
+#include <testutil/model/base.hpp>
 
 namespace kevlar {
+namespace model {
+namespace binomial {
 namespace legacy {
 
 /*
@@ -71,9 +74,9 @@ struct BinomialControlkTreatment : ControlkTreatmentBase {
 
             // output cumulative count of uniforms < outer_.prob_[k] into counts
             // object.
-            cum_count(ph2_unif, outer_.prob_, ph2_counts_);
-            cum_count(ph3_unif, outer_.prob_, ph3_counts);
-            cum_count(control_unif, outer_.prob_, control_counts);
+            accum_count(ph2_unif, outer_.prob_, ph2_counts_);
+            accum_count(ph3_unif, outer_.prob_, ph3_counts);
+            accum_count(control_unif, outer_.prob_, control_counts);
 
             suff_stat_.block(0, 1, d, k) += ph2_counts_;
         }
@@ -231,4 +234,6 @@ struct BinomialControlkTreatment : ControlkTreatmentBase {
 };
 
 }  // namespace legacy
+}  // namespace binomial
+}  // namespace model
 }  // namespace kevlar

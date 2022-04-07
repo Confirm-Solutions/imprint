@@ -6,7 +6,7 @@
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/direct_bayes_binomial_control_k_treatment.hpp>
+#include <kevlar_bits/model/binomial/direct_bayes.hpp>
 #include <kevlar_bits/util/macros.hpp>
 #include <testutil/base_fixture.hpp>
 

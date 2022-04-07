@@ -2,12 +2,13 @@
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <random>
+#include <kevlar_bits/model/binomial/simple_selection.hpp>
 #include <testutil/base_fixture.hpp>
-#include <testutil/model/binomial_control_k_treatment_legacy.hpp>
+#include <testutil/model/binomial/simple_selection.hpp>
 
 namespace kevlar {
+namespace model {
+namespace binomial {
 
 /*
  * To keep consistent with previous implementation,
@@ -93,10 +94,11 @@ struct bckt_fixture : base_fixture {
     using value_t = double;
     using uint_t = uint32_t;
     using tile_t = Tile<value_t>;
+    using gen_t = std::mt19937;
     using hp_t = MockHyperPlane;
     using gr_t = GridRange<value_t, uint_t, tile_t>;
     using bckt_legacy_t = legacy::BinomialControlkTreatment;
-    using bckt_t = BinomialControlkTreatment<value_t, uint_t, gr_t>;
+    using bckt_t = SimpleSelection<value_t>;
 
     // common configuration
 
@@ -124,41 +126,11 @@ struct bckt_fixture : base_fixture {
     }
 };
 
-TEST_F(bckt_fixture, ctor) {
-    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
-                        hypos);
-}
-
-TEST_F(bckt_fixture, tr_cov_test) {
-    dAryInt bits(n_thetas, n_arms);
-    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    b_new.set_grid_range(grid_range);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
-                        hypos);
-    for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_cov_i =
-            b_new.cov_quad(i, Eigen::VectorXd::Ones(n_arms));
-        EXPECT_DOUBLE_EQ(b_new_tr_cov_i, b_leg.tr_cov(bits));
-    }
-}
-
-TEST_F(bckt_fixture, tr_max_cov_test) {
-    dAryInt bits(n_thetas, n_arms);
-    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    b_new.set_grid_range(grid_range);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
-                        hypos);
-    for (size_t i = 0; i < ipow(n_thetas, n_arms); ++i, ++bits) {
-        value_t b_new_tr_max_cov_i =
-            b_new.max_cov_quad(i, Eigen::VectorXd::Ones(n_arms));
-        EXPECT_DOUBLE_EQ(b_new_tr_max_cov_i, b_leg.tr_max_cov(bits));
-    }
-}
-
 struct bckt_state_fixture : bckt_fixture {
    protected:
-    using state_t = bckt_t::StateType;
+    using sim_global_state_t =
+        typename bckt_t::sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
+    using state_t = typename sim_global_state_t::sim_state_t;
     using state_leg_t = bckt_legacy_t::StateType;
 
     size_t seed = 3214;
@@ -173,65 +145,32 @@ struct bckt_state_fixture : bckt_fixture {
 };
 
 TEST_F(bckt_state_fixture, test_rej) {
-    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
+    bckt_t b_new(n_arms, n_samples, ph2_size, thresholds);
     bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
                         hypos);
 
-    b_new.set_grid_range(grid_range);
+    auto sgs =
+        b_new.make_sim_global_state<gen_t, value_t, uint_t, gr_t>(grid_range);
 
-    state_t s_new(b_new);
+    auto s_new = sgs.make_sim_state();
     state_leg_t s_leg(b_leg);
 
-    state_gen(s_new);
-    state_gen(s_leg);
-
     // get legacy rejections
-    colvec_type<uint_t> expected(ipow(n_thetas, n_arms));
+    state_gen(s_leg);
     dAryInt bits(n_thetas, n_arms);
+    colvec_type<uint_t> expected(bits.n_unique());
     for (int i = 0; i < expected.size(); ++i, ++bits) {
         expected[i] = (s_leg.test_stat(bits) > threshold);
     }
 
     // get new rejections
     colvec_type<uint_t> actual(grid_range.n_tiles());
-    s_new.rej_len(actual);
+    gen.seed(seed);
+    s_new->simulate(gen, actual);
 
     expect_eq_vec(actual, expected);
 }
 
-TEST_F(bckt_state_fixture, grad_test) {
-    bckt_t b_new(n_arms, ph2_size, n_samples, thresholds);
-    bckt_legacy_t b_leg(n_arms, ph2_size, n_samples, prob_1d, prob_endpt_1d,
-                        hypos);
-
-    b_new.set_grid_range(grid_range);
-
-    state_t s_new(b_new);
-    state_leg_t s_leg(b_leg);
-
-    state_gen(s_new);
-    state_gen(s_leg);
-
-    // get gradient estimates from new
-    mat_type<value_t> actual(grid_range.n_tiles(), n_arms);
-    for (int j = 0; j < actual.rows(); ++j) {
-        for (int k = 0; k < actual.cols(); ++k) {
-            actual(j, k) = s_new.grad(j, k);
-        }
-    }
-
-    // get gradient estimates from legacy
-    colvec_type<value_t> expected(grid_range.n_tiles() * n_arms);
-    Eigen::Map<mat_type<value_t> > expected_m(expected.data(),
-                                              grid_range.n_tiles(), n_arms);
-    for (size_t j = 0; j < n_arms; ++j) {
-        dAryInt bits(n_thetas, n_arms);
-        for (size_t i = 0; i < grid_range.n_tiles(); ++i, ++bits) {
-            expected_m(i, j) = s_leg.grad_lr(j, bits);
-        }
-    }
-
-    expect_eq_mat(actual, expected_m);
-}
-
+}  // namespace binomial
+}  // namespace model
 }  // namespace kevlar

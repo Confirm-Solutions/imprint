@@ -219,7 +219,7 @@ struct GridRange {
             auto radius_j = radii_.col(j);
 
             // start the queue of tiles with one (regular) tile
-            bits_.emplace_back(-1); // sets all null to 1
+            bits_.emplace_back(-1);  // sets all null to 1
             tiles_.emplace_back(theta_j, radius_j);
 
             for (size_t s = 0; s < vec_surf.size(); ++s) {
@@ -344,18 +344,26 @@ struct GridRange {
      * If these internal members' shapes are changed,
      * user MUST call create_tiles() before using any tile information again.
      */
-    mat_type<value_t>& thetas() { return thetas_; }
-    const mat_type<value_t>& thetas() const { return thetas_; }
-    mat_type<value_t>& radii() { return radii_; }
-    const mat_type<value_t>& radii() const { return radii_; }
-    colvec_type<uint_t>& sim_sizes() { return sim_sizes_; }
-    const colvec_type<uint_t>& sim_sizes() const { return sim_sizes_; }
+    KEVLAR_STRONG_INLINE mat_type<value_t>& thetas() { return thetas_; }
+    KEVLAR_STRONG_INLINE const mat_type<value_t>& thetas() const {
+        return thetas_;
+    }
+    KEVLAR_STRONG_INLINE mat_type<value_t>& radii() { return radii_; }
+    KEVLAR_STRONG_INLINE const mat_type<value_t>& radii() const {
+        return radii_;
+    }
+    KEVLAR_STRONG_INLINE colvec_type<uint_t>& sim_sizes() { return sim_sizes_; }
+    KEVLAR_STRONG_INLINE const colvec_type<uint_t>& sim_sizes() const {
+        return sim_sizes_;
+    }
 
     // This function is only valid once create_tiles() has been called.
-    uint_t n_tiles(size_t gridpt_idx) const { return n_tiles_[gridpt_idx]; }
-    uint_t n_tiles() const { return tiles_.size(); }
-    uint_t n_gridpts() const { return thetas_.cols(); }
-    uint_t n_params() const { return thetas_.rows(); }
+    KEVLAR_STRONG_INLINE uint_t n_tiles(size_t gridpt_idx) const {
+        return n_tiles_[gridpt_idx];
+    }
+    KEVLAR_STRONG_INLINE uint_t n_tiles() const { return tiles_.size(); }
+    KEVLAR_STRONG_INLINE uint_t n_gridpts() const { return thetas_.cols(); }
+    KEVLAR_STRONG_INLINE uint_t n_params() const { return thetas_.rows(); }
 
     /*
      * Returns true if the tile specified by tile_idx
@@ -363,6 +371,7 @@ struct GridRange {
      * Note that this function is for non-regular tiles.
      * This function is only valid once create_tiles() has been called.
      */
+    KEVLAR_STRONG_INLINE
     bool check_null(size_t tile_idx, size_t hypo_idx) const {
         return (bits_[tile_idx] &
                 (static_cast<unsigned char>(1) << hypo_idx)) != 0;
@@ -384,21 +393,23 @@ struct GridRange {
      * implementation pre-fetch more values at a time,
      * but also pre-fetches less in total.
      */
+    KEVLAR_STRONG_INLINE
     bool is_regular(size_t idx) const { return n_tiles_[idx] == 1; }
 
     /*
      * Returns the vector of tiles.
      */
-    const auto& tiles() const { return tiles_; }
+    KEVLAR_STRONG_INLINE const auto& tiles() const { return tiles_; }
 
     // Helper functions for pickling stuff
-    auto& tiles__() { return tiles_; }
-    auto& n_tiles__() { return n_tiles_; }
-    auto& bits__() { return bits_; }
-    const auto& n_tiles__() const { return n_tiles_; }
-    const auto& bits__() const { return bits_; }
+    KEVLAR_STRONG_INLINE auto& tiles__() { return tiles_; }
+    KEVLAR_STRONG_INLINE auto& n_tiles__() { return n_tiles_; }
+    KEVLAR_STRONG_INLINE auto& bits__() { return bits_; }
+    KEVLAR_STRONG_INLINE const auto& n_tiles__() const { return n_tiles_; }
+    KEVLAR_STRONG_INLINE const auto& bits__() const { return bits_; }
 
    private:
+    KEVLAR_STRONG_INLINE
     void set_null(bits_t& bits, size_t hypo, bool b = true) {
         unsigned char t = (static_cast<unsigned char>(1) << hypo);
         if (b) {
@@ -408,6 +419,7 @@ struct GridRange {
         }
     }
 
+    KEVLAR_STRONG_INLINE
     bool none(bits_t bits) const { return bits == 0; }
 
     void reset_tiles_viewer() {

@@ -8,33 +8,18 @@
 #include <kevlar_bits/util/types.hpp>
 #include <limits>
 #include <random>
+#include <testutil/model/base.hpp>
 
 namespace kevlar {
-
-/* Forward declaration */
-template <class ValueType, class UIntType, class GridRangeType>
-struct ExpControlkTreatment;
-
-namespace internal {
-
-template <class T>
-struct traits;
+namespace model {
+namespace exponential {
+namespace legacy {
 
 template <class ValueType, class UIntType, class GridRangeType>
-struct traits<ExpControlkTreatment<ValueType, UIntType, GridRangeType>> {
-    using value_t = ValueType;
-    using uint_t = UIntType;
-    using grid_range_t = GridRangeType;
-    using state_t =
-        typename ExpControlkTreatment<value_t, uint_t, grid_range_t>::StateType;
-};
-
-}  // namespace internal
-
-/* Specialization declaration: rectangular grid */
-template <class ValueType, class UIntType, class GridRangeType>
-struct ExpControlkTreatment : ControlkTreatmentBase,
-                              ModelBase<ValueType, UIntType, GridRangeType> {
+struct ExpControlkTreatment
+    : ControlkTreatmentBase,
+      ModelBase<ValueType>,
+      SimGlobalStateBase<std::mt19937, ValueType, UIntType> {
    private:
     using static_interface_t = ControlkTreatmentBase;
 
@@ -43,45 +28,35 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     using uint_t = UIntType;
     using grid_range_t = GridRangeType;
     using base_t = static_interface_t;
-    using model_base_t = ModelBase<ValueType, UIntType, GridRangeType>;
+    using model_base_t = ModelBase<ValueType>;
+    using gen_t = std::mt19937;
+    using sgs_t = SimGlobalStateBase<std::mt19937, value_t, uint_t>;
 
-    struct StateType : ModelStateBase<value_t, uint_t, grid_range_t> {
+    struct StateType : sgs_t::sim_state_t {
        private:
         using outer_t = ExpControlkTreatment;
         const outer_t& outer_;
 
        public:
-        using model_state_base_t =
-            ModelStateBase<value_t, uint_t, grid_range_t>;
-
         StateType(const outer_t& outer)
-            : model_state_base_t(outer),
-              outer_(outer),
+            : outer_(outer),
               exp_dist_(1.0),
               exp_(outer.n_samples(), outer.n_arms()),
               logrank_cum_sum_(2 * outer.n_samples() + 1),
               v_cum_sum_(2 * outer.n_samples() + 1) {}
 
-        template <class GenType>
-        void gen_rng(GenType&& gen) {
+        void simulate(gen_t& gen,
+                      Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+            // generate data
             exp_ = exp_.NullaryExpr(outer_.n_samples(), outer_.n_arms(),
                                     [&](auto, auto) { return exp_dist_(gen); });
-        }
 
-        /*
-         * Overrides the necessary RNG generator.
-         * TODO: generalize mt19937 somehow.
-         */
-        void gen_rng(std::mt19937& gen) override {
-            gen_rng<std::mt19937&>(gen);
-        }
-
-        void gen_suff_stat() override {
+            // generate suff stat
             suff_stat_ = exp_.colwise().sum();
-            sort_cols(exp_);
-        }
 
-        void rej_len(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+            // sort for log-rank stuff
+            sort_cols(exp_);
+
             value_t hzrd_rate_prev = 1.0;   // hazard rate used previously
             bool do_logrank_update = true;  // true iff exp_ changed
             const auto& gr_view = outer_.grid_range();
@@ -111,12 +86,15 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
             }
         }
 
-        value_t grad(uint_t gridpt, uint_t arm) override {
+        void score(size_t gridpt,
+                   Eigen::Ref<colvec_type<value_t>> out) override {
             auto hazard_rate = outer_.hzrd_rate(gridpt);
-            auto mean = (arm == 1) ? 1. / hazard_rate : 1.;
-            auto lambda_control = outer_.lmda_control(gridpt);
-            return (suff_stat_(arm) - outer_.n_samples() * mean) /
-                   lambda_control;
+            for (size_t arm = 0; arm < 2; ++arm) {
+                auto mean = (arm == 1) ? 1. / hazard_rate : 1.;
+                auto lambda_control = outer_.lmda_control(gridpt);
+                out[arm] = (suff_stat_(arm) - outer_.n_samples() * mean) /
+                           lambda_control;
+            }
         }
 
        private:
@@ -156,7 +134,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
                 v_cum_sum_[0] = 0.0;
 
                 Eigen::Matrix<value_t, 2, 1> N_j;
-                value_t O_1j = 0.0;
+                value_t O_0j = 0.0;
                 N_j.array() = outer_.n_samples();
                 int cr_idx = 0, tr_idx = 0,
                     cs_idx = 0;  // control, treatment, and cum_sum index
@@ -167,17 +145,17 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
                         (exp_treatment[tr_idx] < exp_control[cr_idx]);
                     tr_idx += failed_in_treatment;
                     cr_idx += (1 - failed_in_treatment);
-                    O_1j = failed_in_treatment;
+                    O_0j = !failed_in_treatment;
 
                     auto N = N_j.sum();
-                    auto E_1j = N_j[1] / N;
+                    auto E_0j = N_j[0] / N;
                     logrank_cum_sum_[cs_idx + 1] =
-                        logrank_cum_sum_[cs_idx] + (O_1j - E_1j);
+                        logrank_cum_sum_[cs_idx] + (O_0j - E_0j);
                     v_cum_sum_[cs_idx + 1] =
-                        v_cum_sum_[cs_idx] + E_1j * (1 - E_1j);
+                        v_cum_sum_[cs_idx] + E_0j * (1 - E_0j);
 
                     --N_j[failed_in_treatment];
-                    O_1j = 0.0;
+                    O_0j = 0.0;
                     ++cs_idx;
                 }
 
@@ -185,35 +163,37 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
                 logrank_cum_sum_.tail(tot - cs_idx).array() =
                     logrank_cum_sum_[cs_idx];
                 v_cum_sum_.tail(tot - cs_idx).array() = v_cum_sum_[cs_idx];
+
+                colvec_type<value_t> out = logrank_cum_sum_;
+                out.tail(out.size() - 1).array() /=
+                    v_cum_sum_.tail(out.size() - 1).array().sqrt();
             }
 
             // compute the log-rank statistic given the treatment lambda value.
 
             auto lambda_control = outer_.lmda_control(i);
             auto censor_dilated_curr = outer_.censor_time_ * lambda_control;
-            auto it_c = std::lower_bound(
+            auto it_c = std::upper_bound(
                 exp_control.data(), exp_control.data() + exp_control.size(),
                 censor_dilated_curr);
             auto it_t =
-                std::lower_bound(exp_treatment.data(),
+                std::upper_bound(exp_treatment.data(),
                                  exp_treatment.data() + exp_treatment.size(),
                                  censor_dilated_curr);
             // Y_1 Y_2 ...
             // T C T (censor) T T T C
             // idx = (2-1) + (3-1) = 3;
             size_t idx = std::distance(exp_control.data(), it_c) +
-                         std::distance(exp_treatment.data(), it_t) - 2;
+                         std::distance(exp_treatment.data(), it_t);
             auto z = (v_cum_sum_[idx] <= 0.0)
                          ? std::copysign(1., logrank_cum_sum_[idx]) *
                                std::numeric_limits<value_t>::infinity()
                          : logrank_cum_sum_[idx] / std::sqrt(v_cum_sum_[idx]);
 
-            auto it = std::find_if(
-                outer_.thresholds_.data(),
-                outer_.thresholds_.data() + outer_.thresholds_.size(),
-                [&](auto t) { return z > t; });
-            return outer_.n_models() -
-                   std::distance(outer_.thresholds_.data(), it);
+            auto it = std::find_if(outer_.critical_values().begin(),
+                                   outer_.critical_values().end(),
+                                   [&](auto t) { return z > t; });
+            return std::distance(it, outer_.critical_values().end());
         }
 
         std::exponential_distribution<value_t> exp_dist_;
@@ -245,10 +225,9 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
         size_t n_samples, value_t censor_time,
         const Eigen::Ref<const colvec_type<value_t>>& thresholds)
         : base_t(2, 0, n_samples),
+          model_base_t(thresholds),
           max_eta_hess_cov_(3 * std::sqrt(n_samples)),
           censor_time_(censor_time) {
-        set_thresholds(thresholds);
-
         // temporarily const-cast just to initialize the values
         auto& max_cov_nc_ = const_cast<mat_type<value_t, 2, 2>&>(max_cov_);
         max_cov_nc_.setOnes();
@@ -267,7 +246,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
      *
      */
     void set_grid_range(const grid_range_t& grid_range) {
-        model_base_t::set_grid_range(grid_range);
+        grid_range_ = &grid_range;
 
         n_gridpts_ = grid_range.n_gridpts();
 
@@ -279,24 +258,21 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     /*
      * Create a state object associated with the current model instance.
      */
-    std::unique_ptr<typename state_t::model_state_base_t> make_state()
+    std::unique_ptr<typename sgs_t::sim_state_t> make_sim_state()
         const override {
         return std::make_unique<state_t>(*this);
     }
 
-    uint_t n_models() const override { return thresholds_.size(); }
-
-    value_t cov_quad(size_t j, const Eigen::Ref<const colvec_type<value_t>>& v)
-        const override {
+    value_t cov_quad(size_t j,
+                     const Eigen::Ref<const colvec_type<value_t>>& v) const {
         auto hr = hzrd_rate(j);
         auto mean_1 = 1. / lmda_control(j);
         return n_samples() * mean_1 * mean_1 *
-               (v[0] * v[0] + v[1] * v[1] / (hr * hr));
+               (v[1] * v[1] + v[0] * v[0] / (hr * hr));
     }
 
     value_t max_cov_quad(
-        size_t,
-        const Eigen::Ref<const colvec_type<value_t>>& v) const override {
+        size_t, const Eigen::Ref<const colvec_type<value_t>>& v) const {
         return v.dot(max_cov_ * v);
     }
 
@@ -310,30 +286,19 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
      */
     void eta_transform(size_t j,
                        const Eigen::Ref<const colvec_type<value_t>>& v,
-                       colvec_type<value_t>& out) const override {
+                       colvec_type<value_t>& out) const {
         value_t lmda_c = lmda_control(j);
         value_t lmda_t = lmda_c * hzrd_rate(j);
 
         mat_type<value_t, 2, 2> deta;
-        deta(0, 0) = -lmda_c;
+        deta(0, 0) = lmda_c;
         deta(0, 1) = 0;
-        deta.row(1).array() = -lmda_t;
+        deta.row(1).array() = lmda_t;
 
         out = deta * v;
     }
 
-    value_t max_eta_hess_cov(size_t) const override {
-        return max_eta_hess_cov_;
-    }
-
-    /*
-     * Set the critical thresholds.
-     */
-    void set_thresholds(const Eigen::Ref<const colvec_type<value_t>>& thrs) {
-        thresholds_ = thrs;
-        std::sort(thresholds_.data(), thresholds_.data() + thresholds_.size(),
-                  std::greater<value_t>());
-    }
+    value_t max_eta_hess_cov(size_t) const { return max_eta_hess_cov_; }
 
     /*
      * Sets the internal structure with the parameters.
@@ -349,15 +314,15 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     auto censor_time__() const { return censor_time_; }
     auto n_gridpts__() const { return n_gridpts_; }
     const auto& buff__() const { return buff_; }
-    const auto& thresholds__() const { return thresholds_; }
 
    private:
     auto lmda_control(size_t j) const { return buff_(0, j); }
     auto hzrd_rate(size_t j) const { return buff_(1, j); }
+    const auto& grid_range() const { return *grid_range_; }
 
+    const grid_range_t* grid_range_;
     const value_t max_eta_hess_cov_;  // caches max_eta_hess_cov() result
     const value_t censor_time_;
-    colvec_type<value_t> thresholds_;
     uint_t n_gridpts_ = 0;
     mat_type<value_t>
         buff_;  // buff_(0,j) = lambda of control at jth gridpoint.
@@ -365,4 +330,7 @@ struct ExpControlkTreatment : ControlkTreatmentBase,
     const mat_type<value_t, 2, 2> max_cov_;
 };
 
+}  // namespace legacy
+}  // namespace exponential
+}  // namespace model
 }  // namespace kevlar

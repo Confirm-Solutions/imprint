@@ -24,6 +24,7 @@ cc_library(
         "@fmtlib//:fmt",
     ],
 ) for type_ in [
+    "distribution",
     "grid",
     "stats",
     "util",
