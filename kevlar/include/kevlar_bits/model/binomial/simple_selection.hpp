@@ -112,7 +112,7 @@ template <class _GenType, class _ValueType, class _UIntType,
           class _GridRangeType>
 struct SimpleSelection<ValueType>::SimGlobalState<
     _GenType, _ValueType, _UIntType, _GridRangeType>::SimState
-    : SimGlobalState::base_t::sim_state_t {
+    : base_t::sim_state_t {
    private:
     using outer_t = SimGlobalState;
     using base_t = typename outer_t::base_t::sim_state_t;

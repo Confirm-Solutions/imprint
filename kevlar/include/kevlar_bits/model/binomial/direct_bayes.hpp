@@ -2,9 +2,9 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <iostream>
-#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
+#include <kevlar_bits/model/fixed_single_arm_size.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/legendre.hpp>
 #include <kevlar_bits/util/macros.hpp>
@@ -17,45 +17,217 @@
 #include <vector>
 
 namespace kevlar {
+namespace model {
+namespace binomial {
 
-// TODO: template UIntType and GridRangeType
-template <class ValueType = double>
-class DirectBayesBinomialControlkTreatment
-    : public BinomialControlkTreatment<
-          ValueType, uint32_t,
-          GridRange<ValueType, uint32_t, Tile<ValueType>>> {
+template <class ValueType>
+class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
+    using arm_t = FixedSingleArmSize;
+    using base_t = ModelBase<ValueType>;
+
    public:
-    using value_t = ValueType;
-    using uint_t = uint32_t;
-    using base_t = BinomialControlkTreatment<
-        ValueType, uint32_t, GridRange<ValueType, uint32_t, Tile<ValueType>>>;
-    using vec_t = typename base_t::vec_t;
-    using mat_t = typename base_t::mat_t;
-    using base_t::make_state;
-    using base_t::set_grid_range;
+    using typename base_t::value_t;
 
    private:
+    using vec_t = colvec_type<value_t>;
+    using mat_t = mat_type<value_t>;
+
+    static constexpr int n_integration_points = 50;
+    static constexpr value_t alpha_prior = 0.0005;
+    static constexpr value_t beta_prior = 0.000005;
+    const vec_t efficacy_thresholds_;
     vec_t quadrature_points_;
     vec_t weighted_density_logspace_;
-    const vec_t efficacy_thresholds_;
 
    public:
-    DirectBayesBinomialControlkTreatment(
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    struct SimGlobalState;
+
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    using sim_global_state_t =
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
+
+    template <class _ValueType, class _TileType>
+    using kevlar_bound_state_t =
+        KevlarBoundStateFixedNDefault<_ValueType, _TileType>;
+
+    DirectBayes(
         size_t n_arms, size_t n_arm_size,
-        const Eigen::Ref<const colvec_type<ValueType>> &critical_values,
-        const vec_t &efficacy_thresholds)
-        : base_t(n_arms, 1, n_arm_size, critical_values),
+        const Eigen::Ref<const colvec_type<value_t>>& cv,
+        const Eigen::Ref<const colvec_type<value_t>>& efficacy_thresholds)
+        : arm_t(n_arms, n_arm_size),
+          base_t(),
           efficacy_thresholds_(efficacy_thresholds) {
-        const int n_integration_points = 50;
-        const double alpha_prior = 0.0005;
-        const double beta_prior = 0.000005;
         assert(efficacy_thresholds.size() == n_arms);
+
+        critical_values(cv);
+
         std::tie(quadrature_points_, weighted_density_logspace_) =
-            DirectBayesBinomialControlkTreatment<value_t>::get_quadrature(
-                alpha_prior, beta_prior, n_integration_points, n_arm_size);
+            get_quadrature(alpha_prior, beta_prior, n_integration_points,
+                           n_arm_size);
     }
 
-    static mat_t faster_invert(const vec_t &D_inverse, const value_t O) {
+    using base_t::critical_values;
+    void critical_values(const Eigen::Ref<const colvec_type<value_t>>& cv) {
+        auto& cv_ = base_t::critical_values();
+        cv_ = cv;
+        std::sort(cv_.begin(), cv_.end(), std::greater<value_t>());
+    }
+
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    auto make_sim_global_state(const _GridRangeType& grid_range) const {
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, grid_range);
+    }
+
+    template <class _ValueType, class _TileType>
+    auto make_kevlar_bound_state() const {
+        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
+    }
+
+    // TODO: clean-up
+    // let's evaluate the endpoints of the prior in logspace-sigma:
+    // determine endpoints:
+    static std::pair<vec_t, vec_t> get_quadrature(
+            const value_t alpha_prior, const value_t beta_prior,
+            const int n_integration_points, const int n_arm_size) {
+        // Shared for a given prior
+        // TODO: consider constexpr
+        const value_t a = std::log(1e-8);
+        const value_t b = std::log(1e3);
+        auto pair = leggauss(n_integration_points);
+        // TODO: transpose this in leggauss for efficiency
+        vec_t quadrature_points = pair.row(0);
+        vec_t quadrature_weights = pair.row(1);
+        quadrature_points =
+            ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
+        // sum(wts) = b-a so it averages to 1 over space
+        quadrature_weights = quadrature_weights * ((b - a) / 2);
+        // TODO: remove second alloc here
+        vec_t density_logspace =
+            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
+                .template cast<value_t>();
+        density_logspace.array() *= quadrature_points.array();
+        auto weighted_density_logspace =
+            density_logspace.array() * quadrature_weights.array();
+        return {quadrature_points, weighted_density_logspace};
+    }
+};
+
+template <class ValueType>
+template <class _GenType, class _ValueType, class _UIntType,
+          class _GridRangeType>
+struct DirectBayes<ValueType>::SimGlobalState
+    : SimGlobalStateFixedNDefault<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType> {
+    struct SimState;
+
+    using base_t = SimGlobalStateFixedNDefault<_GenType, _ValueType, _UIntType,
+                                               _GridRangeType>;
+    using typename base_t::gen_t;
+    using typename base_t::grid_range_t;
+    using typename base_t::interface_t;
+    using typename base_t::uint_t;
+    using typename base_t::value_t;
+
+    using sim_state_t = SimState;
+
+   private:
+    using model_t = DirectBayes;
+    const model_t& model_;
+
+   public:
+    SimGlobalState(const model_t& model, const grid_range_t& grid_range)
+        : base_t(model.n_arm_samples(), grid_range), model_(model) {}
+
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
+        const override {
+        return std::make_unique<sim_state_t>(*this);
+    }
+};
+
+template <class ValueType>
+template <class _GenType, class _ValueType, class _UIntType,
+          class _GridRangeType>
+struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
+                                              _GridRangeType>::SimState
+    : base_t::sim_state_t {
+   private:
+    using outer_t = SimGlobalState;
+    using base_t = typename outer_t::base_t::sim_state_t;
+    using typename base_t::interface_t;
+
+    const outer_t& outer_;
+
+   public:
+    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
+
+    void simulate(gen_t& gen,
+                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        base_t::generate_data(gen);
+        base_t::generate_sufficient_stats();
+
+        const auto& bits = outer_.bits();
+        const auto& gr_view = outer_.grid_range();
+        const auto n_params = gr_view.n_params();  // same as n_arms
+        const auto n_arm_size = outer_.model_.n_arm_samples();
+        const auto& critical_values = outer_.model_.critical_values();
+        constexpr double mu_sig_sq = 100;
+
+        int pos = 0;
+        for (int grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
+            auto bits_i = bits.col(grid_i);
+
+            vec_t phat(n_params);
+            for (int i = 0; i < phat.size(); ++i) {
+                const auto& ss_i = base_t::sufficient_stats_arm(i);
+                phat(i) = static_cast<value_t>(ss_i(bits_i[i])) / n_arm_size;
+            }
+            vec_t posterior_exceedance_probs = get_posterior_exceedance_probs(
+                phat, outer_.model_.quadrature_points_,
+                outer_.model_.weighted_density_logspace_,
+                outer_.model_.efficacy_thresholds_,
+                outer_.model_.n_arm_samples(), mu_sig_sq);
+
+            // assuming critical_values is sorted in descending order
+            bool do_optimized_update =
+                (posterior_exceedance_probs.array() <=
+                 critical_values[critical_values.size() - 1])
+                    .all();
+            if (do_optimized_update) {
+                rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
+                pos += gr_view.n_tiles(grid_i);
+                continue;
+            }
+
+            for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i); ++n_t, ++pos) {
+                value_t max_null_prob_exceed = 0;
+                for (int arm_i = 0; arm_i < n_params; ++arm_i) {
+                    if (gr_view.check_null(pos, arm_i)) {
+                        max_null_prob_exceed =
+                            std::max(max_null_prob_exceed,
+                                     posterior_exceedance_probs[arm_i]);
+                    }
+                }
+
+                auto it = std::find_if(
+                    critical_values.begin(), critical_values.end(),
+                    [&](auto t) { return max_null_prob_exceed > t; });
+                rej_len(pos) = std::distance(it, critical_values.end());
+            }
+        }
+    }
+
+    using base_t::score;
+
+    // TODO: from here and below are extra functions only used internally.
+    // What's the best way to keep them testable while hiding them from public
+    // interface?
+
+    static mat_t faster_invert(const vec_t& D_inverse, value_t O) {
         //(1) compute multiplier on the new rank-one component
         auto multiplier = -O / (1 + O * D_inverse.sum());
         mat_t M = multiplier * D_inverse * D_inverse.transpose();
@@ -117,38 +289,10 @@ class DirectBayesBinomialControlkTreatment
         return normal_cdf(z_scores);
     }
 
-    // let's evaluate the endpoints of the prior in logspace-sigma:
-    // determine endpoints:
-    static std::pair<vec_t, vec_t> get_quadrature(
-        const value_t alpha_prior, const value_t beta_prior,
-        const int n_integration_points, const int n_arm_size) {
-        // Shared for a given prior
-        // TODO: consider constexpr
-        const value_t a = std::log(1e-8);
-        const value_t b = std::log(1e3);
-        // TODO: template leggauss and remove cast
-        auto pair = leggauss(n_integration_points).cast<value_t>();
-        // TODO: transpose this in leggauss for efficiency
-        vec_t quadrature_points = pair.row(0);
-        vec_t quadrature_weights = pair.row(1);
-        quadrature_points =
-            ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
-        // sum(wts) = b-a so it averages to 1 over space
-        quadrature_weights = quadrature_weights * ((b - a) / 2);
-        // TODO: remove second alloc here
-        vec_t density_logspace =
-            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
-                .template cast<value_t>();
-        density_logspace.array() *= quadrature_points.array();
-        auto weighted_density_logspace =
-            density_logspace.array() * quadrature_weights.array();
-        return {quadrature_points, weighted_density_logspace};
-    }
-
     static vec_t get_posterior_exceedance_probs(
-        const vec_t &phat, const vec_t &quadrature_points,
-        const vec_t &weighted_density_logspace,
-        const vec_t &efficacy_thresholds, const size_t n_arm_size,
+        const vec_t& phat, const vec_t& quadrature_points,
+        const vec_t& weighted_density_logspace,
+        const vec_t& efficacy_thresholds, const size_t n_arm_size,
         const value_t mu_sig_sq, bool use_optimized = true) {
         assert((phat.array() >= 0).all());
         assert((phat.array() <= 1).all());
@@ -210,84 +354,8 @@ class DirectBayesBinomialControlkTreatment
             exceed_probs * final_reweight.matrix();
         return posterior_exceedance_probs;
     }
-
-    struct StateType : public base_t::StateType {
-       private:
-        KEVLAR_STRONG_INLINE auto get_ss(int arm_i) {
-            Eigen::Map<const colvec_type<uint_t>> map(
-                this->suff_stat().data() + this->outer().strides()[arm_i],
-                this->outer().strides()[arm_i + 1] -
-                    this->outer().strides()[arm_i]);
-            return map;
-        }
-
-        using outer_t = DirectBayesBinomialControlkTreatment;
-        using model_state_base_t = typename base_t::StateType;
-
-       public:
-        const outer_t &outer() {
-            return static_cast<const outer_t &>(base_t::StateType::outer());
-        }
-
-        StateType(const outer_t &t) : model_state_base_t(t){};
-        virtual void rej_len(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-            const auto &bits = this->outer().gbits();
-            const auto &gr_view = this->outer().grid_range();
-            const auto n_arms = this->outer().n_arms();
-            const auto &critical_values = this->outer().thresholds();
-            const double mu_sig_sq = 100;
-
-            int pos = 0;
-            for (int grid_i = 0; grid_i < this->outer().n_gridpts(); ++grid_i) {
-                auto bits_i = bits.col(grid_i);
-
-                vec_t phat(n_arms);
-                for (int i = 0; i < n_arms; ++i) {
-                    phat(i) = static_cast<value_t>(get_ss(i)(bits_i[i])) /
-                              this->outer().n_samples();
-                }
-                vec_t posterior_exceedance_probs =
-                    get_posterior_exceedance_probs(
-                        phat, this->outer().quadrature_points_,
-                        this->outer().weighted_density_logspace_,
-                        this->outer().efficacy_thresholds_,
-                        this->outer().n_samples(), mu_sig_sq);
-
-                // assuming critical_values is sorted in descending order
-                bool do_optimized_update =
-                    (posterior_exceedance_probs.array() <=
-                     critical_values[critical_values.size() - 1])
-                        .all();
-                if (do_optimized_update) {
-                    rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
-                    pos += gr_view.n_tiles(grid_i);
-                    continue;
-                }
-
-                for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i);
-                     ++n_t, ++pos) {
-                    value_t max_null_prob_exceed = 0;
-                    for (int arm_i = 0; arm_i < n_arms; ++arm_i) {
-                        if (gr_view.check_null(pos, arm_i)) {
-                            max_null_prob_exceed =
-                                std::max(max_null_prob_exceed,
-                                         posterior_exceedance_probs[arm_i]);
-                        }
-                    }
-
-                    auto it = std::find_if(
-                        critical_values.begin(), critical_values.end(),
-                        [&](auto t) { return max_null_prob_exceed > t; });
-                    rej_len(pos) = std::distance(it, critical_values.end());
-                }
-            }
-        }
-    };
-    using state_t = StateType;
-    std::unique_ptr<typename base_t::StateType::model_state_base_t> make_state()
-        const override {
-        return std::make_unique<state_t>(*this);
-    }
 };
 
+}  // namespace binomial
+}  // namespace model
 }  // namespace kevlar
