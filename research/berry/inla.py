@@ -33,9 +33,10 @@ class INLAModel:
     log_prior: Callable
     log_joint: Callable
     log_joint_xonly: Callable
+
     # TODO: it probably makes sense to combine grad/hess together into a single function.
-    gradx_log_joint: Callable
-    hessx_log_joint: Callable
+    grad: Callable
+    hess: Callable
 
 
 def optimize_x0(model, data, hyper):
@@ -59,10 +60,8 @@ def optimize_x0(model, data, hyper):
     success = False
     message = "Success"
     for i in range(max_iter):
-        fj = model.gradx_log_joint(x, data, hyper)
-        fh = model.hessx_log_joint(x, data, hyper)
-        update = -fj / fh
-        x += update
+        step = model.newton_step(x, data, hyper)
+        x += step
 
         # What is the correct stopping criterion here?
         # based on changes in solution?
@@ -71,7 +70,7 @@ def optimize_x0(model, data, hyper):
         # what does R-INLA do?
         # Currently, I'm checking that changes in the solution converge to a
         # small step size.
-        if np.max(np.linalg.norm(update, axis=-1)) < tol:
+        if np.max(np.linalg.norm(step, axis=-1)) < tol:
             break
         if i == max_iter - 1:
             status = 1
@@ -113,16 +112,17 @@ def calc_log_posterior_hyper(model, data, hyper):
     # To nicely broadcast during array operations, we reshape to:
     # hyper_broadcast: (1, n_hyper, hyper_dim)
     # data_broadcast: (n_simulations, 1, n_rows, data_dim)
-    hyper_broadcast = hyper.reshape((1, -1, 2))
+    hyper_broadcast = hyper.reshape((1, -1, hyper.shape[-1]))
     data_broadcast = data[:, None, :]
 
     # Step 1) Find the maximum of the joint distribution with respect to the
     # latent variables, x, while holding data/hyper fixed.
     x0_info = optimize_x0(model, data_broadcast, hyper_broadcast)
     x0 = x0_info["x"]
+
     # Check to make sure the gradient is actually small!
-    grad_check = model.gradx_log_joint(x0, data_broadcast, hyper_broadcast)
-    np.testing.assert_allclose(grad_check, 0, atol=1e-5)
+    # grad_check = model.gradx_log_joint(x0, data_broadcast, hyper_broadcast)
+    # np.testing.assert_allclose(grad_check, 0, atol=1e-5)
 
     # The INLA approximation reduces to a simple expression! See the INLA
     # from Scratch post or the original INLA paper for a derivation.
@@ -130,8 +130,8 @@ def calc_log_posterior_hyper(model, data, hyper):
     # where H is the hessian at the maximum. Intuitively, this comes from a
     # quadratic approximation the log density at the maximum point. When
     # exponentiated, this is a normal distribution.
-    H = model.hessx_log_joint(x0, data_broadcast, hyper_broadcast)
-    detnegH = np.prod(-H, axis=-1)
+    H = model.hess(x0, data_broadcast, hyper_broadcast)
+    detnegH = model.det_neg_hess(H)
     ljoint = model.log_joint(model, x0, data_broadcast, hyper_broadcast)
     logpost = ljoint - 0.5 * np.log(detnegH)
 
@@ -182,10 +182,11 @@ def calc_posterior_hyper(model, data):
 
     # Numerically integrate to get the normalization constant. After dividing,
     # post_hyper will be a true PDF.
+    integrate_dims = range(1, len(model.quad_rules) + 1)
     normalization_factor = util.integrate_multidim(
-        unn_post_hyper, range(1, len(model.quad_rules) + 1), model.quad_rules
-    )[:, None, None]
-    post_hyper = unn_post_hyper / normalization_factor
+        unn_post_hyper, integrate_dims, model.quad_rules
+    )
+    post_hyper = unn_post_hyper / np.expand_dims(normalization_factor, tuple(integrate_dims))
 
     # We return the intermediate values from the log posterior calculation and
     # add the hyper grid and quadrature rules to those intermediate values. This
@@ -207,29 +208,29 @@ def calc_posterior_x(post_hyper, report, thresh):
     distributed, we simply return the mean and std dev of the latent variable
     marginals.
     """
-    n_sims = post_hyper.shape[0]
-    n_sigma2 = post_hyper.shape[1]
-    n_mu = post_hyper.shape[2]
     n_arms = report["x0"].shape[-1]
 
-    x_mu = report["x0"].reshape((n_sims, n_sigma2, n_mu, n_arms))
-    H = report["H"]
-    x_sigma2 = -(1.0 / H).reshape((n_sims, n_sigma2, n_mu, n_arms))
+    x_mu = report["x0"].reshape((*post_hyper.shape, n_arms))
+    x_sigma2 = report['model'].sigma2_from_H(report['H']).reshape((*post_hyper.shape, n_arms))
     x_sigma = np.sqrt(x_sigma2)
 
     rules = report["model"].quad_rules
 
     # mu = integral(mu(x | y, hyper) * p(hyper | y))
-    mu_post = util.integrate_multidim(x_mu * post_hyper[:, :, :, None], (1, 2), rules)
-    T = (x_mu - mu_post[:, None, None, :]) ** 2 + x_sigma2
-    var_post = util.integrate_multidim(T * post_hyper[:, :, :, None], (1, 2), rules)
+    integrate_dims = range(1, len(rules) + 1)
+    mu_post = util.integrate_multidim(x_mu * post_hyper[..., None], integrate_dims, rules)
+
+    mu_post_broadcast = np.expand_dims(mu_post, tuple(integrate_dims))
+    T = (x_mu - mu_post_broadcast) ** 2 + x_sigma2
+    var_post = util.integrate_multidim(T * post_hyper[..., None], integrate_dims, rules)
     sigma_post = np.sqrt(var_post)
 
     # exceedance probabilities
+    thresh_broadcast = np.expand_dims(thresh, tuple(integrate_dims))
     exceedance = util.integrate_multidim(
-        (1.0 - scipy.stats.norm.cdf(thresh[:, None, None, :], x_mu, x_sigma))
-        * post_hyper[:, :, :, None],
-        (1, 2),
+        (1.0 - scipy.stats.norm.cdf(thresh_broadcast, x_mu, x_sigma))
+        * post_hyper[..., None],
+        integrate_dims,
         rules,
     )
 

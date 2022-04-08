@@ -1,5 +1,6 @@
 import scipy.special
 import numpy as np
+from scipy.special import logit
 
 def fast_invert(S, d):
     for k in range(len(d)):
