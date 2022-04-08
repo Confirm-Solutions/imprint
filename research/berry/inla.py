@@ -21,87 +21,6 @@ class Model:
     hessx_log_joint: Callable
 
 
-def log_gaussian_x_diag(x, theta, include_det):
-    """
-    Gaussian likelihood for the latent variables x for the situation in which the
-    precision matrix for those latent variables is diagonal.
-
-    what we are computing is: -x^T Q x / 2 + log(determinant(Q)) / 2
-
-    Sometimes, we may want to leave out the determinant term because it does not
-    depend on x. This is useful for computational efficiency when we are
-    optimizing an objective function with respect to x.
-    """
-    n_rows = x.shape[-1]
-    mu = theta[..., 0]
-    sigma2 = theta[..., 1]
-    Qv = 1.0 / sigma2
-    quadratic = -0.5 * ((x - mu[..., None]) ** 2) * Qv[..., None]
-    out = np.sum(quadratic, axis=-1)
-    if include_det:
-        # determinant of diagonal matrix = prod(diagonal)
-        # log(prod(diagonal)) = sum(log(diagonal))
-        out += np.log(Qv) * n_rows / 2
-    return out
-
-
-def log_binomial(x, data):
-    y = data[..., 0]
-    n = data[..., 1]
-    return np.sum(x * y - n * np.log(np.exp(x) + 1), axis=-1)
-
-
-def log_joint(model, x, data, theta):
-    # There are three terms here:
-    # 1) The terms from the Gaussian distribution of the latent variables
-    #    (indepdent of the data):
-    # 2) The term from the response variable (in this case, binomial)
-    # 3) The prior on \theta
-    return (
-        log_gaussian_x_diag(x, theta, True)
-        + log_binomial(x, data)
-        + model.log_prior(theta)
-    )
-
-
-@profile
-def log_joint_xonly(x, data, theta):
-    # See log_joint, we drop the parts not dependent on x.
-    term1 = log_gaussian_x_diag(x, theta, False)
-    term2 = log_binomial(x, data)
-    return term1 + term2
-
-
-@profile
-def gradx_log_joint(x, data, theta):
-    y = data[..., 0]
-    n = data[..., 1]
-    mu = theta[..., 0]
-    Qv = 1.0 / theta[..., 1]
-    term1 = -Qv[..., None] * (x - mu[..., None])
-    term2 = y - (n * np.exp(x) / (np.exp(x) + 1))
-    return term1 + term2
-
-
-# @profile
-def hessx_log_joint(x, data, theta):
-    n = data[..., 1]
-    Qv = 1.0 / theta[..., 1]
-    term1 = -n * np.exp(x) / ((np.exp(x) + 1) ** 2)
-    term2 = -Qv[..., None]
-    return term1 + term2
-
-
-def binomial_hierarchical():
-    return Model(
-        None,
-        log_joint,
-        log_joint_xonly,
-        gradx_log_joint,
-        hessx_log_joint,
-    )
-
-
 ##################
 ###### EXACT #####
 ##################
@@ -114,13 +33,17 @@ def binomial_hierarchical():
 """
 For the INLA code, please see the "INLA from Scratch" paper as the best intro to
 INLA concepts.
+
+Note that the variable names here are bit different that in the Berry code:
+- $\theta$ in the Berry code is called "x" here to match with typical INLA notation.
+- I have also referred to the hyperparameters as "hyper" so as not to use the
+  "theta" notation from INLA and make the situtation even more confusing.
 """
 
 
-@profile
-def optimize_x0(model, data, theta):
+def optimize_x0(model, data, hyper):
     """
-    Calculate the maximum ("mode") of p(x, y, \theta) holding y, \theta
+    Calculate the maximum ("mode") of p(x, y, hyper) holding y, hyper
     fixed.
 
     Returns:
@@ -131,16 +54,16 @@ def optimize_x0(model, data, theta):
     tol = 1e-8
     max_iter = 500
     n_sims = data.shape[0]
-    n_theta = theta.shape[1]
+    n_hyper = hyper.shape[1]
     n_rows = data.shape[2]
-    x = np.zeros((n_sims, n_theta, n_rows))
+    x = np.zeros((n_sims, n_hyper, n_rows))
 
     status = 0
     success = False
     message = "Success"
     for i in range(max_iter):
-        fj = model.gradx_log_joint(x, data, theta)
-        fh = model.hessx_log_joint(x, data, theta)
+        fj = model.gradx_log_joint(x, data, hyper)
+        fh = model.hessx_log_joint(x, data, hyper)
         update = -fj / fh
         x += update
 
@@ -158,7 +81,7 @@ def optimize_x0(model, data, theta):
             success = False
             message = "Reached max_iter without converging."
 
-    f = model.log_joint_xonly(x, data, theta)
+    f = model.log_joint_xonly(x, data, hyper)
 
     # NOTE: It might be possible to return the gradient and hessian calculated here as
     # approximations of the true gradient and hessian as the optimum. But, I'm
@@ -178,41 +101,41 @@ def optimize_x0(model, data, theta):
     return soln
 
 
-def calc_log_posterior_theta(model, data, theta):
+def calc_log_posterior_hyper(model, data, hyper):
     """
-    This function calculates log p(\theta | y): the log posterior of the
+    This function calculates log p(hyper | y): the log posterior of the
     hyperparameters given the data.
 
     `model` is Model object!
     `data` is expected to have shape: (n_simulations, n_rows, data_dim)
-    `theta` is expected to have shape: (n_theta, theta_dim)
+    `hyper` is expected to have shape: (n_hyper, hyper_dim)
     """
 
-    # `theta` is expected to have shape: (n_theta1, n_theta2, ..., theta_dim)
+    # `hyper` is expected to have shape: (n_hyper1, n_hyper2, ..., hyper_dim)
     # `data` is expected to have shape: (n_simulations, n_rows, data_dim)
     # To nicely broadcast during array operations, we reshape to:
-    # theta_broadcast: (1, n_theta, theta_dim)
+    # hyper_broadcast: (1, n_hyper, hyper_dim)
     # data_broadcast: (n_simulations, 1, n_rows, data_dim)
-    theta_broadcast = theta.reshape((1, -1, 2))
+    hyper_broadcast = hyper.reshape((1, -1, 2))
     data_broadcast = data[:, None, :]
 
     # Step 1) Find the maximum of the joint distribution with respect to the
-    # latent variables, x, while holding data/theta fixed.
-    x0_info = optimize_x0(model, data_broadcast, theta_broadcast)
+    # latent variables, x, while holding data/hyper fixed.
+    x0_info = optimize_x0(model, data_broadcast, hyper_broadcast)
     x0 = x0_info["x"]
     # Check to make sure the gradient is actually small!
-    grad_check = model.gradx_log_joint(x0, data_broadcast, theta_broadcast)
+    grad_check = model.gradx_log_joint(x0, data_broadcast, hyper_broadcast)
     np.testing.assert_allclose(grad_check, 0, atol=1e-5)
 
     # The INLA approximation reduces to a simple expression! See the INLA
     # from Scratch post or the original INLA paper for a derivation.
-    # log p(theta | y) = log p(y, x_0, theta) - 0.5 * log (det(-H(y, x_0, theta)))
+    # log p(hyper | y) = log p(y, x_0, hyper) - 0.5 * log (det(-H(y, x_0, hyper)))
     # where H is the hessian at the maximum. Intuitively, this comes from a
     # quadratic approximation the log density at the maximum point. When
     # exponentiated, this is a normal distribution.
-    H = model.hessx_log_joint(x0, data_broadcast, theta_broadcast)
+    H = model.hessx_log_joint(x0, data_broadcast, hyper_broadcast)
     detnegH = np.prod(-H, axis=-1)
-    ljoint = model.log_joint(model, x0, data_broadcast, theta_broadcast)
+    ljoint = model.log_joint(model, x0, data_broadcast, hyper_broadcast)
     logpost = ljoint - 0.5 * np.log(detnegH)
 
     # It's handy to return more than just the log posterior since we can re-use
@@ -220,32 +143,31 @@ def calc_log_posterior_theta(model, data, theta):
     return dict(x0=x0, x0_info=x0_info, H=H, logjoint=ljoint, logpost=logpost)
 
 
-@profile
-def calc_posterior_theta(model, data, quad_rules):
+def calc_posterior_hyper(model, data, quad_rules):
     """
-    This function calculates p(\theta | y): the posterior of the hyperparameters
+    This function calculates p(hyper | y): the posterior of the hyperparameters
     given the data.
 
     The basic outline is:
-    - choose a grid of theta values.
-    - calculate log p(\theta | y)
+    - choose a grid of hyper values.
+    - calculate log p(hyper | y)
     - exponentiate and normalize by numerically integrate in the hyperparameters
 
     `model` is Model object!
     `data` is expected to have shape: (n_simulations, n_rows, data_dim)
     """
 
-    # Construct a grid of theta values with shape:
-    # (n_theta1, n_theta2, ..., n_thetaN, N)
+    # Construct a grid of hyper values with shape:
+    # (n_hyper1, n_hyper2, ..., n_hyperN, N)
     # For example a two parameter grid of mu/sigma2 might look like:
     # (11, 15, 2) if there were 11 values of mu and 15 values of sigma.
-    # theta_grid[:, :, 0] would be the value of mu at the grid points.
-    # theta_grid[:, :, 1] would be the value of sigma2 at the grid points.
-    theta_grid = np.stack(
+    # hyper_grid[:, :, 0] would be the value of mu at the grid points.
+    # hyper_grid[:, :, 1] would be the value of sigma2 at the grid points.
+    hyper_grid = np.stack(
         np.meshgrid(*[q.pts for q in quad_rules], indexing="ij"), axis=-1
     )
 
-    logpost_data = calc_log_posterior_theta(model, data, theta_grid)
+    logpost_data = calc_log_posterior_hyper(model, data, hyper_grid)
     logpost = logpost_data["logpost"]
 
     # Exponentiating a large number might result in numerical overflow if the
@@ -258,39 +180,39 @@ def calc_posterior_theta(model, data, quad_rules):
     # represented.
     logpost -= np.max(logpost, axis=1)[:, None] - 600
 
-    # Exponentiate to get the unnormalized posterior p_u(theta | y)
-    unn_post_theta = np.exp(logpost).reshape((-1, *theta_grid.shape[:-1]))
+    # Exponentiate to get the unnormalized posterior p_u(hyper | y)
+    unn_post_hyper = np.exp(logpost).reshape((-1, *hyper_grid.shape[:-1]))
 
     # Numerically integrate to get the normalization constant. After dividing,
-    # post_theta will be a true PDF.
-    normalization_factor = util.integrate_multidim(unn_post_theta, (1, 2), quad_rules)[
+    # post_hyper will be a true PDF.
+    normalization_factor = util.integrate_multidim(unn_post_hyper, (1, 2), quad_rules)[
         :, None, None
     ]
-    post_theta = unn_post_theta / normalization_factor
+    post_hyper = unn_post_hyper / normalization_factor
 
     # We return the intermediate values from the log posterior calculation and
-    # add the theta grid and quadrature rules to those intermediate values. This
+    # add the hyper grid and quadrature rules to those intermediate values. This
     # is helpful for debugging and reporting.
     report = logpost_data
-    report["theta_grid"] = theta_grid
-    report["theta_rules"] = quad_rules
-    return post_theta, report
+    report["hyper_grid"] = hyper_grid
+    report["hyper_rules"] = quad_rules
+    return post_hyper, report
 
 
-def calc_posterior_x(post_theta, report, thresh):
+def calc_posterior_x(post_hyper, report, thresh):
     """
     Calculate the marginals of the latent variables, x: p(x_i | y)
 
     The inputs to this function are exactly the outputs of
-    `calc_posterior_theta`. The approximations used in the construction of the
+    `calc_posterior_hyper`. The approximations used in the construction of the
     hyperparameter posteriors are re-used to calculate latent variable
     marginals. Since INLA assumes latent variable marginals are normally
     distributed, we simply return the mean and std dev of the latent variable
     marginals.
     """
-    n_sims = post_theta.shape[0]
-    n_sigma2 = post_theta.shape[1]
-    n_mu = post_theta.shape[2]
+    n_sims = post_hyper.shape[0]
+    n_sigma2 = post_hyper.shape[1]
+    n_mu = post_hyper.shape[2]
     n_arms = report["x0"].shape[-1]
 
     x_mu = report["x0"].reshape((n_sims, n_sigma2, n_mu, n_arms))
@@ -298,18 +220,18 @@ def calc_posterior_x(post_theta, report, thresh):
     x_sigma2 = -(1.0 / H).reshape((n_sims, n_sigma2, n_mu, n_arms))
     x_sigma = np.sqrt(x_sigma2)
 
-    rules = report["theta_rules"]
+    rules = report["hyper_rules"]
 
-    # mu = integral(mu(x | y, theta) * p(\theta | y))
-    mu_post = util.integrate_multidim(x_mu * post_theta[:, :, :, None], (1, 2), rules)
+    # mu = integral(mu(x | y, hyper) * p(hyper | y))
+    mu_post = util.integrate_multidim(x_mu * post_hyper[:, :, :, None], (1, 2), rules)
     T = (x_mu - mu_post[:, None, None, :]) ** 2 + x_sigma2
-    var_post = util.integrate_multidim(T * post_theta[:, :, :, None], (1, 2), rules)
+    var_post = util.integrate_multidim(T * post_hyper[:, :, :, None], (1, 2), rules)
     sigma_post = np.sqrt(var_post)
 
     # exceedance probabilities
     exceedance = util.integrate_multidim(
         (1.0 - scipy.stats.norm.cdf(thresh[:, None, None, :], x_mu, x_sigma))
-        * post_theta[:, :, :, None],
+        * post_hyper[:, :, :, None],
         (1, 2),
         rules,
     )
