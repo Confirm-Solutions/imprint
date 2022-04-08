@@ -83,8 +83,8 @@ def test_inla_sim(n_sims=100, check=True):
     model = inla.binomial_hierarchical()
     model.log_prior = simple_prior
 
-    mu_rule = inla.simpson_rule(13, a=-3, b=1)
-    sigma2_rule = inla.simpson_rule(15, a=1e-2, b=1)
+    mu_rule = util.simpson_rule(13, a=-3, b=1)
+    sigma2_rule = util.simpson_rule(15, a=1e-2, b=1)
 
     post_theta, logpost_theta_data = inla.calc_posterior_theta(
         model, data, (mu_rule, sigma2_rule)
@@ -123,40 +123,40 @@ def test_simpson_rules():
         y = np.cos(x)
         Iscipy = scipy.integrate.simpson(y, x)
 
-        pts, wts = inla.simpson_rule(n, a=a, b=b)
-        np.testing.assert_allclose(pts, x)
-        Itest = np.sum(wts * y)
+        qr = util.simpson_rule(n, a=a, b=b)
+        np.testing.assert_allclose(qr.pts, x)
+        Itest = np.sum(qr.wts * y)
         np.testing.assert_allclose(Itest, Iscipy)
 
 
 def test_gauss_rule():
     # test gauss
-    pts, wts = inla.gauss_rule(6, a=-1, b=1)
-    f = (pts - 0.5) ** 11 + (pts + 0.2) ** 7
-    Itest = np.sum(wts * f)
+    qr = util.gauss_rule(6, a=-1, b=1)
+    f = (qr.pts - 0.5) ** 11 + (qr.pts + 0.2) ** 7
+    Itest = np.sum(qr.wts * f)
     exact = -10.2957
     np.testing.assert_allclose(Itest, exact, atol=1e-4)
 
 
 def test_composite_simpson():
-    pts, wts = inla.composite_rule(
-        inla.simpson_rule, (21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5 * np.pi)
+    qr = util.composite_rule(
+        util.simpson_rule, (21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5 * np.pi)
     )
-    I2 = np.sum(wts * np.cos(pts))
+    I2 = np.sum(qr.wts * np.cos(qr.pts))
     np.testing.assert_allclose(I2, np.sin(0.5 * np.pi))
 
 
 def test_log_gauss_rule():
     a = 1e-8
     b = 1e3
-    pexp, wexp = util.log_gauss_rule(90, a, b)
+    qr = util.log_gauss_rule(90, a, b)
     alpha = 0.0005
     beta = 0.000005
-    f = scipy.stats.invgamma.pdf(pexp, alpha, scale=beta)
+    f = scipy.stats.invgamma.pdf(qr.pts, alpha, scale=beta)
     exact = scipy.stats.invgamma.cdf(b, alpha, scale=beta) - scipy.stats.invgamma.cdf(
         a, alpha, scale=beta
     )
-    est = np.sum(f * wexp)
+    est = np.sum(f * qr.wts)
     # plt.plot(np.log(pexp) / np.log(10), f)
     # plt.xlabel('$log_{10}\sigma^2$')
     # plt.ylabel('$PDF$')
