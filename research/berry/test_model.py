@@ -2,6 +2,8 @@ import inla
 import numpy as np
 import scipy.stats
 import util
+import berry
+import dirty_bayes
 
 
 def simple_prior(theta):
@@ -113,6 +115,18 @@ def test_inla_sim(n_sims=100, check=True):
         x0shift = x0 + np.random.uniform(0, 0.01, size=x0.shape)
         x0shiftf = model.log_joint_xonly(x0shift, data_broadcast, theta_broadcast)
         assert np.all(x0f > x0shiftf)
+
+
+def test_dirty_bayes():
+    b = berry.Berry(90, (1e-8, 1e3))
+    y_i = np.array([[3, 8, 5, 4]])
+    n_i = np.full((1, 4), 15)
+    print(b.sigma2_rule)
+    db_stats = dirty_bayes.calc_dirty_bayes(
+        y_i, n_i, np.array([b.pmid_theta]), b.sigma2_rule
+    )
+    expected = [0.93902219, 0.99536062, 0.98081792, 0.96379253]
+    np.testing.assert_allclose(db_stats["exceedance"][0, :], expected)
 
 
 def test_simpson_rules():
