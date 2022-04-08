@@ -242,7 +242,7 @@ def calc_posterior_theta(model, data, quad_rules):
     # theta_grid[:, :, 0] would be the value of mu at the grid points.
     # theta_grid[:, :, 1] would be the value of sigma2 at the grid points.
     theta_grid = np.stack(
-        np.meshgrid(*[q[0] for q in quad_rules], indexing="ij"), axis=-1
+        np.meshgrid(*[q.pts for q in quad_rules], indexing="ij"), axis=-1
     )
 
     logpost_data = calc_log_posterior_theta(model, data, theta_grid)
@@ -263,7 +263,7 @@ def calc_posterior_theta(model, data, quad_rules):
 
     # Numerically integrate to get the normalization constant. After dividing,
     # post_theta will be a true PDF.
-    normalization_factor = integrate_multidim(unn_post_theta, (1, 2), quad_rules)[
+    normalization_factor = util.integrate_multidim(unn_post_theta, (1, 2), quad_rules)[
         :, None, None
     ]
     post_theta = unn_post_theta / normalization_factor
@@ -301,13 +301,13 @@ def calc_posterior_x(post_theta, report, thresh):
     rules = report["theta_rules"]
 
     # mu = integral(mu(x | y, theta) * p(\theta | y))
-    mu_post = integrate_multidim(x_mu * post_theta[:, :, :, None], (1, 2), rules)
+    mu_post = util.integrate_multidim(x_mu * post_theta[:, :, :, None], (1, 2), rules)
     T = (x_mu - mu_post[:, None, None, :]) ** 2 + x_sigma2
-    var_post = integrate_multidim(T * post_theta[:, :, :, None], (1, 2), rules)
+    var_post = util.integrate_multidim(T * post_theta[:, :, :, None], (1, 2), rules)
     sigma_post = np.sqrt(var_post)
 
     # exceedance probabilities
-    exceedance = integrate_multidim(
+    exceedance = util.integrate_multidim(
         (1.0 - scipy.stats.norm.cdf(thresh[:, None, None, :], x_mu, x_sigma))
         * post_theta[:, :, :, None],
         (1, 2),

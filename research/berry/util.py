@@ -29,19 +29,19 @@ def simpson_rule(n, a=-1, b=1):
     wts[2::2] = 2
     wts[-1] = 1
     wts *= h / 3
-    return pts, wts
+    return QuadRule(pts, wts)
 
 
 def composite_rule(q_rule_fnc, *domains):
     pts = []
     wts = []
     for d in domains:
-        d_pts, d_wts = q_rule_fnc(*d)
-        pts.append(d_pts)
-        wts.append(d_wts)
+        qr = q_rule_fnc(*d)
+        pts.append(qr.pts)
+        wts.append(qr.wts)
     pts = np.concatenate(pts)
     wts = np.concatenate(wts)
-    return pts, wts
+    return QuadRule(pts, wts)
 
 
 def gauss_rule(n, a=-1, b=1):
@@ -52,16 +52,16 @@ def gauss_rule(n, a=-1, b=1):
     pts, wts = np.polynomial.legendre.leggauss(n)
     pts = (pts + 1) * (b - a) / 2 + a
     wts = wts * (b - a) / 2
-    return pts, wts
+    return QuadRule(pts, wts)
 
 
 def log_gauss_rule(N, a, b):
     A = np.log(a)
     B = np.log(b)
-    p, w = gauss_rule(N, a=A, b=B)
-    pexp = np.exp(p)
-    wexp = np.exp(p) * w
-    return (pexp, wexp)
+    qr = gauss_rule(N, a=A, b=B)
+    pts = np.exp(qr.pts)
+    wts = np.exp(qr.pts) * qr.wts
+    return QuadRule(pts, wts)
 
 
 def integrate_multidim(f, axes, quad_rules):
@@ -87,8 +87,8 @@ def integrate_multidim(f, axes, quad_rules):
         # happy. this converts the weight array from shape
         # e.g. (15,) to (1, 1, 15, 1)
         broadcast_shape = [1] * If.ndim
-        broadcast_shape[ax] = q[0].shape[0]
-        q_broadcast = q[1].reshape(broadcast_shape)
+        broadcast_shape[ax] = q.pts.shape[0]
+        q_broadcast = q.wts.reshape(broadcast_shape)
 
         # actually integrate!
         If = np.sum(q_broadcast * If, axis=ax)
