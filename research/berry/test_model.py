@@ -83,10 +83,12 @@ def test_inla_sim(n_sims = 100, check = True):
     sigma2_rule=inla.simpson_rule(15, a=1e-2, b=1)
 
     post_theta, logpost_theta_data = inla.calc_posterior_theta(model, data, (mu_rule, sigma2_rule))
-    mu_post, sigma_post = inla.calc_posterior_x(post_theta, logpost_theta_data)
 
-    ci025 = mu_post - 1.96 * sigma_post
-    ci975 = mu_post + 1.96 * sigma_post
+    thresh = np.full((1, 4), -1)
+    inla_stats = inla.calc_posterior_x(post_theta, logpost_theta_data, thresh)
+
+    ci025 = inla_stats['mu_appx'] - 1.96 * inla_stats['sigma_appx']
+    ci975 = inla_stats['mu_appx'] + 1.96 * inla_stats['sigma_appx']
     good = (ci025 < t_i) & (t_i < ci975)
     frac_contained = np.sum(good) / (n_sims * n_arms)
 
@@ -129,7 +131,7 @@ def test_gauss_rule():
     np.testing.assert_allclose(Itest, exact, atol=1e-4)
 
 def test_composite_simpson():
-    pts, wts = inla.composite_simpson_rule((21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5* np.pi))
+    pts, wts = inla.composite_rule(inla.simpson_rule, (21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5* np.pi))
     I2 = np.sum(wts * np.cos(pts))
     np.testing.assert_allclose(I2, np.sin(0.5 * np.pi))
 
