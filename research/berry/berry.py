@@ -1,7 +1,7 @@
 """
 The Berry model!
 
-y_i ~ Binomial(theta_i, N_i)
+y_i ~ Binomial(theta_i + logit(p1), N_i)
 theta_i ~ N(mu, sigma2)
 mu ~ N(mu_0, S2)
 sigma2 ~ InvGamma(a, b)
@@ -10,18 +10,35 @@ mu_0 = -2.20
 S2 = 100
 a = 0.0005
 b = 0.000005
+(normally p1 = 0.3)
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.special
-from scipy.special import logit
+from scipy.special import logit, expit
 
 import inla
 import util
 
+
+def p_to_theta(p, p1):
+    return logit(p) - logit(p1)
+
+
+def theta_to_p(theta, p1):
+    return expit(theta + logit(p1))
+
+
 class Berry(inla.INLAModel):
-    def __init__(self, sigma2_n=90, sigma2_bounds=(1e-8, 1e3)):
+    def __init__(
+        self,
+        *,
+        p0=np.full(4, 0.1),
+        p1=np.full(4, 0.3),
+        sigma2_n=90,
+        sigma2_bounds=(1e-8, 1e3),
+    ):
         """
         sigma2_n_quad: int, the number of quadrature points to use integrating over the sigma2 hyperparameter
         sigma2_bounds: a tuple (a, b) specifying the integration limits in the sigma2 dimension
@@ -29,24 +46,26 @@ class Berry(inla.INLAModel):
         self.n_stages = 6
         self.n_arms = 4
 
+        # alternative hypothesis!
+        self.p1 = p1
 
-        # Final evaluation criterion:
-        # Accept the alternative hypo if Pr(p[i] > p0|data) > pfinal_thresh[i]
-        # Or in terms of theta: Pr(theta[i] > p0_theta|data) > pfinal_thresh[i]
-        self.p0 = np.full(4, 0.1)  # rate of response below this is the null hypothesis
-        self.p0_theta = scipy.special.logit(self.p0)
-        self.pfinal_thresh = np.full(4, 0.85)
-
+        # rate of response below this is the null hypothesis
+        self.p0 = p0
 
         # Interim success criterion:
         # For some of Berry's calculations (e.g. the interim analysis success
         # criterion in Figure 1/2, the midpoint of p0 and p1 is used.)
         # Pr(theta[i] > pmid_theta|data) > pmid_accept
         # or concretely: Pr(theta[i] > 0.2|data) > 0.9
-        self.p1 = np.full(4, 0.3)
         self.pmid = (self.p0 + self.p1) / 2
-        self.pmid_theta = scipy.special.logit(self.pmid)
+        self.pmid_theta = p_to_theta(self.pmid, self.p1)
         self.pmid_accept = 0.9
+
+        # Final evaluation criterion:
+        # Accept the alternative hypo if Pr(p[i] > p0|data) > pfinal_thresh[i]
+        # Or in terms of theta: Pr(theta[i] > p0_theta|data) > pfinal_thresh[i]
+        self.p0_theta = p_to_theta(self.p0, self.p1)
+        self.pfinal_thresh = np.full(4, 0.85)
 
         # Early failure criterion:
         # Pr(theta[i] > pmid_theta|data) < pmid_fail
@@ -59,21 +78,20 @@ class Berry(inla.INLAModel):
         # final success criterion (check-in #6)
         self.suc_thresh[5] = self.p0_theta
 
-        # mu ~ N(-2.197, 100)
-        self.mu_0 = self.p0_theta[0]
-        self.mu_sig_sq = 100
+        # mu ~ N(-1.34, 100)
+        self.mu_0 = self.p0_theta
+        self.mu_sig_sq = 100.0
 
-        # Quadrature rule over sigma2 from 1e-8 to 1e3 in log space. 
+        # Quadrature rule over sigma2 from 1e-8 to 1e3 in log space.
         self.sigma2_rule = util.log_gauss_rule(sigma2_n, *sigma2_bounds)
         self.quad_rules = (self.sigma2_rule,)
 
-    def berry_log_prior(self, hyper):
+    def log_prior(self, hyper):
         # sigma prior: InvGamma(0.0005, 0.000005)
-        sigma2 = hyper[..., 1]
+        sigma2 = hyper[..., 0]
         alpha = 0.0005
         beta = 0.000005
         return scipy.stats.invgamma.logpdf(sigma2, alpha, scale=beta)
-
 
     def log_gaussian_x(self, x, hyper, include_det):
         """
@@ -83,26 +101,35 @@ class Berry(inla.INLAModel):
         Parameters
         ----------
         x
-            The 
+            The
         hyper
             The hyperparameter array
         include_det
-            Should we include the determinant term? 
+            Should we include the determinant term?
         """
-        mu0 = self.p0_theta 
-        sigma2 = hyper[..., 1]
-        cov = np.diag(np.repeat(sigma2, self.n_arms)) + self.mu_sig_sq
+
+        Q = self.Q(hyper[..., 0])
+        xmm0 = x - self.mu_0[None, None, :]
+        out = -0.5 * np.einsum("...i,...ij,...j", xmm0, Q, xmm0)
+        if include_det:
+            out += 0.5 * np.log(np.linalg.det(Q))
+        return out
+
+    def Q(self, sigma2):
+        na = np.arange(self.n_arms)
+        cov = np.full((*sigma2.shape, self.n_arms, self.n_arms), self.mu_sig_sq)
+        cov[:, :, na, na] += sigma2[:, :, None]
         Q = np.linalg.inv(cov)
+        return Q
+        # TODO: fast version!!
         # V_0 = np.diag(np.repeat(1 / sigma_sq, d)) - (mu_sig_sq / sigma_sq) / (
         #     sigma_sq + d * mu_sig_sq
         # )
-
 
     def log_binomial(self, x, data):
         y = data[..., 0]
         n = data[..., 1]
         return np.sum(x * y - n * np.log(np.exp(x) + 1), axis=-1)
-
 
     def log_joint(self, model, x, data, hyper):
         # There are three terms here:
@@ -116,17 +143,54 @@ class Berry(inla.INLAModel):
             + model.log_prior(hyper)
         )
 
-
     def log_joint_xonly(self, x, data, hyper):
         # See log_joint, we drop the parts not dependent on x.
         term1 = self.log_gaussian_x(x, hyper, False)
         term2 = self.log_binomial(x, data)
         return term1 + term2
 
+    def grad(self, x, data, hyper):
+        y = data[..., 0]
+        n = data[..., 1]
+        Q = self.Q(hyper[..., 0])
+        xmm0 = x - self.mu_0[None, None, :]
+        term1 = -np.sum(Q * xmm0[..., None, :], axis=-1)
+        term2 = y - (n * np.exp(x) / (np.exp(x) + 1))
+        return term1 + term2
+
+    def hess(self, x, data, hyper):
+        n = data[..., 1]
+        na = np.arange(self.n_arms)
+        H = -self.Q(hyper[..., 0])
+        H[:, :, na, na] -= n * np.exp(x) / ((np.exp(x) + 1) ** 2)
+        return H
+
+    def det_neg_hess(self, H):
+        return np.linalg.det(-H)
+
+    def sigma2_from_H(self, H):
+        na = np.arange(self.n_arms)
+        print(H.shape)
+        return -np.linalg.inv(H)[..., na, na]
+
+    def newton_step(self, x, data, hyper):
+        hess = self.hess(x, data, hyper)
+        grad = self.grad(x, data, hyper)
+        update = -np.linalg.solve(hess, grad)
+        return update
+
+
 class BerryMu(Berry):
-    def __init__(self, sigma2_n=90, sigma2_bounds=(1e-8, 1e3)):
-        super().__init__(sigma2_n, sigma2_bounds)
-        self.mu_rule = util.gauss_rule(201, -5, 3)
+    def __init__(
+        self,
+        *,
+        p0=np.full(4, 0.1),
+        p1=np.full(4, 0.3),
+        sigma2_n=90,
+        sigma2_bounds=(1e-8, 1e3),
+    ):
+        super().__init__(p0=p0, p1=p1, sigma2_n=sigma2_n, sigma2_bounds=sigma2_bounds)
+        self.mu_rule = util.gauss_rule(1001, -5, 3)
         self.quad_rules = (self.mu_rule, self.sigma2_rule)
 
     def log_prior(self, hyper):
@@ -164,7 +228,7 @@ class BerryMu(Berry):
             out += np.log(Qv) * n_rows / 2
         return out
 
-    def gradx_log_joint(self, x, data, hyper):
+    def grad(self, x, data, hyper):
         y = data[..., 0]
         n = data[..., 1]
         mu = hyper[..., 0]
@@ -173,14 +237,46 @@ class BerryMu(Berry):
         term2 = y - (n * np.exp(x) / (np.exp(x) + 1))
         return term1 + term2
 
-
-    def hessx_log_joint(self, x, data, hyper):
+    def hess(self, x, data, hyper):
         n = data[..., 1]
         Qv = 1.0 / hyper[..., 1]
         term1 = -n * np.exp(x) / ((np.exp(x) + 1) ** 2)
         term2 = -Qv[..., None]
         return term1 + term2
-    
+
+    def det_neg_hess(self, H):
+        return np.prod(-H, axis=-1)
+
+    def sigma2_from_H(self, H):
+        return -(1.0 / H)
+
+    def newton_step(self, x, data, hyper):
+        hess = self.hess(x, data, hyper)
+        grad = self.grad(x, data, hyper)
+        # Diagonal hessian makes the update step simple.
+        return -grad / hess
+
+
+def plot_2d_field(logpost_theta_data, field, levels=None, label=None):
+    MM = logpost_theta_data["hyper_grid"][:, :, 0]
+    SS = logpost_theta_data["hyper_grid"][:, :, 1]
+    log_sigma_grid = np.log10(SS)
+    cntf = plt.contourf(MM, log_sigma_grid, field, levels=levels, extend="both")
+    plt.contour(
+        MM,
+        log_sigma_grid,
+        field,
+        colors="k",
+        linestyles="-",
+        linewidths=0.5,
+        levels=levels,
+        extend="both",
+    )
+    cbar = plt.colorbar(cntf)
+    if label is not None:
+        cbar.set_label(None)
+    plt.xlabel("$\mu$")
+    plt.ylabel("$\log_{10} (\sigma^2)$")
 
 
 def figure1_plot(b, title, data, stats):
@@ -199,11 +295,11 @@ def figure1_plot(b, title, data, stats):
 def figure1_subplot(gridspec0, gridspec1, i, b, data, stats):
     plt.subplot(gridspec0)
     # expit(mu_post) is the posterior estimate of the mean probability.
-    p_post = scipy.special.expit(stats["mu_appx"])
+    p_post = theta_to_p(stats["mu_appx"], b.p1)
 
     # two sigma confidence intervals transformed from logit to probability space.
-    cilow = scipy.special.expit(stats["mu_appx"] - 2 * stats["sigma_appx"])
-    cihigh = scipy.special.expit(stats["mu_appx"] + 2 * stats["sigma_appx"])
+    cilow = theta_to_p(stats["mu_appx"] - 2 * stats["sigma_appx"], b.p1)
+    cihigh = theta_to_p(stats["mu_appx"] + 2 * stats["sigma_appx"], b.p1)
 
     y = data[:, :, 0]
     n = data[:, :, 1]
