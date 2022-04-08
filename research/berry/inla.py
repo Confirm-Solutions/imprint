@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 from operator import index
 from typing import Callable
-import scipy.stats
+
 import numpy as np
-from dataclasses import dataclass
+import scipy.stats
+import util
 
 
 @dataclass
