@@ -19,7 +19,7 @@ struct binomial_fixture : benchmark::Fixture {
     using tile_t = Tile<value_t>;
     using grid_range_t = GridRange<value_t, uint_t, tile_t>;
     using hp_t = HyperPlane<value_t>;
-    using model_t = model::binomial::SimpleSelection<value_t>;
+    using model_t = model::binomial::SimpleSelection<double>;
     using acc_t = bound::TypeIErrorAccum<value_t, uint_t>;
 
     size_t n_thetas_1d = 64;
@@ -38,7 +38,7 @@ struct binomial_fixture : benchmark::Fixture {
 BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     size_t grid_radius = grid_t::radius(n_thetas_1d, lower, upper);
 
-    Eigen::VectorXd theta_1d;
+    colvec_type<value_t> theta_1d;
     Eigen::VectorXd thresholds;
 
     // initialize threshold
@@ -48,7 +48,7 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     // define hyperplanes
     std::vector<hp_t> hps;
     for (size_t k = 1; k < grid_dim; ++k) {
-        colvec_type<double> normal(grid_dim);
+        colvec_type<value_t> normal(grid_dim);
         normal.setZero();
         normal[0] = 1;
         normal[k] = -1;
@@ -56,7 +56,8 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     }
 
     // create grid
-    theta_1d = grid_t::make_grid(n_thetas_1d, lower, upper);
+    theta_1d =
+        grid_t::make_grid(n_thetas_1d, lower, upper).template cast<value_t>();
     dAryInt bits(n_thetas_1d, grid_dim);
     grid_range_t grid_range(grid_dim, bits.n_unique());
     for (size_t j = 0; j < bits.n_unique(); ++j, ++bits) {

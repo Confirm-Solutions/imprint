@@ -3,7 +3,7 @@
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
-#include <kevlar_bits/stat/gaussian_test.hpp>
+#include <kevlar_bits/stat/unpaired_test.hpp>
 #include <kevlar_bits/util/macros.hpp>
 
 namespace kevlar {
@@ -59,7 +59,7 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
     void critical_values(const Eigen::Ref<const colvec_type<value_t>>& cv) {
         auto& cv_ = base_t::critical_values();
         cv_ = cv;
-        std::sort(cv_.begin(), cv_.end(), std::greater<value_t>());
+        std::sort(cv_.data(), cv_.data() + cv_.size(), std::greater<value_t>());
     }
 
     template <class _GenType, class _ValueType, class _UIntType,
@@ -152,6 +152,9 @@ struct SimpleSelection<ValueType>::SimGlobalState<
     /*
      * Generates sufficient statistic for each arm under all possible grid
      * points.
+     * Note that this technically does extra computations than necessary,
+     * but benchmarking shows it makes no difference from the more optimized
+     * one. For simplicity and readability, we choose this version.
      */
     void generate_sufficient_stats() {
         // generate sufficient stats only for phase II
@@ -194,16 +197,16 @@ struct SimpleSelection<ValueType>::SimGlobalState<
         auto ss_0 = base_t::sufficient_stats_arm(0);
 
         // unpaired z-test with binomial approximation
-        auto p_star = static_cast<value_t>(ss_astar(bits_i[a_star])) / n;
-        auto p_0 = static_cast<value_t>(ss_0(bits_i[0])) / n;
-        auto var_star = p_star * (1. - p_star) / n;
-        auto var_0 = p_0 * (1. - p_0) / n;
-        auto z = stat::unpaired_z_test_stat(p_star, p_0, var_star, var_0);
+        int x_s = static_cast<int64_t>(ss_astar(bits_i[a_star]));
+        int x_0 = static_cast<int64_t>(ss_0(bits_i[0]));
+        auto z = stat::UnpairedTest<value_t>::binom_stat(x_s, x_0, n);
 
         const auto& cv = model.critical_values();
-        auto it =
-            std::find_if(cv.begin(), cv.end(), [&](auto t) { return z > t; });
-        return std::distance(it, cv.end());
+        int i = 0;
+        for (; i < cv.size(); ++i) {
+            if (z > cv[i]) break;
+        }
+        return outer_.model_.n_models() - i;
     };
 
    public:
