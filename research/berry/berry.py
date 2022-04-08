@@ -110,7 +110,7 @@ class Berry(inla.INLAModel):
         """
 
         Q = self.Q(hyper[..., 0])
-        xmm0 = x - self.mu_0[None, None, :]
+        xmm0 = x - self.mu_0
         out = -0.5 * np.einsum("...i,...ij,...j", xmm0, Q, xmm0)
         if include_det:
             out += 0.5 * np.log(np.linalg.det(Q))
@@ -155,7 +155,7 @@ class Berry(inla.INLAModel):
         y = data[..., 0]
         n = data[..., 1]
         Q = self.Q(hyper[..., 0])
-        xmm0 = x - self.mu_0[None, None, :]
+        xmm0 = x - self.mu_0
         term1 = -np.sum(Q * xmm0[..., None, :], axis=-1)
         adj_x = x + self.logit_p1
         term2 = y - (n * np.exp(adj_x) / (np.exp(adj_x) + 1))
@@ -164,7 +164,8 @@ class Berry(inla.INLAModel):
     def hess(self, x, data, hyper):
         n = data[..., 1]
         na = np.arange(self.n_arms)
-        H = -self.Q(hyper[..., 0])
+        H = np.empty((*x.shape, self.n_arms))
+        H[:] = -self.Q(hyper[..., 0])
         adj_x = x + self.logit_p1
         H[:, :, na, na] -= n * np.exp(adj_x) / ((np.exp(adj_x) + 1) ** 2)
         return H
@@ -194,7 +195,7 @@ class BerryMu(Berry):
         sigma2_bounds=(1e-8, 1e3),
     ):
         super().__init__(p0=p0, p1=p1, sigma2_n=sigma2_n, sigma2_bounds=sigma2_bounds)
-        self.mu_rule = util.gauss_rule(1001, -5, 3)
+        self.mu_rule = util.gauss_rule(201, -4, 4)
         self.quad_rules = (self.mu_rule, self.sigma2_rule)
 
     def log_prior(self, hyper):
