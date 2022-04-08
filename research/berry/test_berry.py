@@ -23,7 +23,7 @@ def test_binomial_hierarchical_grad_hess():
     a = np.array([0.0])
     theta = np.stack((a, qv0), axis=1)
     dx = 0.001
-    model = inla.binomial_hierarchical()
+    model = berry.BerryMu()
     model.log_prior = simple_prior
 
     def calc_numerical_grad(local_x_i, row):
@@ -58,8 +58,24 @@ def test_binomial_hierarchical_grad_hess():
     np.testing.assert_allclose(num_hess, analytical_hess, atol=1e-5)
 
 
-def test_optimizer():
-    pass
+# def test_optimizer():
+#     b = berry.BerryMu(90, (1e-8, 1e3)) 
+
+#     # I got this data by deconstructing the graphs in in Figure 1 of Berry et al 2013.
+#     n_i = np.array([[i] * 4 for i in [10, 15, 20, 25, 30, 35]])
+#     y_i = np.array(
+#         [
+#             [1, 6, 3, 3],
+#             [3, 8, 5, 4],
+#             [6, 9, 7, 5],
+#             [7, 10, 8, 7],
+#             [8, 10, 9, 8],
+#             [11, 11, 10, 9],
+#         ]
+#     )
+#     data = np.stack((y_i, n_i), axis=2)
+#     hyper = 
+#     inla.optimize_x0(b, data, hyper)
 
 
 def test_inla_sim(n_sims=100, check=True):
@@ -82,15 +98,10 @@ def test_inla_sim(n_sims=100, check=True):
     # draw actual trial results.
     y_i = scipy.stats.binom.rvs(n_patients_per_group, p_i).reshape(n_i.shape)
     data = np.stack((y_i, n_i), axis=2)
-    model = inla.binomial_hierarchical()
+    model = berry.BerryMu()
     model.log_prior = simple_prior
 
-    mu_rule = util.simpson_rule(13, a=-3, b=1)
-    sigma2_rule = util.simpson_rule(15, a=1e-2, b=1)
-
-    post_theta, logpost_theta_data = inla.calc_posterior_theta(
-        model, data, (mu_rule, sigma2_rule)
-    )
+    post_theta, logpost_theta_data = inla.calc_posterior_hyper(model, data)
 
     thresh = np.full((1, 4), -1)
     inla_stats = inla.calc_posterior_x(post_theta, logpost_theta_data, thresh)
