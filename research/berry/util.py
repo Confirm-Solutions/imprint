@@ -1,9 +1,17 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 # this let's me leave in the "@profile" lines when I'm not running
 # line_profiler.
 if "profile" not in __builtins__:
     __builtins__["profile"] = lambda x: x
+
+
+@dataclass
+class QuadRule:
+    pts: np.ndarray
+    wts: np.ndarray
 
 
 def simpson_rule(n, a=-1, b=1):
@@ -46,10 +54,11 @@ def gauss_rule(n, a=-1, b=1):
     wts = wts * (b - a) / 2
     return pts, wts
 
+
 def log_gauss_rule(N, a, b):
     A = np.log(a)
     B = np.log(b)
-    p, w = inla.gauss_rule(N, a=A, b=B)
+    p, w = gauss_rule(N, a=A, b=B)
     pexp = np.exp(p)
     wexp = np.exp(p) * w
     return (pexp, wexp)

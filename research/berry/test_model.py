@@ -1,11 +1,14 @@
-import scipy.stats
-import numpy as np
 import inla
+import numpy as np
+import scipy.stats
+import util
+
 
 def simple_prior(theta):
     a = theta[..., 0]
     Qv = 1.0 / theta[..., 1]
     return scipy.stats.norm.logpdf(a, 0, 1) + scipy.stats.lognorm.logpdf(Qv, 10.0)
+
 
 def test_binomial_hierarchical_grad_hess():
     nT = 50
@@ -52,11 +55,12 @@ def test_binomial_hierarchical_grad_hess():
 
     np.testing.assert_allclose(num_hess, analytical_hess, atol=1e-5)
 
+
 def test_optimizer():
     pass
 
 
-def test_inla_sim(n_sims = 100, check = True):
+def test_inla_sim(n_sims=100, check=True):
     n_sims = 100
     n_arms = 4
     np.random.seed(100)
@@ -76,38 +80,40 @@ def test_inla_sim(n_sims = 100, check = True):
     # draw actual trial results.
     y_i = scipy.stats.binom.rvs(n_patients_per_group, p_i).reshape(n_i.shape)
     data = np.stack((y_i, n_i), axis=2)
-    model = inla.binomial_hierarchical() 
+    model = inla.binomial_hierarchical()
     model.log_prior = simple_prior
 
-    mu_rule=inla.simpson_rule(13, a=-3, b=1)
-    sigma2_rule=inla.simpson_rule(15, a=1e-2, b=1)
+    mu_rule = inla.simpson_rule(13, a=-3, b=1)
+    sigma2_rule = inla.simpson_rule(15, a=1e-2, b=1)
 
-    post_theta, logpost_theta_data = inla.calc_posterior_theta(model, data, (mu_rule, sigma2_rule))
+    post_theta, logpost_theta_data = inla.calc_posterior_theta(
+        model, data, (mu_rule, sigma2_rule)
+    )
 
     thresh = np.full((1, 4), -1)
     inla_stats = inla.calc_posterior_x(post_theta, logpost_theta_data, thresh)
 
-    ci025 = inla_stats['mu_appx'] - 1.96 * inla_stats['sigma_appx']
-    ci975 = inla_stats['mu_appx'] + 1.96 * inla_stats['sigma_appx']
+    ci025 = inla_stats["mu_appx"] - 1.96 * inla_stats["sigma_appx"]
+    ci975 = inla_stats["mu_appx"] + 1.96 * inla_stats["sigma_appx"]
     good = (ci025 < t_i) & (t_i < ci975)
     frac_contained = np.sum(good) / (n_sims * n_arms)
 
     # Set the exact value since the seed should be fixed. I don't know if this
     # will persist across machines, but it works for me for now.
     if check:
-        assert(frac_contained == 0.9425)
+        assert frac_contained == 0.9425
 
     # Confirm that x0 is truly the mode/peak of p(x|y,\theta).
     # Check that random shifts of x0 have lower joint density.
-    x0 = logpost_theta_data['x0']
-    theta_broadcast = logpost_theta_data['theta_grid'].reshape((1, -1, 2))
+    x0 = logpost_theta_data["x0"]
+    theta_broadcast = logpost_theta_data["theta_grid"].reshape((1, -1, 2))
     data_broadcast = data[:, None, :]
     x0f = model.log_joint_xonly(x0, data_broadcast, theta_broadcast)
     for i in range(10):
         x0shift = x0 + np.random.uniform(0, 0.01, size=x0.shape)
         x0shiftf = model.log_joint_xonly(x0shift, data_broadcast, theta_broadcast)
-        assert(np.all(x0f > x0shiftf))
-    
+        assert np.all(x0f > x0shiftf)
+
 
 def test_simpson_rules():
     for n in range(3, 10, 2):
@@ -122,22 +128,49 @@ def test_simpson_rules():
         Itest = np.sum(wts * y)
         np.testing.assert_allclose(Itest, Iscipy)
 
+
 def test_gauss_rule():
     # test gauss
     pts, wts = inla.gauss_rule(6, a=-1, b=1)
-    f = ((pts - 0.5) ** 11 + (pts + 0.2) ** 7)
+    f = (pts - 0.5) ** 11 + (pts + 0.2) ** 7
     Itest = np.sum(wts * f)
     exact = -10.2957
     np.testing.assert_allclose(Itest, exact, atol=1e-4)
 
+
 def test_composite_simpson():
-    pts, wts = inla.composite_rule(inla.simpson_rule, (21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5* np.pi))
+    pts, wts = inla.composite_rule(
+        inla.simpson_rule, (21, 0, 0.4 * np.pi), (13, 0.4 * np.pi, 0.5 * np.pi)
+    )
     I2 = np.sum(wts * np.cos(pts))
     np.testing.assert_allclose(I2, np.sin(0.5 * np.pi))
 
+
+def test_log_gauss_rule():
+    a = 1e-8
+    b = 1e3
+    pexp, wexp = util.log_gauss_rule(90, a, b)
+    alpha = 0.0005
+    beta = 0.000005
+    f = scipy.stats.invgamma.pdf(pexp, alpha, scale=beta)
+    exact = scipy.stats.invgamma.cdf(b, alpha, scale=beta) - scipy.stats.invgamma.cdf(
+        a, alpha, scale=beta
+    )
+    est = np.sum(f * wexp)
+    # plt.plot(np.log(pexp) / np.log(10), f)
+    # plt.xlabel('$log_{10}\sigma^2$')
+    # plt.ylabel('$PDF$')
+    # plt.show()
+    # print('exact CDF: ', exact),
+    # print('numerical integration CDF: ', est)
+    # print('error: ', est - exact)
+    np.testing.assert_allclose(est, exact, 1e-14)
+
+
 if __name__ == "__main__":
     import time
+
     for i in range(5):
         start = time.time()
-        test_inla_sim(n_sims = 1000, check = False)
+        test_inla_sim(n_sims=1000, check=False)
         print(time.time() - start)
