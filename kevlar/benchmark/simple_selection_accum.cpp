@@ -25,14 +25,14 @@ struct binomial_fixture : benchmark::Fixture {
     size_t n_thetas_1d = 64;
     double lower = -0.5;
     double upper = 0.5;
-    size_t n_sim = 1000;
+    size_t n_sim = 1e5;
     double alpha = 0.025;
     double delta = 0.025;
     size_t grid_dim = 3;
     size_t n_samples = 250;
     size_t ph2_size = 50;
     double thresh = 1.96;
-    size_t n_threads = 1;  // std::thread::hardware_concurrency();
+    size_t n_threads = std::thread::hardware_concurrency();
 };
 
 BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
