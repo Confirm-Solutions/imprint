@@ -22,12 +22,12 @@ import inla
 import util
 
 
-def p_to_theta(p, p1):
-    return logit(p) - logit(p1)
+def p_to_theta(p, logit_p1):
+    return logit(p) - logit_p1
 
 
-def theta_to_p(theta, p1):
-    return expit(theta + logit(p1))
+def theta_to_p(theta, logit_p1):
+    return expit(theta + logit_p1)
 
 
 class Berry(inla.INLAModel):
@@ -48,6 +48,7 @@ class Berry(inla.INLAModel):
 
         # alternative hypothesis!
         self.p1 = p1
+        self.logit_p1 = logit(p1)
 
         # rate of response below this is the null hypothesis
         self.p0 = p0
@@ -58,13 +59,13 @@ class Berry(inla.INLAModel):
         # Pr(theta[i] > pmid_theta|data) > pmid_accept
         # or concretely: Pr(theta[i] > 0.2|data) > 0.9
         self.pmid = (self.p0 + self.p1) / 2
-        self.pmid_theta = p_to_theta(self.pmid, self.p1)
+        self.pmid_theta = p_to_theta(self.pmid, self.logit_p1)
         self.pmid_accept = 0.9
 
         # Final evaluation criterion:
         # Accept the alternative hypo if Pr(p[i] > p0|data) > pfinal_thresh[i]
         # Or in terms of theta: Pr(theta[i] > p0_theta|data) > pfinal_thresh[i]
-        self.p0_theta = p_to_theta(self.p0, self.p1)
+        self.p0_theta = p_to_theta(self.p0, self.logit_p1)
         self.pfinal_thresh = np.full(4, 0.85)
 
         # Early failure criterion:
@@ -79,7 +80,7 @@ class Berry(inla.INLAModel):
         self.suc_thresh[5] = self.p0_theta
 
         # mu ~ N(-1.34, 100)
-        self.mu_0 = self.p0_theta
+        self.mu_0 = -1.34
         self.mu_sig_sq = 100.0
 
         # Quadrature rule over sigma2 from 1e-8 to 1e3 in log space.
@@ -129,7 +130,8 @@ class Berry(inla.INLAModel):
     def log_binomial(self, x, data):
         y = data[..., 0]
         n = data[..., 1]
-        return np.sum(x * y - n * np.log(np.exp(x) + 1), axis=-1)
+        adj_x = x + self.logit_p1
+        return np.sum(adj_x * y - n * np.log(np.exp(adj_x) + 1), axis=-1)
 
     def log_joint(self, model, x, data, hyper):
         # There are three terms here:
@@ -155,14 +157,16 @@ class Berry(inla.INLAModel):
         Q = self.Q(hyper[..., 0])
         xmm0 = x - self.mu_0[None, None, :]
         term1 = -np.sum(Q * xmm0[..., None, :], axis=-1)
-        term2 = y - (n * np.exp(x) / (np.exp(x) + 1))
+        adj_x = x + self.logit_p1
+        term2 = y - (n * np.exp(adj_x) / (np.exp(adj_x) + 1))
         return term1 + term2
 
     def hess(self, x, data, hyper):
         n = data[..., 1]
         na = np.arange(self.n_arms)
         H = -self.Q(hyper[..., 0])
-        H[:, :, na, na] -= n * np.exp(x) / ((np.exp(x) + 1) ** 2)
+        adj_x = x + self.logit_p1
+        H[:, :, na, na] -= n * np.exp(adj_x) / ((np.exp(adj_x) + 1) ** 2)
         return H
 
     def det_neg_hess(self, H):
@@ -234,13 +238,15 @@ class BerryMu(Berry):
         mu = hyper[..., 0]
         Qv = 1.0 / hyper[..., 1]
         term1 = -Qv[..., None] * (x - mu[..., None])
-        term2 = y - (n * np.exp(x) / (np.exp(x) + 1))
+        adj_x = x + self.logit_p1
+        term2 = y - (n * np.exp(adj_x) / (np.exp(adj_x) + 1))
         return term1 + term2
 
     def hess(self, x, data, hyper):
         n = data[..., 1]
         Qv = 1.0 / hyper[..., 1]
-        term1 = -n * np.exp(x) / ((np.exp(x) + 1) ** 2)
+        adj_x = x + self.logit_p1
+        term1 = -n * np.exp(adj_x) / ((np.exp(adj_x) + 1) ** 2)
         term2 = -Qv[..., None]
         return term1 + term2
 
@@ -295,11 +301,11 @@ def figure1_plot(b, title, data, stats):
 def figure1_subplot(gridspec0, gridspec1, i, b, data, stats):
     plt.subplot(gridspec0)
     # expit(mu_post) is the posterior estimate of the mean probability.
-    p_post = theta_to_p(stats["mu_appx"], b.p1)
+    p_post = theta_to_p(stats["mu_appx"], b.logit_p1)
 
     # two sigma confidence intervals transformed from logit to probability space.
-    cilow = theta_to_p(stats["mu_appx"] - 2 * stats["sigma_appx"], b.p1)
-    cihigh = theta_to_p(stats["mu_appx"] + 2 * stats["sigma_appx"], b.p1)
+    cilow = theta_to_p(stats["mu_appx"] - 2 * stats["sigma_appx"], b.logit_p1)
+    cihigh = theta_to_p(stats["mu_appx"] + 2 * stats["sigma_appx"], b.logit_p1)
 
     y = data[:, :, 0]
     n = data[:, :, 1]

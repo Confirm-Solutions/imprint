@@ -101,7 +101,7 @@ def test_inla_sim(n_sims=100, check=True):
     if check:
         assert frac_contained == 0.9425
 
-    # Test the optimization! 
+    # Test the optimization!
     # Confirm that x0 is truly the mode/peak of p(x|y,\theta).
     # Check that random shifts of x0 have lower joint density.
     x0 = logpost_theta_data["x0"]
@@ -120,10 +120,16 @@ def test_dirty_bayes():
     n_i = np.full((1, 4), 15)
     print(b.sigma2_rule)
     db_stats = dirty_bayes.calc_dirty_bayes(
-        y_i, n_i, np.full((1,4), logit(0.2)), b.sigma2_rule
+        y_i,
+        n_i,
+        b.mu_0,
+        np.full((1, 4), logit(0.3)),
+        np.full((1, 4), logit(0.2) - logit(0.3)),
+        b.sigma2_rule,
     )
-    expected = [0.93902219, 0.99536062, 0.98081792, 0.96379253]
-    np.testing.assert_allclose(db_stats["exceedance"][0, :], expected)
+    expected = [0.938858, 0.995331, 0.980741, 0.963675]
+    np.testing.assert_allclose(db_stats["exceedance"][0, :], expected, 1e-6)
+
 
 def test_mu_integration():
     # If we select a sigma2 integration domain that does not include large
@@ -140,11 +146,11 @@ def test_mu_integration():
     post_hyper_mu, report_mu = inla.calc_posterior_hyper(b_mu, data)
     post_hyper_no_mu, report_no_mu = inla.calc_posterior_hyper(b_no_mu, data)
 
-    thresh = np.full((1,4), -2.0)
+    thresh = np.full((1, 4), -2.0)
     mu_stats = inla.calc_posterior_x(post_hyper_mu, report_mu, thresh)
     no_mu_stats = inla.calc_posterior_x(post_hyper_no_mu, report_no_mu, thresh)
-    print(mu_stats['exceedance'])
-    print(no_mu_stats['exceedance'])
+    print(mu_stats["exceedance"])
+    print(no_mu_stats["exceedance"])
 
     """
     On the post_hyper_mu side, we need to numerically integrate out mu
@@ -155,6 +161,7 @@ def test_mu_integration():
     We want:
     * 
     """
+
 
 def test_simpson_rules():
     for n in range(3, 10, 2):

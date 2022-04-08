@@ -1,6 +1,7 @@
 import scipy.special
 import numpy as np
 from scipy.special import logit
+import berry
 
 def fast_invert(S, d):
     for k in range(len(d)):
@@ -23,16 +24,16 @@ def calc_posterior_x(sigma_sq: float, mu_sig_sq: float, sample_I, thetahat, mu_0
     Sigma_posterior = fast_invert(S_0, sample_I)
     # precision_posterior = V_0 + np.diag(sample_I)
     # Sigma_posterior = np.linalg.inv(precision_posterior)
-    mu_posterior = Sigma_posterior @ (sample_I * thetahat + V_0 @ mu_0)
+    mu_posterior = Sigma_posterior @ (sample_I * thetahat + (V_0 * mu_0).sum(axis=-1))
     return mu_posterior, np.diag(Sigma_posterior)
 
 
-def calc_dirty_bayes(y_i, n_i, thresh, sigma2_rule):
+def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
     N, d = y_i.shape
     phat = y_i[:, :] / n_i[:, :]
-    thetahat = scipy.special.logit(phat)
+    thetahat = berry.p_to_theta(phat, logit_p1) 
     sample_I = n_i[:, :] * phat * (1 - phat)  # diag(n*phat*(1-phat))
-    mu_0 = np.full_like(phat, -1.34)
+    mu_0 = np.full_like(phat, mu_0_scalar)
     mu_sig_sq = 100
 
     n_sigma2 = sigma2_rule.pts.shape[0]
