@@ -22,7 +22,6 @@ dependencies:
   - seaborn
 
 # numerical tools
-  - quadpy
   - pip:
     - setuptools
     - "pybind11[global]"

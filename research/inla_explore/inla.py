@@ -45,11 +45,9 @@ def gauss_rule(n, a=-1, b=1):
     Points and weights for a Gaussian quadrature with n points on the interval
     (a, b)
     """
-    import quadpy
-
-    q = quadpy.c1.gauss_legendre(n)
-    pts = (q.points + 1) * (b - a) / 2 + a
-    wts = q.weights * (b - a) / 2
+    pts, wts = np.polynomial.legendre.leggauss(n)
+    pts = (pts + 1) * (b - a) / 2 + a
+    wts = wts * (b - a) / 2
     return pts, wts
 
 
