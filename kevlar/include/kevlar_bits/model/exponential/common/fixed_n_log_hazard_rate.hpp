@@ -156,7 +156,9 @@ struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
     }
 
     void score(size_t gridpt_idx,
-               Eigen::Ref<colvec_type<value_t>> out) override {
+               Eigen::Ref<colvec_type<value_t>> out) const override {
+        assert(out.size() == outer_.n_params());
+
         auto lmda_c = outer_.lmda_control(gridpt_idx);
         auto inv_lmda_c = 1. / lmda_c;
         auto hzrd_rate_curr = outer_.hzrd_rate(gridpt_idx);
@@ -223,6 +225,9 @@ struct KevlarBoundStateFixedNLogHazardRate
         const Eigen::Ref<const colvec_type<value_t>>& gridpt,
         const Eigen::Ref<const colvec_type<value_t>>& v,
         Eigen::Ref<colvec_type<value_t>> out) override {
+        assert(gridpt.size() == n_natural_params());
+        assert(v.size() == n_natural_params());
+        assert(out.size() == n_natural_params());
         mat_type<value_t, 2, 1> nat;
         eta(gridpt, nat);
         mat_type<value_t, 2, 2> deta;
@@ -236,6 +241,8 @@ struct KevlarBoundStateFixedNLogHazardRate
     value_t covar_quadform(
         const Eigen::Ref<const colvec_type<value_t>>& gridpt,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
+        assert(gridpt.size() == n_natural_params());
+        assert(v.size() == n_natural_params());
         mat_type<value_t, 2, 1> lmda;
         eta(gridpt, lmda);
         lmda *= -1;
@@ -259,10 +266,13 @@ struct KevlarBoundStateFixedNLogHazardRate
      * where n is the number of samples per arm.
      */
     value_t hessian_quadform_bound(
-        const tile_t& tile,
+        const tile_t&,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
+        assert(v.size() == n_natural_params());
         return (v.dot(max_cov_ * v)) + v.squaredNorm() * max_eta_hess_cov_;
     }
+
+    size_t n_natural_params() const override { return 2; }
 };
 
 }  // namespace exponential

@@ -72,7 +72,7 @@ struct SimGlobalStateBase<GenType, ValueType, UIntType>::SimState {
      * and grid-point at gridpt_idx.
      */
     virtual void score(size_t gridpt_idx,
-                       Eigen::Ref<colvec_type<value_t>> out) = 0;
+                       Eigen::Ref<colvec_type<value_t>> out) const = 0;
 };
 
 /*
@@ -118,6 +118,11 @@ struct KevlarBoundStateBase {
     virtual value_t hessian_quadform_bound(
         const tile_t& tile,
         const Eigen::Ref<const colvec_type<value_t>>& v) = 0;
+
+    /*
+     * Returns the number of natural parameters.
+     */
+    virtual size_t n_natural_params() const = 0;
 };
 
 }  // namespace model

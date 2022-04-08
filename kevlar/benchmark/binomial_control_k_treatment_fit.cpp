@@ -3,7 +3,7 @@
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
+#include <kevlar_bits/model/binomial/simple_selection.hpp>
 #include <kevlar_bits/stats/inter_sum.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 
@@ -29,7 +29,7 @@ struct binomial_fixture : benchmark::Fixture {
     size_t n_samples = 250;
     size_t ph2_size = 50;
     double thresh = 1.96;
-    size_t n_threads = 1;//std::thread::hardware_concurrency();
+    size_t n_threads = 1;  // std::thread::hardware_concurrency();
 };
 
 BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {

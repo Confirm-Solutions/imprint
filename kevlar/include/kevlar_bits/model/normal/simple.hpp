@@ -17,6 +17,9 @@ struct NormalSimpleModel : FixedSingleArmSize, ModelBase<ValueType> {
    private:
     using arm_t = FixedSingleArmSize;
 
+    KEVLAR_STRONG_INLINE
+    constexpr auto n_params() const { return 1; }
+
    public:
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
@@ -36,7 +39,7 @@ struct NormalSimpleModel : FixedSingleArmSize, ModelBase<ValueType> {
     };
 
     template <class _ValueType, class _TileType>
-    auto make_upper_bound_state() const {
+    auto make_kevlar_bound_state() const {
         return KevlarBoundState<_ValueType, _TileType>(*this);
     };
 };
@@ -126,13 +129,16 @@ struct NormalSimpleModel<ValueType>::SimGlobalState<
                 rejection_length[pos] = gr.check_null(pos, 0) ? rej_len : 0;
             }
         }
+
+        assert(rejection_length.size() == pos);
     };
 
     // Score is simply centered Normal.
     // Since we internally only store the standard normal,
     // we simply return that and first argument is ignored.
     // Second argument is ignored since we assume only 1 arm.
-    void score(size_t, Eigen::Ref<colvec_type<value_t>> out) override {
+    void score(size_t, Eigen::Ref<colvec_type<value_t>> out) const override {
+        assert(out.size() == outer_.model_.n_params());
         out[0] = std_normal_;
     }
 };
@@ -163,6 +169,8 @@ struct NormalSimpleModel<ValueType>::KevlarBoundState
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
         return v.squaredNorm();
     }
+
+    size_t n_natural_params() const override { return 1; }
 };
 
 }  // namespace normal

@@ -3,7 +3,7 @@
 
 namespace kevlar {
 
-template <class ValueType, size_t NBits = 8>
+template <class ValueType>
 struct Tile;
 
 template <class ValueType, class UIntType, class TileType>

@@ -12,11 +12,31 @@ namespace kevlar {
  * It is the region on which we will compute the upper-bound estimates
  * (supremum) and the region associated with an intersection hypothesis space.
  */
-template <class ValueType, size_t NBits>
+template <class ValueType>
 struct Tile {
     using value_t = ValueType;
-    static constexpr size_t n_bits = NBits;
 
+   private:
+    std::vector<colvec_type<value_t>> vertices_;  // vertices of the actual tile
+    Eigen::Map<const colvec_type<value_t>> center_;  // center of tile
+    Eigen::Map<const colvec_type<value_t>>
+        radius_;  // radius that defines the bounds
+                  // of the tile centered at center_
+    /*
+     * Computes a regular tile vertex based on
+     * the direction to take radius.
+     *
+     * @param   b   vector of -1,1's where
+     *              b[i] is the direction bit for ith axis.
+     *              Assumed to have same dimensions as center
+     *              and radius.
+     */
+    template <class BitsType>
+    KEVLAR_STRONG_INLINE auto regular_vertex(const BitsType& b) const {
+        return center_ + b.cwiseProduct(radius_);
+    }
+
+   public:
     struct FullVertexIterator {
         using difference_type = std::ptrdiff_t;
         using value_type = colvec_type<value_t>;
@@ -151,27 +171,6 @@ struct Tile {
     // Helper functions for pickling
     auto& vertices__() { return vertices_; }
     const auto& vertices__() const { return vertices_; }
-
-   private:
-    /*
-     * Computes a regular tile vertex based on
-     * the direction to take radius.
-     *
-     * @param   b   vector of -1,1's where
-     *              b[i] is the direction bit for ith axis.
-     *              Assumed to have same dimensions as center
-     *              and radius.
-     */
-    template <class BitsType>
-    KEVLAR_STRONG_INLINE auto regular_vertex(const BitsType& b) const {
-        return center_ + b.cwiseProduct(radius_);
-    }
-
-    std::vector<colvec_type<value_t>> vertices_;  // vertices of the actual tile
-    Eigen::Map<const colvec_type<value_t>> center_;  // center of tile
-    Eigen::Map<const colvec_type<value_t>>
-        radius_;  // radius that defines the bounds
-                  // of the tile centered at center_
 };
 
 }  // namespace kevlar

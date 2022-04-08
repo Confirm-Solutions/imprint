@@ -85,7 +85,8 @@ class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
+        return kevlar_bound_state_t<_ValueType, _TileType>(n_arms(),
+                                                           n_arm_samples());
     }
 
     // TODO: clean-up
@@ -177,8 +178,8 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
         const auto& critical_values = outer_.model_.critical_values();
         constexpr double mu_sig_sq = 100;
 
-        int pos = 0;
-        for (int grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
+        size_t pos = 0;
+        for (size_t grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
             auto bits_i = bits.col(grid_i);
 
             vec_t phat(n_params);
@@ -219,6 +220,8 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
                 rej_len(pos) = std::distance(it, critical_values.end());
             }
         }
+
+        assert(rej_len.size() == pos);
     }
 
     using base_t::score;

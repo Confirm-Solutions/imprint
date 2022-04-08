@@ -209,6 +209,8 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
                 rej_len[pos] = is_null ? rej : 0;
             }
         }
+
+        assert(rej_len.size() == pos);
     }
 };
 

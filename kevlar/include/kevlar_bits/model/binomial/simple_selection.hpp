@@ -71,7 +71,8 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
+        return kevlar_bound_state_t<_ValueType, _TileType>(n_arms(),
+                                                           n_arm_samples());
     }
 };
 
@@ -218,7 +219,7 @@ struct SimpleSelection<ValueType>::SimGlobalState<
         const auto& bits = sgs.bits();
         const auto& gr_view = sgs.grid_range();
 
-        int pos = 0;
+        size_t pos = 0;
         for (int i = 0; i < gr_view.n_gridpts(); ++i) {
             const auto bits_i = bits.col(i);
 
@@ -263,6 +264,8 @@ struct SimpleSelection<ValueType>::SimGlobalState<
                 rej_len[pos] = is_null ? rej : 0;
             }
         }
+
+        assert(rej_len.size() == pos);
     }
 
     using base_t::score;

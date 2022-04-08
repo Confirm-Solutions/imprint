@@ -24,9 +24,22 @@ cc_library(
         "@fmtlib//:fmt",
     ],
 ) for type_ in [
+    "bound",
     "distribution",
     "grid",
-    "stats",
+    "model",
+    #"stat",
     "util",
     "model",
 ]]
+
+cc_test(
+    name = "stat",
+    srcs = glob(["{}/**/log_rank_test*.cpp".format("stat")]),
+    defines = ["EIGEN_INITIALIZE_MATRICES_BY_NAN"],
+    deps = [
+        ":testutil",
+        "//kevlar",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

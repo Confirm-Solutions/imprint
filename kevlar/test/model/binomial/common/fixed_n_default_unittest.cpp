@@ -227,10 +227,11 @@ struct kbs_fixed_n_default_fixture : base_fixture {
 };
 
 TEST_F(kbs_fixed_n_default_fixture, apply_eta_jacobian) {
+    size_t d = 5;              // arbitrary
     size_t n_arm_samples = 3;  // arbitrary
-    kbs_t kbs(n_arm_samples);
+    kbs_t kbs(d, n_arm_samples);
     colvec_type<value_t> v;
-    v.setRandom(5);
+    v.setRandom(d);
     colvec_type<value_t> out(v.size());
     kbs.apply_eta_jacobian(/*dummy*/ v, v, out);
     expect_double_eq_vec(out, v);
@@ -240,7 +241,7 @@ TEST_F(kbs_fixed_n_default_fixture, covar_quadform) {
     size_t d = 3;  // number of params
     size_t n_arm_samples = 100;
 
-    kbs_t kbs(n_arm_samples);
+    kbs_t kbs(d, n_arm_samples);
 
     // the invariance is that
     // the values of theta and v does not matter
@@ -270,7 +271,7 @@ TEST_F(kbs_fixed_n_default_fixture, hessian_quadform_bound) {
     radius.array() = 0.25;
     tile_t tile(theta, radius);
 
-    kbs_t kbs(n_arm_samples);
+    kbs_t kbs(d, n_arm_samples);
 
     colvec_type<value_t> v(d);
     v.setRandom();

@@ -5,8 +5,8 @@
 
 namespace kevlar {
 
-template <class V, size_t N>
-inline constexpr bool operator==(const Tile<V, N>& t1, const Tile<V, N>& t2) {
+template <class V>
+inline constexpr bool operator==(const Tile<V>& t1, const Tile<V>& t2) {
     // check center and radius
     if ((t1.center().array() != t2.center().array()).any()) return false;
     if ((t1.radius().array() != t2.radius().array()).any()) return false;

@@ -87,7 +87,7 @@ struct ExpControlkTreatment
         }
 
         void score(size_t gridpt,
-                   Eigen::Ref<colvec_type<value_t>> out) override {
+                   Eigen::Ref<colvec_type<value_t>> out) const override {
             auto hazard_rate = outer_.hzrd_rate(gridpt);
             for (size_t arm = 0; arm < 2; ++arm) {
                 auto mean = (arm == 1) ? 1. / hazard_rate : 1.;
