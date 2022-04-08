@@ -32,3 +32,6 @@ compile_commands.json
 .RData
 .Rhistory
 .Rproj.user
+
+# python stuff
+__pycache__
