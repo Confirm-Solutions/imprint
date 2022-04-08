@@ -372,7 +372,7 @@ def calc_posterior_theta(model, data, quad_rules):
     return post_theta, report
 
 
-def calc_posterior_x(post_theta, report):
+def calc_posterior_x(post_theta, report, thresh):
     """
     Calculate the marginals of the latent variables, x: p(x_i | y)
 
@@ -391,16 +391,25 @@ def calc_posterior_x(post_theta, report):
     x_mu = report["x0"].reshape((n_sims, n_sigma2, n_mu, n_arms))
     H = report["H"]
     x_sigma2 = -(1.0 / H).reshape((n_sims, n_sigma2, n_mu, n_arms))
+    x_sigma = np.sqrt(x_sigma2)
 
     rules = report["theta_rules"]
+
     # mu = integral(mu(x | y, theta) * p(\theta | y))
     mu_post = integrate_multidim(x_mu * post_theta[:, :, :, None], (1, 2), rules)
-
     T = (x_mu - mu_post[:, None, None, :]) ** 2 + x_sigma2
     var_post = integrate_multidim(T * post_theta[:, :, :, None], (1, 2), rules)
-
     sigma_post = np.sqrt(var_post)
-    return mu_post, sigma_post
+
+    # exceedance probabilities
+    exceedance = integrate_multidim(
+        (1.0 - scipy.stats.norm.cdf(thresh[:, None, None, :], x_mu, x_sigma))
+        * post_theta[:, :, :, None],
+        (1, 2),
+        rules,
+    )
+
+    return dict(mu_appx=mu_post, sigma_appx=sigma_post, exceedance=exceedance)
 
 
 ##################

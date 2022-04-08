@@ -27,3 +27,8 @@ bazel-kevlar
 Vagrantfile
 .idea/
 compile_commands.json
+
+# R-studio stuff
+.RData
+.Rhistory
+.Rproj.user
