@@ -298,7 +298,7 @@ def figure1_plot(b, title, data, stats):
     plt.show()
 
 
-def figure1_subplot(gridspec0, gridspec1, i, b, data, stats):
+def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
     plt.subplot(gridspec0)
     # expit(mu_post) is the posterior estimate of the mean probability.
     p_post = theta_to_p(stats["mu_appx"], b.logit_p1)
@@ -320,14 +320,17 @@ def figure1_subplot(gridspec0, gridspec1, i, b, data, stats):
     plt.vlines(np.arange(4), cilow[i], cihigh[i], color="k", linewidth=1.0)
 
     if i < 5:
-        plt.title(f"Interim Analysis {i+1}")
+        if title is None:
+            title = f"Interim Analysis {i+1}"
         plt.hlines([b.pmid_fail, b.pmid_accept], -1, 4, colors=["k"], linestyles=["--"])
         plt.text(-0.1, 0.91, "Early Success", fontsize=7)
         plt.text(2.4, 0.06, "Early Futility", fontsize=7)
     else:
-        plt.title("Final Analysis")
+        if title is None:
+            title = "Final Analysis"
         plt.hlines([b.pfinal_thresh[0]], -1, 4, colors=["k"], linestyles=["--"])
         plt.text(-0.1, 0.86, "Final Success", fontsize=7)
+    plt.title(title)
 
     plt.xlim([-0.3, 3.3])
     plt.ylim([0.0, 1.05])

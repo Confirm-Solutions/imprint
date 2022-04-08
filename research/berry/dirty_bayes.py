@@ -3,6 +3,7 @@ import numpy as np
 from scipy.special import logit
 import berry
 
+
 def fast_invert(S, d):
     for k in range(len(d)):
         offset = (d[k] / (1 + d[k] * S[k, k])) * np.outer(
@@ -31,7 +32,8 @@ def calc_posterior_x(sigma_sq: float, mu_sig_sq: float, sample_I, thetahat, mu_0
 def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
     N, d = y_i.shape
     phat = y_i[:, :] / n_i[:, :]
-    thetahat = berry.p_to_theta(phat, logit_p1) 
+    # NOTE: we use the logit_p1 offset when converting from p space to logit space.
+    thetahat = berry.p_to_theta(phat, logit_p1)
     sample_I = n_i[:, :] * phat * (1 - phat)  # diag(n*phat*(1-phat))
     mu_0 = np.full_like(phat, mu_0_scalar)
     mu_sig_sq = 100
