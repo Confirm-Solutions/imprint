@@ -1,11 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.special
-from scipy.special import logit
-
-import inla
-import util
-
 """
 The Berry model!
 
@@ -14,14 +6,22 @@ theta_i ~ N(mu, sigma2)
 mu ~ N(mu_0, S2)
 sigma2 ~ InvGamma(a, b)
 
-mu_0 = -1.34
+mu_0 = -2.20
 S2 = 100
 a = 0.0005
 b = 0.000005
 """
 
-class Berry:
-    def __init__(self, sigma2_n_quad, sigma2_bounds):
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.special
+from scipy.special import logit
+
+import inla
+import util
+
+class Berry(inla.INLAModel):
+    def __init__(self, sigma2_n=90, sigma2_bounds=(1e-8, 1e3)):
         """
         sigma2_n_quad: int, the number of quadrature points to use integrating over the sigma2 hyperparameter
         sigma2_bounds: a tuple (a, b) specifying the integration limits in the sigma2 dimension
@@ -54,24 +54,82 @@ class Berry:
 
         # Specify the stopping/success criteria.
         self.suc_thresh = np.empty((self.n_stages, self.n_arms))
-        # early stopping condition.
+        # early stopping condition (check-in #1-5)
         self.suc_thresh[:5] = self.pmid_theta
-        # final success criterion
+        # final success criterion (check-in #6)
         self.suc_thresh[5] = self.p0_theta
 
-        self.model = inla.Model(
-            self.berry_prior,
-            self.log_joint,
-            self.log_joint_xonly,
-            self.gradx_log_joint,
-            self.hessx_log_joint,
+        # mu ~ N(-2.197, 100)
+        self.mu_0 = self.p0_theta[0]
+        self.mu_sig_sq = 100
+
+        # Quadrature rule over sigma2 from 1e-8 to 1e3 in log space. 
+        self.sigma2_rule = util.log_gauss_rule(sigma2_n, *sigma2_bounds)
+        self.quad_rules = (self.sigma2_rule,)
+
+    def berry_log_prior(self, hyper):
+        # sigma prior: InvGamma(0.0005, 0.000005)
+        sigma2 = hyper[..., 1]
+        alpha = 0.0005
+        beta = 0.000005
+        return scipy.stats.invgamma.logpdf(sigma2, alpha, scale=beta)
+
+
+    def log_gaussian_x(self, x, hyper, include_det):
+        """
+        The gaussian latent variables likelihood term of the form:
+        x = MVN(mu_0, Sig)
+
+        Parameters
+        ----------
+        x
+            The 
+        hyper
+            The hyperparameter array
+        include_det
+            Should we include the determinant term? 
+        """
+        mu0 = self.p0_theta 
+        sigma2 = hyper[..., 1]
+        cov = np.diag(np.repeat(sigma2, self.n_arms)) + self.mu_sig_sq
+        Q = np.linalg.inv(cov)
+        # V_0 = np.diag(np.repeat(1 / sigma_sq, d)) - (mu_sig_sq / sigma_sq) / (
+        #     sigma_sq + d * mu_sig_sq
+        # )
+
+
+    def log_binomial(self, x, data):
+        y = data[..., 0]
+        n = data[..., 1]
+        return np.sum(x * y - n * np.log(np.exp(x) + 1), axis=-1)
+
+
+    def log_joint(self, model, x, data, hyper):
+        # There are three terms here:
+        # 1) The terms from the Gaussian distribution of the latent variables
+        #    (indepdent of the data):
+        # 2) The term from the response variable (in this case, binomial)
+        # 3) The prior on the hyperparameters
+        return (
+            self.log_gaussian_x(x, hyper, True)
+            + self.log_binomial(x, data)
+            + model.log_prior(hyper)
         )
 
-        # TODO: move to using the MVN version that has no mu integration.
-        self.mu_rule = util.gauss_rule(201, -5, 3)
-        self.sigma2_rule = util.log_gauss_rule(sigma2_n_quad, *sigma2_bounds)
 
-    def berry_prior(self, hyper):
+    def log_joint_xonly(self, x, data, hyper):
+        # See log_joint, we drop the parts not dependent on x.
+        term1 = self.log_gaussian_x(x, hyper, False)
+        term2 = self.log_binomial(x, data)
+        return term1 + term2
+
+class BerryMu(Berry):
+    def __init__(self, sigma2_n=90, sigma2_bounds=(1e-8, 1e3)):
+        super().__init__(sigma2_n, sigma2_bounds)
+        self.mu_rule = util.gauss_rule(201, -5, 3)
+        self.quad_rules = (self.mu_rule, self.sigma2_rule)
+
+    def log_prior(self, hyper):
         mu = hyper[..., 0]
         # mu prior: N(-2.197, 100)
         mu_prior = scipy.stats.norm.logpdf(mu, self.p0_theta[0], 100)
@@ -83,8 +141,7 @@ class Berry:
         sigma2_prior = scipy.stats.invgamma.logpdf(sigma2, alpha, scale=beta)
         return mu_prior + sigma2_prior
 
-
-    def log_gaussian_x_diag(x, hyper, include_det):
+    def log_gaussian_x(self, x, hyper, include_det):
         """
         Gaussian likelihood for the latent variables x for the situation in which the
         precision matrix for those latent variables is diagonal.
@@ -107,49 +164,7 @@ class Berry:
             out += np.log(Qv) * n_rows / 2
         return out
 
-    # def log_gaussian_x_mvn(x, hyper, include_det):
-    #     """
-
-    #     Parameters
-    #     ----------
-    #     x
-    #         The 
-    #     hyper
-    #         The hyperparameter array
-    #     include_det
-    #         Should we include the determinant term? 
-    #     """
-    #     mu0 = 
-    #     sigma2 = hyper[..., 1]
-
-
-    def log_binomial(x, data):
-        y = data[..., 0]
-        n = data[..., 1]
-        return np.sum(x * y - n * np.log(np.exp(x) + 1), axis=-1)
-
-
-    def log_joint(model, x, data, hyper):
-        # There are three terms here:
-        # 1) The terms from the Gaussian distribution of the latent variables
-        #    (indepdent of the data):
-        # 2) The term from the response variable (in this case, binomial)
-        # 3) The prior on the hyperparameters
-        return (
-            log_gaussian_x_diag(x, hyper, True)
-            + log_binomial(x, data)
-            + model.log_prior(hyper)
-        )
-
-
-    def log_joint_xonly(x, data, hyper):
-        # See log_joint, we drop the parts not dependent on x.
-        term1 = log_gaussian_x_diag(x, hyper, False)
-        term2 = log_binomial(x, data)
-        return term1 + term2
-
-
-    def gradx_log_joint(x, data, hyper):
+    def gradx_log_joint(self, x, data, hyper):
         y = data[..., 0]
         n = data[..., 1]
         mu = hyper[..., 0]
@@ -159,12 +174,13 @@ class Berry:
         return term1 + term2
 
 
-    def hessx_log_joint(x, data, hyper):
+    def hessx_log_joint(self, x, data, hyper):
         n = data[..., 1]
         Qv = 1.0 / hyper[..., 1]
         term1 = -n * np.exp(x) / ((np.exp(x) + 1) ** 2)
         term2 = -Qv[..., None]
         return term1 + term2
+    
 
 
 def figure1_plot(b, title, data, stats):

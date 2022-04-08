@@ -1,3 +1,19 @@
+"""
+Please see the "INLA from Scratch" paper as the best intro to INLA concepts.
+
+Note that the variable names here are bit different that in the Berry code:
+- $\theta$ in the Berry code is called "x" here to match with typical INLA notation.
+- I have also referred to the hyperparameters as "hyper" so as not to use the
+  "theta" notation from INLA and make the situtation even more confusing.
+
+There are three basic objects under consideration:
+- an INLAModel, as described above.
+- a data array with shape (n_datasets, n_arms, n_cols). For example, in the case
+of the Berry replication, data is a (6, 4, 2) array with data[:, :, 0]
+representing y_{ki} and data[:, :, 1] representing n_{ki}
+- the hyperparameter array, generated internally
+"""
+
 from dataclasses import dataclass
 from operator import index
 from typing import Callable
@@ -8,7 +24,7 @@ import util
 
 
 @dataclass
-class Model:
+class INLAModel:
     """
     A generic description of a probabalistic model with enough detail to run
     INLA.
@@ -17,28 +33,9 @@ class Model:
     log_prior: Callable
     log_joint: Callable
     log_joint_xonly: Callable
+    # TODO: it probably makes sense to combine grad/hess together into a single function.
     gradx_log_joint: Callable
     hessx_log_joint: Callable
-
-
-##################
-###### EXACT #####
-##################
-# NOTE: An exact integrator is partially implemented in the berry_exact.ipynb
-# notebook
-
-##################
-###### INLA ######
-##################
-"""
-For the INLA code, please see the "INLA from Scratch" paper as the best intro to
-INLA concepts.
-
-Note that the variable names here are bit different that in the Berry code:
-- $\theta$ in the Berry code is called "x" here to match with typical INLA notation.
-- I have also referred to the hyperparameters as "hyper" so as not to use the
-  "theta" notation from INLA and make the situtation even more confusing.
-"""
 
 
 def optimize_x0(model, data, hyper):
@@ -143,7 +140,7 @@ def calc_log_posterior_hyper(model, data, hyper):
     return dict(x0=x0, x0_info=x0_info, H=H, logjoint=ljoint, logpost=logpost)
 
 
-def calc_posterior_hyper(model, data, quad_rules):
+def calc_posterior_hyper(model, data):
     """
     This function calculates p(hyper | y): the posterior of the hyperparameters
     given the data.
@@ -164,7 +161,7 @@ def calc_posterior_hyper(model, data, quad_rules):
     # hyper_grid[:, :, 0] would be the value of mu at the grid points.
     # hyper_grid[:, :, 1] would be the value of sigma2 at the grid points.
     hyper_grid = np.stack(
-        np.meshgrid(*[q.pts for q in quad_rules], indexing="ij"), axis=-1
+        np.meshgrid(*[q.pts for q in model.quad_rules], indexing="ij"), axis=-1
     )
 
     logpost_data = calc_log_posterior_hyper(model, data, hyper_grid)
@@ -185,9 +182,9 @@ def calc_posterior_hyper(model, data, quad_rules):
 
     # Numerically integrate to get the normalization constant. After dividing,
     # post_hyper will be a true PDF.
-    normalization_factor = util.integrate_multidim(unn_post_hyper, (1, 2), quad_rules)[
-        :, None, None
-    ]
+    normalization_factor = util.integrate_multidim(
+        unn_post_hyper, range(1, len(model.quad_rules) + 1), model.quad_rules
+    )[:, None, None]
     post_hyper = unn_post_hyper / normalization_factor
 
     # We return the intermediate values from the log posterior calculation and
@@ -195,7 +192,7 @@ def calc_posterior_hyper(model, data, quad_rules):
     # is helpful for debugging and reporting.
     report = logpost_data
     report["hyper_grid"] = hyper_grid
-    report["hyper_rules"] = quad_rules
+    report['model'] = model
     return post_hyper, report
 
 
@@ -220,7 +217,7 @@ def calc_posterior_x(post_hyper, report, thresh):
     x_sigma2 = -(1.0 / H).reshape((n_sims, n_sigma2, n_mu, n_arms))
     x_sigma = np.sqrt(x_sigma2)
 
-    rules = report["hyper_rules"]
+    rules = report["model"].quad_rules
 
     # mu = integral(mu(x | y, hyper) * p(hyper | y))
     mu_post = util.integrate_multidim(x_mu * post_hyper[:, :, :, None], (1, 2), rules)
@@ -237,75 +234,3 @@ def calc_posterior_x(post_hyper, report, thresh):
     )
 
     return dict(mu_appx=mu_post, sigma_appx=sigma_post, exceedance=exceedance)
-
-
-##################
-###### ALA #######
-##################
-# TODO: not implemented
-# "Aggressive laplace approximation"
-
-##################
-###### MCMC ######
-##################
-# TODO: this is broken bc I changed the model code
-
-
-def proposal(x, sigma=0.25):
-    rv = scipy.stats.norm.rvs(x, sigma, size=(x.shape[0], 6))
-
-    while np.any(rv[:, 5] < 0):
-        # Truncate normal distribution for the precision at 0.
-        bad = rv[:, 5] < 0
-        badx = x[bad]
-        rv[bad, 5] = scipy.stats.norm.rvs(badx[:, 5], sigma, size=badx.shape[0])
-    ratio = 1
-    return rv, ratio
-
-
-def mcmc(y, n, iterations=2000, burn_in=500, skip=2):
-    def joint(xstar):
-        a = xstar[:, -2]
-        Qv = xstar[:, -1]
-        return np.exp(calc_log_joint(xstar[:, :4], y, n, a, Qv))
-
-    M = y.shape[0]
-    x = np.zeros((M, 6))
-    x[:, -1] = 1
-
-    Jx = joint(x)
-    x_chain = [x]
-    J_chain = [Jx]
-    accept = [np.ones(M)]
-
-    for i in range(iterations):
-        xstar, ratio = proposal(x)
-
-        Jxstar = joint(xstar)
-        hastings_ratio = (Jxstar * ratio) / Jx
-        U = np.random.uniform(size=M)
-        should_accept = U < hastings_ratio
-        x[should_accept] = xstar[should_accept]
-        Jx[should_accept] = Jxstar[should_accept]
-
-        accept.append(should_accept)
-        x_chain.append(x.copy())
-        J_chain.append(Jx.copy())
-    x_chain = np.array(x_chain)
-    J_chain = np.array(J_chain)
-    accept = np.array(accept).T
-
-    x_chain_burnin = x_chain[burn_in::skip]
-
-    ci025n = int(x_chain_burnin.shape[0] * 0.025)
-    ci975n = int(x_chain_burnin.shape[0] * 0.975)
-    results = dict(
-        CI025=np.empty(x.shape), CI975=np.empty(x.shape), mean=np.empty(x.shape)
-    )
-    for j in range(6):
-        x_sorted = np.sort(x_chain_burnin[:, :, j], axis=0)
-        x_mean = x_sorted.mean(axis=0)
-        results["CI025"][:, j] = x_sorted[ci025n]
-        results["mean"][:, j] = x_mean
-        results["CI975"][:, j] = x_sorted[ci975n]
-    return results
