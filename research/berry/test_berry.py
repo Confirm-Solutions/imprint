@@ -8,12 +8,6 @@ import berry
 import dirty_bayes
 
 
-def simple_prior(theta):
-    a = theta[..., 0]
-    Qv = 1.0 / theta[..., 1]
-    return scipy.stats.norm.logpdf(a, 0, 1) + scipy.stats.lognorm.logpdf(Qv, 10.0)
-
-
 def test_binomial_hierarchical_grad_hess():
     nT = 50
     n_i = np.full((1, 4), nT)
@@ -60,6 +54,11 @@ def test_binomial_hierarchical_grad_hess():
     np.testing.assert_allclose(num_hess, analytical_hess, atol=1e-5)
 
 
+def simple_prior(theta):
+    Qv = 1.0 / theta[..., 0]
+    return scipy.stats.lognorm.logpdf(Qv, 10.0)
+
+
 def test_inla_sim(n_sims=100, check=True):
     n_sims = 100
     n_arms = 4
@@ -67,45 +66,41 @@ def test_inla_sim(n_sims=100, check=True):
 
     n_patients_per_group = 50
 
-    # The group effects are drawn from a distribution with mean 0.5 and variance 1.0
+    # The effects are drawn from a distribution with mean 0.5 and variance 1.0
     mean_effect = 0.5
     effect_var = 1.0
     t_i = scipy.stats.norm.rvs(mean_effect, np.sqrt(effect_var), size=(n_sims, n_arms))
-
     # inverse logit to get probabilities from linear predictors.
     p_i = scipy.special.expit(t_i)
-
     n_i = np.full_like(p_i, n_patients_per_group)
-
     # draw actual trial results.
     y_i = scipy.stats.binom.rvs(n_patients_per_group, p_i).reshape(n_i.shape)
     data = np.stack((y_i, n_i), axis=2)
-    model = berry.BerryMu()
-    model.log_prior = simple_prior
-    model.mu_rule = util.simpson_rule(13, a=-3, b=1)
-    model.sigma2_rule = util.simpson_rule(15, a=1e-2, b=1)
-    model.quad_rules = (model.mu_rule, model.sigma2_rule)
-
-    post_theta, logpost_theta_data = inla.calc_posterior_hyper(model, data)
 
     thresh = np.full((1, 4), -1)
+
+    model = berry.Berry()
+    post_theta, logpost_theta_data = inla.calc_posterior_hyper(model, data)
     inla_stats = inla.calc_posterior_x(post_theta, logpost_theta_data, thresh)
 
     ci025 = inla_stats["mu_appx"] - 1.96 * inla_stats["sigma_appx"]
     ci975 = inla_stats["mu_appx"] + 1.96 * inla_stats["sigma_appx"]
-    good = (ci025 < t_i) & (t_i < ci975)
+    t_i_offset = t_i - model.logit_p1
+    good = (ci025 < t_i_offset) & (t_i_offset < ci975)
     frac_contained = np.sum(good) / (n_sims * n_arms)
 
     # Set the exact value since the seed should be fixed. I don't know if this
     # will persist across machines, but it works for me for now.
+    # It's not a problem that this is lower than 95% because the data generating
+    # process is different from the model assumptions.
     if check:
-        assert frac_contained == 0.9425
+        assert frac_contained == 0.9275
 
     # Test the optimization!
     # Confirm that x0 is truly the mode/peak of p(x|y,\theta).
     # Check that random shifts of x0 have lower joint density.
     x0 = logpost_theta_data["x0"]
-    theta_broadcast = logpost_theta_data["hyper_grid"].reshape((1, -1, 2))
+    theta_broadcast = logpost_theta_data["hyper_grid"].reshape((1, -1, 1))
     data_broadcast = data[:, None, :]
     x0f = model.log_joint_xonly(x0, data_broadcast, theta_broadcast)
     for i in range(10):
@@ -136,8 +131,8 @@ def test_mu_integration():
     # values, then our mu integration range should be almost complete and the
     # numerical integration should produce results almost exactly equal to the
     # results from the analytical integration. This is useful for testing both!
-    b_mu = berry.BerryMu(90, (1e-8, 1e-3))
-    b_no_mu = berry.Berry(90, (1e-8, 1e-3))
+    b_mu = berry.BerryMu(sigma2_n=90, sigma2_bounds=(1e-8, 1e-3))
+    b_no_mu = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e-3))
 
     y_i = np.array([[3, 8, 5, 4]])
     n_i = np.full((1, 4), 15)
@@ -146,21 +141,11 @@ def test_mu_integration():
     post_hyper_mu, report_mu = inla.calc_posterior_hyper(b_mu, data)
     post_hyper_no_mu, report_no_mu = inla.calc_posterior_hyper(b_no_mu, data)
 
-    thresh = np.full((1, 4), -2.0)
+    thresh = np.full((1, 4), -0.0)
     mu_stats = inla.calc_posterior_x(post_hyper_mu, report_mu, thresh)
     no_mu_stats = inla.calc_posterior_x(post_hyper_no_mu, report_no_mu, thresh)
-    print(mu_stats["exceedance"])
-    print(no_mu_stats["exceedance"])
-
-    """
-    On the post_hyper_mu side, we need to numerically integrate out mu
-    We have:
-    * $p(\theta | \mu, \sigma^2, y)$
-    * $p(\mu, \sigma^2|y)$
-
-    We want:
-    * 
-    """
+    # The match should not be exact!! But it should be close. 
+    assert(np.all(mu_stats["exceedance"] - no_mu_stats["exceedance"] < 0.02))
 
 
 def test_simpson_rules():
