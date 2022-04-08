@@ -54,7 +54,7 @@ struct HyperPlaneView {
     }
 
     auto normal() const { return normal_; }
-    void normal(const Eigen::Ref<const colvec_type<value_t>> n) {
+    void normal(const Eigen::Ref<const colvec_type<value_t>>& n) {
         new (&normal_)
             Eigen::Map<const colvec_type<value_t>>(n.data(), n.size());
     }
@@ -71,13 +71,13 @@ struct HyperPlane : HyperPlaneView<ValueType> {
     using typename view_t::value_t;
 
    private:
+    colvec_type<value_t> normal_;
+    value_t shift_;
+
     void reset_view() {
         this->normal(normal_);
         this->shift(shift_);
     }
-
-    colvec_type<value_t> normal_;
-    value_t shift_;
 
    public:
     HyperPlane(const Eigen::Ref<const colvec_type<value_t>>& normal,

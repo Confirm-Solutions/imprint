@@ -1,10 +1,10 @@
-#include <kevlar_bits/driver/fit.hpp>
+#include <kevlar_bits/bound/accumulator/typeI_error_accum.hpp>
+#include <kevlar_bits/driver/accumulate.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/binomial/simple_selection.hpp>
-#include <kevlar_bits/stats/inter_sum.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 
 #include "benchmark/benchmark.h"
@@ -12,12 +12,15 @@
 namespace kevlar {
 
 struct binomial_fixture : benchmark::Fixture {
+    using gen_t = std::mt19937;
+    using value_t = double;
+    using uint_t = uint32_t;
     using grid_t = Gridder;
-    using tile_t = Tile<double>;
-    using grid_range_t = GridRange<double, uint32_t, tile_t>;
-    using hp_t = HyperPlane<double>;
-    using bckt_t = BinomialControlkTreatment<double, uint32_t, grid_range_t>;
-    using is_t = InterSum<double, uint32_t>;
+    using tile_t = Tile<value_t>;
+    using grid_range_t = GridRange<value_t, uint_t, tile_t>;
+    using hp_t = HyperPlane<value_t>;
+    using model_t = model::binomial::SimpleSelection<value_t>;
+    using acc_t = bound::TypeIErrorAccum<value_t, uint_t>;
 
     size_t n_thetas_1d = 64;
     double lower = -0.5;
@@ -46,6 +49,7 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     std::vector<hp_t> hps;
     for (size_t k = 1; k < grid_dim; ++k) {
         colvec_type<double> normal(grid_dim);
+        normal.setZero();
         normal[0] = 1;
         normal[k] = -1;
         hps.emplace_back(normal, 0);
@@ -66,13 +70,13 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     grid_range.create_tiles(hps);
     grid_range.prune();
 
-    bckt_t model(grid_dim, ph2_size, n_samples, thresholds);
-    model.set_grid_range(grid_range);
+    model_t model(grid_dim, n_samples, ph2_size, thresholds);
+    auto sgs = model.make_sim_global_state<gen_t, value_t, uint_t>(grid_range);
 
-    is_t is_o;
+    acc_t acc_o(model.n_models(), grid_range.n_tiles(), grid_range.n_params());
 
     for (auto _ : state) {
-        fit<std::mt19937>(model, grid_range, is_o, n_sim, 0, n_threads);
+        accumulate(sgs, grid_range, acc_o, n_sim, 0, n_threads);
     }
 }
 

@@ -66,6 +66,10 @@ struct TypeIErrorAccum {
     template <class VecType, class SimStateType, class GridRangeType>
     void update(const VecType& rej_len, const SimStateType& sim_state,
                 const GridRangeType& grid_range) {
+        assert(grid_range.n_tiles() == typeI_sum_.cols());
+        assert(grid_range.n_params() == n_params_);
+        assert(score_buff_.size() == n_params_);
+
         const auto& gr_view = grid_range;
         const uint_t n_gridpts = gr_view.n_gridpts();
 

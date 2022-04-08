@@ -9,6 +9,6 @@
     ],
 ) for type_ in [
     "bench_binomial_2_arm",
-    "binomial_control_k_treatment_fit",
     "direct_bayes",
+    "simple_selection_accum",
 ]]
