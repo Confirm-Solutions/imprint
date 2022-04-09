@@ -120,7 +120,11 @@ struct LogRankTest {
             logrank_cum_sum += (O_j[0] - E_0j);
             v_cum_sum +=
                 E_0j * (1 - O_div_N) * (static_cast<value_t>(N_j[1]) / (N - 1));
-            logrank_accum_[cs_idx + 1] =
+
+            // Note that this may leave some values of logrank_accum_
+            // uninitialized if there are repeat outcomes at a distinct time. We
+            // just need to be careful when get the stat given a censor time.
+            logrank_accum_[cs_idx + O] =
                 (v_cum_sum <= 0.0)
                     ? std::copysign(1., logrank_cum_sum) *
                           std::numeric_limits<value_t>::infinity()
@@ -130,7 +134,7 @@ struct LogRankTest {
             N_j.array() -= O_j.array();
 
             // Increment accumulation indexer
-            ++cs_idx;
+            cs_idx += O;
         }
 
         // Optimization: the rest of the log-rank stats
@@ -149,12 +153,14 @@ struct LogRankTest {
      * See https://www.ncbi.nlm.nih.gov/pmc/articles/PMC403858/,
      * which uses this convention.
      */
+    KEVLAR_STRONG_INLINE
     value_t stat(value_t censor_time) const {
         // computes the number of observations in v <= censor_time
         auto n_observed = [&](const auto& v) {
             // find first time v outcome > censor_time
-            auto it = std::upper_bound(v.begin(), v.end(), censor_time);
-            return std::distance(v.begin(), it);
+            auto it =
+                std::upper_bound(v.data(), v.data() + v.size(), censor_time);
+            return (it - v.data());
         };
 
         auto n_c_observed = n_observed(control_);

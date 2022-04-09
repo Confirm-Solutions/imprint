@@ -9,9 +9,8 @@ namespace model {
 namespace normal {
 
 template <class ValueType>
-struct NormalSimpleModel : FixedSingleArmSize, ModelBase<ValueType> {
+struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
     using base_t = ModelBase<ValueType>;
-    using typename base_t::interface_t;
     using typename base_t::value_t;
 
    private:
@@ -28,7 +27,7 @@ struct NormalSimpleModel : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _ValueType, class _TileType>
     struct KevlarBoundState;
 
-    NormalSimpleModel(const Eigen::Ref<const colvec_type<value_t>>& cvs)
+    Simple(const Eigen::Ref<const colvec_type<value_t>>& cvs)
         : arm_t(1, 1), base_t(cvs) {}
 
     template <class _GenType, class _ValueType, class _UIntType,
@@ -47,7 +46,7 @@ struct NormalSimpleModel : FixedSingleArmSize, ModelBase<ValueType> {
 template <class ValueType>
 template <class _GenType, class _ValueType, class _UIntType,
           class _GridRangeType>
-struct NormalSimpleModel<ValueType>::SimGlobalState
+struct Simple<ValueType>::SimGlobalState
     : SimGlobalStateBase<_GenType, _ValueType, _UIntType> {
     struct SimState;
 
@@ -60,7 +59,7 @@ struct NormalSimpleModel<ValueType>::SimGlobalState
     using sim_state_t = SimState;
 
    private:
-    using model_t = NormalSimpleModel;
+    using model_t = Simple;
 
     const model_t& model_;
     const grid_range_t& grid_range_;
@@ -85,8 +84,8 @@ struct NormalSimpleModel<ValueType>::SimGlobalState
 template <class ValueType>
 template <class _GenType, class _ValueType, class _UIntType,
           class _GridRangeType>
-struct NormalSimpleModel<ValueType>::SimGlobalState<
-    _GenType, _ValueType, _UIntType, _GridRangeType>::SimState
+struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
+                                         _GridRangeType>::SimState
     : SimGlobalState::interface_t::sim_state_t {
     using outer_t = SimGlobalState;
     using base_t = typename outer_t::interface_t::sim_state_t;
@@ -145,7 +144,7 @@ struct NormalSimpleModel<ValueType>::SimGlobalState<
 
 template <class ValueType>
 template <class _ValueType, class _TileType>
-struct NormalSimpleModel<ValueType>::KevlarBoundState
+struct Simple<ValueType>::KevlarBoundState
     : KevlarBoundStateBase<_ValueType, _TileType> {
     using base_t = KevlarBoundStateBase<_ValueType, _TileType>;
     using typename base_t::interface_t;

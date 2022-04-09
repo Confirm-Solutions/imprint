@@ -1,14 +1,13 @@
-#include <kevlar_bits/model/gaussian_simple.hpp>
+#include <iostream>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <iostream>
+#include <kevlar_bits/model/normal/simple.hpp>
 
-int main()
-{
+int main() {
     using namespace kevlar;
-    using model_t = experimental::GaussianSimpleModel<double>;
+    using model_t = model::normal::Simple<double>;
     using tile_t = Tile<double>;
     using gr_t = GridRange<double, uint32_t, tile_t>;
 
@@ -19,8 +18,8 @@ int main()
     double upper = 1.4;
     double alpha = 0.025;
 
-    colvec_type<double> cvs(1); 
-    cvs << (upper + qnorm(1-alpha));
+    colvec_type<double> cvs(1);
+    cvs << (upper + qnorm(1 - alpha));
 
     // empty null hypos
     std::vector<HyperPlane<double>> null_hypos;
@@ -36,8 +35,7 @@ int main()
     gr.prune();
 
     model_t model(cvs);
-    auto sgs = model.make_sim_global_state<
-        std::mt19937, double, uint32_t>(gr);
+    auto sgs = model.make_sim_global_state<std::mt19937, double, uint32_t>(gr);
     auto ss = sgs.make_sim_state();
 
     colvec_type<uint32_t> rejection_length(gr.n_tiles());
@@ -49,7 +47,7 @@ int main()
         ss->simulate(gen, rejection_length);
         rejection_sum += rejection_length;
     }
-    colvec_type<double> type_I_err = 
+    colvec_type<double> type_I_err =
         rejection_sum.template cast<double>() / n_sims;
     std::cout << type_I_err.transpose() << std::endl;
 

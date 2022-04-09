@@ -5,5 +5,5 @@
         "//kevlar",
     ],
 ) for type_ in [
-    "gaussian_simple",
+    "normal_simple",
 ]]

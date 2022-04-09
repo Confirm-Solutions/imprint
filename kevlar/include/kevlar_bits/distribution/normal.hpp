@@ -20,7 +20,7 @@ struct Normal {
      * given an RNG gen.
      */
     template <class GenType>
-    KEVLAR_STRONG_INLINE value_t sample(GenType&& gen) const {
+    KEVLAR_STRONG_INLINE value_t sample(GenType&& gen) {
         return normal_dist_(gen);
     }
 };
