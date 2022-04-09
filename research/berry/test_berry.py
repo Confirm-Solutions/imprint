@@ -6,6 +6,7 @@ import inla
 import util
 import berry
 import dirty_bayes
+import exact
 
 
 def test_binomial_hierarchical_grad_hess():
@@ -144,8 +145,8 @@ def test_mu_integration():
     thresh = np.full((1, 4), -0.0)
     mu_stats = inla.calc_posterior_x(post_hyper_mu, report_mu, thresh)
     no_mu_stats = inla.calc_posterior_x(post_hyper_no_mu, report_no_mu, thresh)
-    # The match should not be exact!! But it should be close. 
-    assert(np.all(mu_stats["exceedance"] - no_mu_stats["exceedance"] < 0.02))
+    # The match should not be exact!! But it should be close.
+    assert np.all(mu_stats["exceedance"] - no_mu_stats["exceedance"] < 0.02)
 
 
 def test_simpson_rules():
@@ -200,10 +201,47 @@ def test_log_gauss_rule():
     np.testing.assert_allclose(est, exact, 1e-14)
 
 
+def test_exact_integrate():
+    n_i = np.full((1, 4), 10)
+    y_i = np.array([[1, 6, 3, 3]])
+    data = np.stack((y_i, n_i), axis=2)
+    b = berry.Berry(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
+
+    p_sigma2_g_y = exact.integrate(
+        b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=11
+    )
+    p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
+    expected = [
+        7.253775e-01,
+        5.361246e-01,
+        3.266723e-01,
+        1.871160e-01,
+        1.390248e-01,
+        6.546949e-02,
+        6.794999e-03,
+        8.639377e-04,
+        1.737905e-04,
+        6.668053e-05,
+    ]
+    np.testing.assert_allclose(p_sigma2_g_y[0], expected, 1e-6)
+
+def test_exact_integrate2():
+    n_i = np.full((1, 4), 10)
+    y_i = np.array([[1, 6, 3, 3]])
+    data = np.stack((y_i, n_i), axis=2)
+    b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-1, 1e2))
+
+    p_sigma2_g_y = exact.integrate(
+        b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=15
+    )
+    p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
+
+
 if __name__ == "__main__":
     import time
 
     for i in range(5):
         start = time.time()
-        test_inla_sim(n_sims=1000, check=False)
+        # test_inla_sim(n_sims=1000, check=False)
+        test_exact_integrate2()
         print(time.time() - start)
