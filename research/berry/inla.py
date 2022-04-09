@@ -186,14 +186,16 @@ def calc_posterior_hyper(model, data):
     normalization_factor = util.integrate_multidim(
         unn_post_hyper, integrate_dims, model.quad_rules
     )
-    post_hyper = unn_post_hyper / np.expand_dims(normalization_factor, tuple(integrate_dims))
+    post_hyper = unn_post_hyper / np.expand_dims(
+        normalization_factor, tuple(integrate_dims)
+    )
 
     # We return the intermediate values from the log posterior calculation and
     # add the hyper grid and quadrature rules to those intermediate values. This
     # is helpful for debugging and reporting.
     report = logpost_data
     report["hyper_grid"] = hyper_grid
-    report['model'] = model
+    report["model"] = model
     return post_hyper, report
 
 
@@ -211,14 +213,18 @@ def calc_posterior_x(post_hyper, report, thresh):
     n_arms = report["x0"].shape[-1]
 
     x_mu = report["x0"].reshape((*post_hyper.shape, n_arms))
-    x_sigma2 = report['model'].sigma2_from_H(report['H']).reshape((*post_hyper.shape, n_arms))
+    x_sigma2 = (
+        report["model"].sigma2_from_H(report["H"]).reshape((*post_hyper.shape, n_arms))
+    )
     x_sigma = np.sqrt(x_sigma2)
 
     rules = report["model"].quad_rules
 
     # mu = integral(mu(x | y, hyper) * p(hyper | y))
     integrate_dims = range(1, len(rules) + 1)
-    mu_post = util.integrate_multidim(x_mu * post_hyper[..., None], integrate_dims, rules)
+    mu_post = util.integrate_multidim(
+        x_mu * post_hyper[..., None], integrate_dims, rules
+    )
 
     mu_post_broadcast = np.expand_dims(mu_post, tuple(integrate_dims))
     T = (x_mu - mu_post_broadcast) ** 2 + x_sigma2
@@ -234,4 +240,11 @@ def calc_posterior_x(post_hyper, report, thresh):
         rules,
     )
 
-    return dict(mu_appx=mu_post, sigma_appx=sigma_post, exceedance=exceedance)
+    return dict(
+        cilow=mu_post - 2 * sigma_post,
+        cihi=mu_post + 2 * sigma_post,
+        mu_map=mu_post,
+        mu_appx=mu_post,
+        sigma_appx=sigma_post,
+        exceedance=exceedance,
+    )

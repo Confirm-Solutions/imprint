@@ -91,5 +91,7 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
         sigma2_posterior=sigma2_posterior,
         mu_appx=mu_db,
         sigma_appx=sigma_db,
+        cilow=mu_db - 2 * sigma_db,
+        cihi=mu_db + 2 * sigma_db,
         exceedance=exceedance,
     )

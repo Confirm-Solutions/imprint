@@ -2,6 +2,18 @@ import numpy as np
 import inla
 
 def build_centered_quad_rules(model, data, n=11, w=6, max_sigma2=2.0):
+    """
+    The ideal range of theta integration will depend heavily on the value of sigma2:
+    If sigma2 is very small, then there will not be much variation in esimated
+    values of theta. If sigma2 is larger, there will be lots of variation. Thus,
+    in order to correctly integrate over the theta dimensions, we need to vary
+    the domain of theta integration depending on the value of sigma2. The method
+    implemented here is fairly simple: 
+    - find the MAP for a given value of sigma2.
+    - (very approximately) assume a standard deviation of a normal appx at that MAP.
+    - construct a gaussian quadrature rule that would conservatively cover that
+      normal approximately by integrating out to 6x the standard deviation
+    """
     sigma2_rule = model.sigma2_rule
     x0_info = inla.optimize_x0(model, data[:, None, :], sigma2_rule.pts[None, :, None])
     # Note: in INLA notation, x is used to refer to the Berry "theta"
@@ -27,6 +39,21 @@ def build_centered_quad_rules(model, data, n=11, w=6, max_sigma2=2.0):
 
 
 def build_integration_grids(thetapts, sigma2_rule, fixed_dims=dict()):
+    """
+    Build a giant multidimensional array of integration points for theta and sigma2:
+
+    By default, the centered quadrature rules produced by build_centered_quad_rules will
+    be used for each theta dimension. However, in some situations, the end goal
+    will be to produce a distribution with a theta variable as one of the
+    unintegrated variables. In that case, we need to use a fixed grid for that
+    theta regardless of the value of sigma2. To specify that fixed grid, we use,
+    for example:
+    fixed_dims = {0: theta0_grid, 1: theta1_grid}
+
+    Returns:
+    - grids has shape (n_sims, n_sigma2, n_theta0, n_theta1, n_theta2, n_theta3, 5)
+    n_theta# will b
+    """
     theta = []
     for i in range(thetapts.shape[0]):
         theta.append([])
@@ -61,6 +88,11 @@ def quad_sum(
     integrate_thetas=(),
     fixed_dims=dict(),
 ):
+    """
+    By specifying integrate_sigma2=True and integrate_thetas=(1,2,3), this
+    function will compute, for example: p(\theta_0 | y)
+    The returned integral will not be normalized.
+    """
     joint_weighted = joint.copy()
     sum_dims = []
     if integrate_sigma2:

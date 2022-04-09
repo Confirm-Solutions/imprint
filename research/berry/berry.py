@@ -301,12 +301,12 @@ def figure1_plot(b, title, data, stats):
 
 def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
     plt.subplot(gridspec0)
-    # expit(mu_post) is the posterior estimate of the mean probability.
-    p_post = theta_to_p(stats["mu_appx"], b.logit_p1)
 
-    # two sigma confidence intervals transformed from logit to probability space.
-    cilow = theta_to_p(stats["mu_appx"] - 2 * stats["sigma_appx"], b.logit_p1)
-    cihigh = theta_to_p(stats["mu_appx"] + 2 * stats["sigma_appx"], b.logit_p1)
+    # expit(mu_map) is the posterior estimate of the mean probability.
+    p_post = theta_to_p(stats['mu_map'], b.logit_p1)
+
+    cilow = theta_to_p(stats['cilow'], b.logit_p1)
+    cihi = theta_to_p(stats['cihi'], b.logit_p1)
 
     y = data[:, :, 0]
     n = data[:, :, 1]
@@ -318,7 +318,7 @@ def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
     plt.plot(np.arange(4), p_post[i], "ko", mfc="none")
     plt.plot(np.arange(4), stats["exceedance"][i], "k ", marker=(8, 2, 0))
 
-    plt.vlines(np.arange(4), cilow[i], cihigh[i], color="k", linewidth=1.0)
+    plt.vlines(np.arange(4), cilow[i], cihi[i], color="k", linewidth=1.0)
 
     if i < 5:
         if title is None:
