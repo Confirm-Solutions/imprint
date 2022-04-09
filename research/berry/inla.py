@@ -132,7 +132,7 @@ def calc_log_posterior_hyper(model, data, hyper):
     # exponentiated, this is a normal distribution.
     H = model.hess(x0, data_broadcast, hyper_broadcast)
     detnegH = model.det_neg_hess(H)
-    ljoint = model.log_joint(model, x0, data_broadcast, hyper_broadcast)
+    ljoint = model.log_joint(x0, data_broadcast, hyper_broadcast)
     logpost = ljoint - 0.5 * np.log(detnegH)
 
     # It's handy to return more than just the log posterior since we can re-use

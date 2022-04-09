@@ -133,7 +133,7 @@ class Berry(inla.INLAModel):
         adj_x = x + self.logit_p1
         return np.sum(adj_x * y - n * np.log(np.exp(adj_x) + 1), axis=-1)
 
-    def log_joint(self, model, x, data, hyper):
+    def log_joint(self, x, data, hyper):
         # There are three terms here:
         # 1) The terms from the Gaussian distribution of the latent variables
         #    (indepdent of the data):
@@ -142,7 +142,7 @@ class Berry(inla.INLAModel):
         return (
             self.log_gaussian_x(x, hyper, True)
             + self.log_binomial(x, data)
-            + model.log_prior(hyper)
+            + self.log_prior(hyper)
         )
 
     def log_joint_xonly(self, x, data, hyper):
