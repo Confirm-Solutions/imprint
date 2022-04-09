@@ -87,6 +87,16 @@ class Berry(inla.INLAModel):
         self.sigma2_rule = util.log_gauss_rule(sigma2_n, *sigma2_bounds)
         self.quad_rules = (self.sigma2_rule,)
 
+        # Precompute Q inverse covariance (aka precision) matrices
+        na = np.arange(self.n_arms)
+        cov = np.full(
+            (self.sigma2_rule.pts.shape[0], self.n_arms, self.n_arms), self.mu_sig_sq
+        )
+        cov[:, na, na] += self.sigma2_rule.pts[:, None]
+        self.Q = np.linalg.inv(cov)
+        self.Qdet = np.linalg.det(self.Q)
+
+    @profile
     def log_prior(self, hyper):
         # sigma prior: InvGamma(0.0005, 0.000005)
         sigma2 = hyper[..., 0]
@@ -94,6 +104,7 @@ class Berry(inla.INLAModel):
         beta = 0.000005
         return scipy.stats.invgamma.logpdf(sigma2, alpha, scale=beta)
 
+    @profile
     def log_gaussian_x(self, x, hyper, include_det):
         """
         The gaussian latent variables likelihood term of the form:
@@ -109,23 +120,21 @@ class Berry(inla.INLAModel):
             Should we include the determinant term?
         """
 
-        Q = self.Q(hyper[..., 0])
+        Q, Qdet = self.get_Q(hyper[..., 0])
         xmm0 = x - self.mu_0
         out = -0.5 * np.einsum("...i,...ij,...j", xmm0, Q, xmm0)
         if include_det:
-            out += 0.5 * np.log(np.linalg.det(Q))
+            out += 0.5 * np.log(Qdet)
         return out
 
-    def Q(self, sigma2):
-        na = np.arange(self.n_arms)
-        cov = np.full((*sigma2.shape, self.n_arms, self.n_arms), self.mu_sig_sq)
-        cov[:, :, na, na] += sigma2[:, :, None]
-        Q = np.linalg.inv(cov)
-        return Q
-        # TODO: fast version!!
-        # V_0 = np.diag(np.repeat(1 / sigma_sq, d)) - (mu_sig_sq / sigma_sq) / (
-        #     sigma_sq + d * mu_sig_sq
-        # )
+    @profile
+    def get_Q(self, sigma2):
+        unique_s, indices = np.unique(sigma2, return_inverse=True)
+        np.testing.assert_allclose(unique_s, self.sigma2_rule.pts)
+        return (
+            self.Q[indices].reshape((*sigma2.shape, self.n_arms, self.n_arms)),
+            self.Qdet[indices].reshape(sigma2.shape)
+        )
 
     def log_binomial(self, x, data):
         y = data[..., 0]
@@ -133,6 +142,7 @@ class Berry(inla.INLAModel):
         adj_x = x + self.logit_p1
         return np.sum(adj_x * y - n * np.log(np.exp(adj_x) + 1), axis=-1)
 
+    @profile
     def log_joint(self, x, data, hyper):
         # There are three terms here:
         # 1) The terms from the Gaussian distribution of the latent variables
@@ -154,7 +164,7 @@ class Berry(inla.INLAModel):
     def grad(self, x, data, hyper):
         y = data[..., 0]
         n = data[..., 1]
-        Q = self.Q(hyper[..., 0])
+        Q = self.get_Q(hyper[..., 0])[0]
         xmm0 = x - self.mu_0
         term1 = -np.sum(Q * xmm0[..., None, :], axis=-1)
         adj_x = x + self.logit_p1
@@ -165,7 +175,7 @@ class Berry(inla.INLAModel):
         n = data[..., 1]
         na = np.arange(self.n_arms)
         H = np.empty((*x.shape, self.n_arms))
-        H[:] = -self.Q(hyper[..., 0])
+        H[:] = -self.get_Q(hyper[..., 0])[0]
         adj_x = x + self.logit_p1
         H[:, :, na, na] -= n * np.exp(adj_x) / ((np.exp(adj_x) + 1) ** 2)
         return H
@@ -303,10 +313,10 @@ def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
     plt.subplot(gridspec0)
 
     # expit(mu_map) is the posterior estimate of the mean probability.
-    p_post = theta_to_p(stats['mu_map'], b.logit_p1)
+    p_post = theta_to_p(stats["theta_map"], b.logit_p1)
 
-    cilow = theta_to_p(stats['cilow'], b.logit_p1)
-    cihi = theta_to_p(stats['cihi'], b.logit_p1)
+    cilow = theta_to_p(stats["cilow"], b.logit_p1)
+    cihi = theta_to_p(stats["cihi"], b.logit_p1)
 
     y = data[:, :, 0]
     n = data[:, :, 1]

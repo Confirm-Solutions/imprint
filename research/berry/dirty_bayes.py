@@ -89,6 +89,7 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
     return dict(
         mu_posterior=mu_posterior,
         sigma2_posterior=sigma2_posterior,
+        theta_map=mu_db,
         mu_appx=mu_db,
         sigma_appx=sigma_db,
         cilow=mu_db - 2 * sigma_db,

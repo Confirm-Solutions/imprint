@@ -1,5 +1,12 @@
+"""
+Implementation of a numerical integration solver for low dimensional models.
+
+This runs on the Berry model.
+"""
 import numpy as np
 import inla
+import util
+
 
 def build_centered_quad_rules(model, data, n=11, w=6, max_sigma2=2.0):
     """
@@ -8,7 +15,7 @@ def build_centered_quad_rules(model, data, n=11, w=6, max_sigma2=2.0):
     values of theta. If sigma2 is larger, there will be lots of variation. Thus,
     in order to correctly integrate over the theta dimensions, we need to vary
     the domain of theta integration depending on the value of sigma2. The method
-    implemented here is fairly simple: 
+    implemented here is fairly simple:
     - find the MAP for a given value of sigma2.
     - (very approximately) assume a standard deviation of a normal appx at that MAP.
     - construct a gaussian quadrature rule that would conservatively cover that
@@ -113,9 +120,19 @@ def quad_sum(
 
 
 def integrate(
-    model, data, *, integrate_sigma2=False, integrate_thetas=(), fixed_dims=dict()
+    model,
+    data,
+    *,
+    integrate_sigma2=False,
+    integrate_thetas=(),
+    fixed_dims=dict(),
+    n_theta=11,
+    w_theta=6,
+    max_sigma2=2.0
 ):
-    thetapts, thetawts = build_centered_quad_rules(model, data)
+    thetapts, thetawts = build_centered_quad_rules(
+        model, data, n=n_theta, w=w_theta, max_sigma2=max_sigma2
+    )
     grids, giant_grid_theta, giant_grid_sigma2 = build_integration_grids(
         thetapts, model.sigma2_rule, fixed_dims=fixed_dims
     )
@@ -131,12 +148,51 @@ def integrate(
         integrate_thetas=integrate_thetas,
     )
 
-# def exact_posterior_x(model, data):
-#     t0_rule = util.simpson_rule(21, -6, 6)
-#     p_t0_g_y = exact.integrate(
-#         b, data[:1],
-#         integrate_sigma2=True,
-#         integrate_thetas=(1, 2, 3),
-#         fixed_dims={0:t0_rule},
-#     )
-#     p_t0_g_y /= np.sum(p_t0_g_y * t0_rule.wts)
+
+def exact_posterior_x(model, data, thresh):
+    theta_map = np.empty_like(thresh)
+    cilow = np.empty_like(thresh)
+    cihi = np.empty_like(thresh)
+    exceedance = np.empty_like(thresh)
+    t_rule = util.simpson_rule(61, -6.0, 1.0)
+    for i in range(4):
+        integrate_dims = list(range(4))
+        integrate_dims.remove(i)
+        p_ti_g_y = integrate(
+            model,
+            data,
+            integrate_sigma2=True,
+            integrate_thetas=integrate_dims,
+            fixed_dims={i: t_rule},
+        )
+        p_ti_g_y /= np.sum(p_ti_g_y * t_rule.wts, axis=1)[:, None]
+
+        cdf = []
+        cdf_pts = []
+        # TODO: build custom product rule for each step!
+        for j in range(3, t_rule.pts.shape[0], 2):
+            # Note that t0_rule.wts[:i] will be different from cdf_rule.wts!!
+            cdf_rule = util.simpson_rule(j, t_rule.pts[0], t_rule.pts[j - 1])
+            cdf.append(np.sum(p_ti_g_y[:, :j] * cdf_rule.wts[:j], axis=1))
+            cdf_pts.append(t_rule.pts[j - 1])
+        cdf = np.array(cdf).T
+        cdf_pts = np.array(cdf_pts)
+        print(cdf.shape, cdf_pts.shape)
+
+        # TODO: I should do a linear interpolation here too
+        cilow[:, i] = cdf_pts[np.argmax(cdf > 0.025, axis=1)]
+        cihi[:, i] = cdf_pts[np.argmax(cdf > 0.975, axis=1)]
+        theta_map[:, i] = t_rule.pts[np.argmax(p_ti_g_y, axis=1)]
+
+        above_idx = np.argmax(cdf_pts > thresh[:, i, None], axis=1)
+        below_idx = above_idx - 1
+        a = cdf_pts[below_idx]
+        b = cdf_pts[above_idx]
+        b_mult = (thresh[:, i] - a) / (b - a)
+        a_mult = 1 - b_mult
+        
+        idxs = np.arange(below_idx.shape[0])
+        interp_cdf = a_mult * cdf[idxs, below_idx] + b_mult * cdf[idxs, above_idx]
+        exceedance[:,i] = 1.0 - interp_cdf
+
+    return dict(cilow=cilow, cihi=cihi, theta_map=theta_map, exceedance=exceedance)

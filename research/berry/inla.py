@@ -243,7 +243,7 @@ def calc_posterior_x(post_hyper, report, thresh):
     return dict(
         cilow=mu_post - 2 * sigma_post,
         cihi=mu_post + 2 * sigma_post,
-        mu_map=mu_post,
+        theta_map=mu_post,
         mu_appx=mu_post,
         sigma_appx=sigma_post,
         exceedance=exceedance,
