@@ -18,8 +18,8 @@ struct ss_fixture : base_fixture {
     using gen_t = std::mt19937;
     using value_t = double;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using tile_t = grid::Tile<value_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
 
     struct SimGlobalStateWrap
         : SimGlobalStateFixedNLogHazardRate<gen_t, value_t, uint_t, gr_t> {
@@ -91,7 +91,7 @@ TEST_F(ss_fixture, score_test) {
 
 struct kbs_fixture : base_fixture {
     using value_t = double;
-    using tile_t = Tile<value_t>;
+    using tile_t = grid::Tile<value_t>;
     using kbs_t = KevlarBoundStateFixedNLogHazardRate<value_t, tile_t>;
     const size_t d = 2;
 };

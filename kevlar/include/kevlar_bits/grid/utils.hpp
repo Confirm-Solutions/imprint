@@ -1,15 +1,17 @@
 #pragma once
 #include <kevlar_bits/util/d_ary_int.hpp>
+#include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
+namespace grid {
 
 /*
  * Finds the orientation of v w.r.t. sf.
  * Simply delegates to sf.find_orient.
  */
 template <class VecType, class SurfType>
-inline auto find_orient(const VecType& v, const SurfType& sf) {
+KEVLAR_STRONG_INLINE auto find_orient(const VecType& v, const SurfType& sf) {
     return sf.find_orient(v);
 }
 
@@ -34,9 +36,10 @@ namespace internal {
  */
 template <class TileType, class SurfaceType, class SaveOrientType,
           class IterType>
-inline bool is_oriented_(const TileType& tile, const SurfaceType& sf,
-                         SaveOrientType save_orient, IterType begin,
-                         IterType end) {
+KEVLAR_STRONG_INLINE bool is_oriented_(const TileType& tile,
+                                       const SurfaceType& sf,
+                                       SaveOrientType save_orient,
+                                       IterType begin, IterType end) {
     size_t n_pos = 0;
     size_t n_neg = 0;
 
@@ -65,8 +68,9 @@ inline bool is_oriented_(const TileType& tile, const SurfaceType& sf,
 }
 
 template <class TileType, class SurfaceType, class SaveOrientType>
-inline bool is_oriented_(const TileType& tile, const SurfaceType& sf,
-                         SaveOrientType save_orient) {
+KEVLAR_STRONG_INLINE bool is_oriented_(const TileType& tile,
+                                       const SurfaceType& sf,
+                                       SaveOrientType save_orient) {
     if (tile.is_regular()) {
         return is_oriented_(tile, sf, save_orient, tile.begin_full(),
                             tile.end_full());
@@ -82,7 +86,8 @@ inline bool is_oriented_(const TileType& tile, const SurfaceType& sf,
  * is on one side of the surface sf.
  */
 template <class TileType, class SurfaceType>
-inline bool is_oriented(const TileType& tile, const SurfaceType& sf) {
+KEVLAR_STRONG_INLINE bool is_oriented(const TileType& tile,
+                                      const SurfaceType& sf) {
     return internal::is_oriented_(tile, sf, [](auto) {});
 }
 
@@ -91,8 +96,9 @@ inline bool is_oriented(const TileType& tile, const SurfaceType& sf) {
  * orientation of the tile w.r.t. sf.
  */
 template <class TileType, class SurfaceType>
-inline bool is_oriented(const TileType& tile, const SurfaceType& sf,
-                        orient_type& reason) {
+KEVLAR_STRONG_INLINE bool is_oriented(const TileType& tile,
+                                      const SurfaceType& sf,
+                                      orient_type& reason) {
     return internal::is_oriented_(tile, sf, [&](orient_type r) { reason = r; });
 }
 
@@ -180,4 +186,5 @@ void intersect(const TileType& tile, const SurfType& surf, TileType& p_tile,
     }
 }
 
+}  // namespace grid
 }  // namespace kevlar

@@ -10,7 +10,7 @@ namespace bound {
 
 struct MockKevlarBoundState {
     using value_t = double;
-    using tile_t = Tile<value_t>;
+    using tile_t = grid::Tile<value_t>;
 
     MockKevlarBoundState(size_t n_nat_params, size_t n_models)
         : n_nat_params_(n_nat_params), n_models_{n_models} {}
@@ -64,7 +64,7 @@ struct typeI_error_bound_fixture : base_fixture {
         gr.radii().array() = radius;
         gr.sim_sizes().array() = sim_size;
 
-        std::vector<HyperPlane<value_t>> vhp;
+        std::vector<grid::HyperPlane<value_t>> vhp;
         gr.create_tiles(vhp);
 
         acc_o.reset(n_models, gr.n_tiles(), n_params);
@@ -81,8 +81,8 @@ struct typeI_error_bound_fixture : base_fixture {
    protected:
     using value_t = value_t;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using tile_t = grid::Tile<value_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
     using accum_t = TypeIErrorAccum<value_t, uint_t>;
     using kb_t = TypeIErrorBound<value_t>;
 

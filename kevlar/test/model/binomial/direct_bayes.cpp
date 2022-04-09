@@ -16,8 +16,8 @@ namespace binomial {
 namespace {
 
 template <class ValueType>
-struct MockHyperPlane : HyperPlane<ValueType> {
-    using base_t = HyperPlane<ValueType>;
+struct MockHyperPlane : grid::HyperPlane<ValueType> {
+    using base_t = grid::HyperPlane<ValueType>;
     using base_t::base_t;
 };
 
@@ -26,13 +26,13 @@ struct direct_bayes_fixture : base_fixture {
     using gen_t = std::mt19937;
     using value_t = double;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
+    using tile_t = grid::Tile<value_t>;
     using hp_t = MockHyperPlane<value_t>;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
 
     using model_t = DirectBayes<value_t>;
     using sgs_t =
-        typename model_t::sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
+        typename model_t::SimGlobalState<gen_t, value_t, uint_t, gr_t>;
     using ss_t = typename sgs_t::sim_state_t;
 
     using mat_t = mat_type<value_t>;
@@ -57,8 +57,8 @@ struct direct_bayes_fixture : base_fixture {
     }
 
     gr_t get_grid_range() const {
-        auto theta_1d = Gridder::make_grid(n_thetas, -1., 0.);
-        auto radius = Gridder::radius(n_thetas, -1., 0.);
+        auto theta_1d = grid::Gridder::make_grid(n_thetas, -1., 0.);
+        auto radius = grid::Gridder::radius(n_thetas, -1., 0.);
 
         colvec_type<value_t> normal(n_arms);
         std::vector<hp_t> hps;

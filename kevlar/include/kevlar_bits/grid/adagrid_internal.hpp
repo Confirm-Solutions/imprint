@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace kevlar {
+namespace grid {
 
 struct AdaGridInternal {
    private:
@@ -189,4 +190,5 @@ struct AdaGridInternal {
     }
 };
 
+}  // namespace grid
 }  // namespace kevlar

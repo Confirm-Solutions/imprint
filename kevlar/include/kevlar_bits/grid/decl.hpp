@@ -2,6 +2,7 @@
 #include <cstddef>
 
 namespace kevlar {
+namespace grid {
 
 template <class ValueType>
 struct Tile;
@@ -17,4 +18,5 @@ struct HyperPlaneView;
 template <class ValueType>
 struct HyperPlane;
 
+}  // namespace grid
 }  // namespace kevlar

@@ -1,6 +1,6 @@
 #pragma once
 #include <algorithm>
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/exponential/common/fixed_n_log_hazard_rate.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
@@ -9,7 +9,6 @@
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>
-#include <limits>
 #include <random>
 
 namespace kevlar {
@@ -18,18 +17,12 @@ namespace exponential {
 
 template <class ValueType>
 struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
-   private:
-    using arm_t = FixedSingleArmSize;
     using base_t = ModelBase<ValueType>;
-
-   public:
     using typename base_t::value_t;
 
-    template <class _GenType, class _ValueType, class _UIntType,
-              class _GridRangeType>
-    struct SimGlobalState;
-
    private:
+    using arm_t = FixedSingleArmSize;
+
     const value_t censor_time_;
 
     /*
@@ -41,12 +34,7 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
    public:
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
-    using sim_global_state_t =
-        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
-
-    template <class _ValueType, class _TileType>
-    using kevlar_bound_state_t =
-        KevlarBoundStateFixedNLogHazardRate<_ValueType, _TileType>;
+    struct SimGlobalState;
 
     SimpleLogRank(size_t n_arm_samples, value_t censor_time,
                   const Eigen::Ref<const colvec_type<value_t>>& cv)
@@ -67,13 +55,14 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return sim_global_state_t<_GenType, _ValueType, _UIntType,
-                                  _GridRangeType>(*this, grid_range);
+        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
+            *this, grid_range);
     }
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
+        return KevlarBoundStateFixedNLogHazardRate<_ValueType, _TileType>(
+            n_arm_samples());
     }
 };
 
@@ -166,9 +155,13 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
         auto z = lrt_.stat(censor_dilated_curr);
 
         const auto& cvs = outer_.model_.critical_values();
-        auto it =
-            std::find_if(cvs.begin(), cvs.end(), [&](auto t) { return z > t; });
-        return std::distance(it, cvs.end());
+        int cv_i = 0;
+        for (; cv_i < cvs.size(); ++cv_i) {
+            if (z > cvs[cv_i]) {
+                break;
+            }
+        }
+        return cvs.size() - cv_i;
     }
 
    public:
@@ -212,6 +205,8 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
 
         assert(rej_len.size() == pos);
     }
+
+    using base_t::score;
 };
 
 }  // namespace exponential

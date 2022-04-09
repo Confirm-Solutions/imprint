@@ -1,5 +1,5 @@
 #pragma once
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>

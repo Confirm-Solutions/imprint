@@ -51,11 +51,12 @@ struct Simple<ValueType>::SimGlobalState
     struct SimState;
 
     using base_t = SimGlobalStateBase<_GenType, _ValueType, _UIntType>;
-    using interface_t = base_t;
     using typename base_t::gen_t;
+    using typename base_t::interface_t;
     using typename base_t::uint_t;
     using typename base_t::value_t;
     using grid_range_t = _GridRangeType;
+
     using sim_state_t = SimState;
 
    private:
@@ -87,7 +88,10 @@ template <class _GenType, class _ValueType, class _UIntType,
 struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
                                          _GridRangeType>::SimState
     : SimGlobalState::interface_t::sim_state_t {
+   private:
     using outer_t = SimGlobalState;
+
+   public:
     using base_t = typename outer_t::interface_t::sim_state_t;
     using interface_t = typename base_t::interface_t;
 
@@ -119,10 +123,13 @@ struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
             auto mu_i = gr.thetas()(0, i);
 
             // get number of models rejected
-            auto it = std::find_if(cv.begin(), cv.end(), [&](auto t) {
-                return std_normal_ > (t - mu_i);
-            });
-            uint_t rej_len = std::distance(it, cv.end());
+            int j = 0;
+            for (; j < cv.size(); ++j) {
+                if ((std_normal_ + mu_i) > cv[j]) {
+                    break;
+                }
+            }
+            uint_t rej_len = cv.size() - j;
 
             for (int j = 0; j < gr.n_tiles(i); ++j, ++pos) {
                 rejection_length[pos] = gr.check_null(pos, 0) ? rej_len : 0;

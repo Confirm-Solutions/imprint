@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace kevlar {
+namespace driver {
 
 /*
  * Runs a sim_size number of simulations using
@@ -20,7 +21,8 @@ namespace kevlar {
  * grid range specified by grid_range.
  * For each simulation, the accumulator acc_o
  * accumulates information from it.
- * acc_o must be initialized properly.
+ * acc_o must be initialized properly so that
+ * acc_o.pool(acc_o) and acc_o.update(...) have a well-defined behavior.
  */
 template <class SGSType, class GridRangeType, class AccumType>
 inline void accumulate(const SGSType& sgs, const GridRangeType& grid_range,
@@ -65,4 +67,5 @@ inline void accumulate(const SGSType& sgs, const GridRangeType& grid_range,
     }
 }
 
+}  // namespace driver
 }  // namespace kevlar

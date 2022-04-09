@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace kevlar {
+namespace grid {
 
 template <class ValueType, class UIntType, class TileType>
 struct GridRange {
@@ -315,4 +316,5 @@ struct GridRange {
     KEVLAR_STRONG_INLINE const auto& bits__() const { return bits_; }
 };
 
+}  // namespace grid
 }  // namespace kevlar

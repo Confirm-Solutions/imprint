@@ -16,8 +16,8 @@ namespace binomial {
  * the tile is oriented w.r.t. the hyperplane if and only if
  * the center is in the positive orientation.
  */
-struct MockHyperPlane : HyperPlane<double> {
-    using base_t = HyperPlane<double>;
+struct MockHyperPlane : grid::HyperPlane<double> {
+    using base_t = grid::HyperPlane<double>;
     using base_t::base_t;
 };
 
@@ -46,8 +46,8 @@ struct bckt_fixture : base_fixture {
         // legacy setup
         // MUST BE EVENLY SPACED TO BE COMPATIBLE WITH
         // MockHyperPlane and legacy version
-        theta_1d = Gridder::make_grid(n_thetas, -1., 1.);
-        radius = Gridder::radius(n_thetas, -1., 1.);
+        theta_1d = grid::Gridder::make_grid(n_thetas, -1., 1.);
+        radius = grid::Gridder::radius(n_thetas, -1., 1.);
 
         prob_1d.array() = sigmoid(theta_1d.array());
         prob_endpt_1d.resize(2, theta_1d.size());
@@ -93,10 +93,10 @@ struct bckt_fixture : base_fixture {
    protected:
     using value_t = double;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
+    using tile_t = grid::Tile<value_t>;
     using gen_t = std::mt19937;
     using hp_t = MockHyperPlane;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
     using bckt_legacy_t = legacy::BinomialControlkTreatment;
     using bckt_t = SimpleSelection<value_t>;
 
@@ -128,9 +128,6 @@ struct bckt_fixture : base_fixture {
 
 struct bckt_state_fixture : bckt_fixture {
    protected:
-    using sim_global_state_t =
-        typename bckt_t::sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
-    using state_t = typename sim_global_state_t::sim_state_t;
     using state_leg_t = bckt_legacy_t::StateType;
 
     size_t seed = 3214;

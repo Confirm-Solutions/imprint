@@ -16,7 +16,7 @@ struct FixedSingleArmSize {
     constexpr size_t n_arms() const { return n_arms_; }
     constexpr size_t n_arm_samples() const { return n_arm_samples_; }
 
-    FixedSingleArmSize(size_t n_arms, size_t n_arm_samples)
+    constexpr FixedSingleArmSize(size_t n_arms, size_t n_arm_samples)
         : n_arms_(n_arms), n_arm_samples_(n_arm_samples) {}
 };
 

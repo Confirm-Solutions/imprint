@@ -51,8 +51,8 @@ struct sgs_fixed_n_default_fixture : base_fixture {
     using gen_t = std::mt19937;
     using value_t = double;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
+    using tile_t = grid::Tile<value_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
     using sgs_t = SimGlobalStateFixedNDefaultWrap<gen_t, value_t, uint_t, gr_t>;
 };
 
@@ -222,7 +222,7 @@ TEST_F(ss_fixed_n_default_fixture, two_arm_suff_stat_score) {
 struct kbs_fixed_n_default_fixture : base_fixture {
    protected:
     using value_t = double;
-    using tile_t = Tile<value_t>;
+    using tile_t = grid::Tile<value_t>;
     using kbs_t = KevlarBoundStateFixedNDefault<value_t, tile_t>;
 };
 

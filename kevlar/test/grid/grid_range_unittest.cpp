@@ -5,6 +5,7 @@
 #include <testutil/grid/tile.hpp>
 
 namespace kevlar {
+namespace grid {
 
 struct grid_range_fixture : base_fixture {
    protected:
@@ -166,4 +167,5 @@ TEST_F(grid_range_fixture, create_tiles) {
     }
 }
 
+}  // namespace grid
 }  // namespace kevlar

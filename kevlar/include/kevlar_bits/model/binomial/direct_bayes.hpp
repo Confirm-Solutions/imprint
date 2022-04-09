@@ -1,7 +1,6 @@
 #pragma once
 #include <algorithm>
 #include <Eigen/Dense>
-#include <iostream>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
@@ -10,25 +9,18 @@
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>
-#include <limits>
-#include <random>
-#include <set>
-#include <unordered_map>
-#include <vector>
 
 namespace kevlar {
 namespace model {
 namespace binomial {
 
 template <class ValueType>
-class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
-    using arm_t = FixedSingleArmSize;
+struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
     using base_t = ModelBase<ValueType>;
-
-   public:
     using typename base_t::value_t;
 
    private:
+    using arm_t = FixedSingleArmSize;
     using vec_t = colvec_type<value_t>;
     using mat_t = mat_type<value_t>;
 
@@ -43,15 +35,6 @@ class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     struct SimGlobalState;
-
-    template <class _GenType, class _ValueType, class _UIntType,
-              class _GridRangeType>
-    using sim_global_state_t =
-        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
-
-    template <class _ValueType, class _TileType>
-    using kevlar_bound_state_t =
-        KevlarBoundStateFixedNDefault<_ValueType, _TileType>;
 
     DirectBayes(
         size_t n_arms, size_t n_arm_size,
@@ -69,6 +52,9 @@ class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
                            n_arm_size);
     }
 
+    using arm_t::n_arm_samples;
+    using arm_t::n_arms;
+
     using base_t::critical_values;
     void critical_values(const Eigen::Ref<const colvec_type<value_t>>& cv) {
         auto& cv_ = base_t::critical_values();
@@ -79,14 +65,14 @@ class DirectBayes : public FixedSingleArmSize, public ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return sim_global_state_t<_GenType, _ValueType, _UIntType,
-                                  _GridRangeType>(*this, grid_range);
+        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
+            *this, grid_range);
     }
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arms(),
-                                                           n_arm_samples());
+        return KevlarBoundStateFixedNDefault<_ValueType, _TileType>(
+            n_arms(), n_arm_samples());
     }
 
     // TODO: clean-up
@@ -158,9 +144,12 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     : base_t::sim_state_t {
    private:
     using outer_t = SimGlobalState;
+
+   public:
     using base_t = typename outer_t::base_t::sim_state_t;
     using typename base_t::interface_t;
 
+   private:
     const outer_t& outer_;
 
    public:
@@ -214,10 +203,13 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
                     }
                 }
 
-                auto it = std::find_if(
-                    critical_values.begin(), critical_values.end(),
-                    [&](auto t) { return max_null_prob_exceed > t; });
-                rej_len(pos) = std::distance(it, critical_values.end());
+                int cv_i = 0;
+                for (; cv_i < critical_values.size(); ++cv_i) {
+                    if (max_null_prob_exceed > critical_values[cv_i]) {
+                        break;
+                    }
+                }
+                rej_len(pos) = critical_values.size() - cv_i;
             }
         }
 

@@ -4,6 +4,7 @@
 #include <kevlar_bits/grid/decl.hpp>
 
 namespace kevlar {
+namespace grid {
 
 template <class V>
 inline constexpr bool operator==(const Tile<V>& t1, const Tile<V>& t2) {
@@ -28,4 +29,5 @@ inline constexpr bool operator==(const Tile<V>& t1, const Tile<V>& t2) {
     return true;
 }
 
+}  // namespace grid
 }  // namespace kevlar

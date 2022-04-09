@@ -15,9 +15,9 @@ struct slr_fixture : base_fixture {
     using value_t = double;
     using gen_t = std::mt19937;
     using uint_t = uint32_t;
-    using tile_t = Tile<value_t>;
-    using gr_t = GridRange<value_t, uint_t, tile_t>;
-    using hp_t = HyperPlane<value_t>;
+    using tile_t = grid::Tile<value_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
+    using hp_t = grid::HyperPlane<value_t>;
 
     using model_t = SimpleLogRank<value_t>;
     using model_legacy_t = legacy::ExpControlkTreatment<value_t, uint_t, gr_t>;

@@ -74,7 +74,10 @@ template <class GenType, class ValueType, class UIntType, class GridRangeType>
 struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
                                          GridRangeType>::SimState
     : SimGlobalStateFixedNLogHazardRate::base_t::sim_state_t {
+   private:
     using outer_t = SimGlobalStateFixedNLogHazardRate;
+
+   public:
     using base_t = typename outer_t::base_t::sim_state_t;
     using typename base_t::interface_t;
 
@@ -174,12 +177,11 @@ struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
 template <class ValueType, class TileType>
 struct KevlarBoundStateFixedNLogHazardRate
     : KevlarBoundStateBase<ValueType, TileType> {
-    using value_t = ValueType;
-    using tile_t = TileType;
+    using base_t = KevlarBoundStateBase<ValueType, TileType>;
+    using typename base_t::tile_t;
+    using typename base_t::value_t;
 
    private:
-    using base_t = KevlarBoundStateBase<value_t, tile_t>;
-
     const mat_type<value_t, 2, 2> max_cov_;
     const size_t n_arm_samples_;
     const value_t max_eta_hess_cov_;

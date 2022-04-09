@@ -147,7 +147,10 @@ template <class GenType, class ValueType, class UIntType, class GridRangeType>
 struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
                                    GridRangeType>::SimState
     : SimGlobalStateFixedNDefault::base_t::sim_state_t {
+   private:
     using outer_t = SimGlobalStateFixedNDefault;
+
+   public:
     using base_t = typename outer_t::base_t::sim_state_t;
     using typename base_t::interface_t;
 

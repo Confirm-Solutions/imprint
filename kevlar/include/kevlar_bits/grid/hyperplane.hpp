@@ -1,7 +1,9 @@
 #pragma once
+#include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
+namespace grid {
 
 template <class ValueType>
 struct HyperPlaneView {
@@ -27,7 +29,7 @@ struct HyperPlaneView {
      * respectively.
      */
     template <class VecType>
-    orient_type find_orient(const VecType& v) const {
+    KEVLAR_STRONG_INLINE orient_type find_orient(const VecType& v) const {
         value_t ctv = normal_.dot(v);
         constexpr value_t tol = 1e-16;
         auto comp = ctv - *shift_;
@@ -46,20 +48,22 @@ struct HyperPlaneView {
      * otherwise returns 0.
      */
     template <class VType, class DType>
-    value_t intersect(const VType& v, const DType& d) const {
+    KEVLAR_STRONG_INLINE value_t intersect(const VType& v,
+                                           const DType& d) const {
         auto ntd = normal_.dot(d);
         if (ntd == 0) return 0;
         auto ntv = normal_.dot(v);
         return (ntv - *shift_) / ntd + 1.;
     }
 
-    auto normal() const { return normal_; }
+    KEVLAR_STRONG_INLINE auto normal() const { return normal_; }
+    KEVLAR_STRONG_INLINE
     void normal(const Eigen::Ref<const colvec_type<value_t>>& n) {
         new (&normal_)
             Eigen::Map<const colvec_type<value_t>>(n.data(), n.size());
     }
-    auto shift() const { return *shift_; }
-    void shift(const value_t& s) { shift_ = &s; }
+    KEVLAR_STRONG_INLINE auto shift() const { return *shift_; }
+    KEVLAR_STRONG_INLINE void shift(const value_t& s) { shift_ = &s; }
 };
 
 template <class ValueType>
@@ -74,6 +78,7 @@ struct HyperPlane : HyperPlaneView<ValueType> {
     colvec_type<value_t> normal_;
     value_t shift_;
 
+    KEVLAR_STRONG_INLINE
     void reset_view() {
         this->normal(normal_);
         this->shift(shift_);
@@ -111,4 +116,5 @@ struct HyperPlane : HyperPlaneView<ValueType> {
     }
 };
 
+}  // namespace grid
 }  // namespace kevlar
