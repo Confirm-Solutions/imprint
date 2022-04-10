@@ -8,8 +8,9 @@
 int main() {
     using namespace kevlar;
     using model_t = model::normal::Simple<double>;
-    using tile_t = Tile<double>;
-    using gr_t = GridRange<double, uint32_t, tile_t>;
+    using tile_t = grid::Tile<double>;
+    using gr_t = grid::GridRange<double, uint32_t, tile_t>;
+    using hp_t = grid::HyperPlane<double>;
 
     size_t n_gridpts = 100;
     size_t n_sims = 1e5;
@@ -22,11 +23,11 @@ int main() {
     cvs << (upper + qnorm(1 - alpha));
 
     // empty null hypos
-    std::vector<HyperPlane<double>> null_hypos;
+    std::vector<hp_t> null_hypos;
 
     gr_t gr(1, n_gridpts);
-    gr.thetas().row(0) = Gridder::make_grid(n_gridpts, lower, upper);
-    double radius = Gridder::radius(n_gridpts, lower, upper);
+    gr.thetas().row(0) = grid::Gridder::make_grid(n_gridpts, lower, upper);
+    double radius = grid::Gridder::radius(n_gridpts, lower, upper);
     gr.radii().row(0).array() = radius;
     gr.sim_sizes().array() = n_sims;
 

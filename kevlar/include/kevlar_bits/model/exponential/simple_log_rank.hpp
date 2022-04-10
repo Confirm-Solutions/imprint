@@ -17,12 +17,11 @@ namespace exponential {
 
 template <class ValueType>
 struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
+    using arm_base_t = FixedSingleArmSize;
     using base_t = ModelBase<ValueType>;
     using typename base_t::value_t;
 
    private:
-    using arm_t = FixedSingleArmSize;
-
     const value_t censor_time_;
 
     /*
@@ -36,14 +35,23 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
               class _GridRangeType>
     struct SimGlobalState;
 
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    using sim_global_state_t =
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
+
+    template <class _ValueType, class _TileType>
+    using kevlar_bound_state_t =
+        KevlarBoundStateFixedNLogHazardRate<_ValueType, _TileType>;
+
     SimpleLogRank(size_t n_arm_samples, value_t censor_time,
                   const Eigen::Ref<const colvec_type<value_t>>& cv)
-        : arm_t(2, n_arm_samples), base_t(), censor_time_(censor_time) {
+        : arm_base_t(2, n_arm_samples), base_t(), censor_time_(censor_time) {
         critical_values(cv);
     }
 
-    using arm_t::n_arm_samples;
-    using arm_t::n_arms;
+    using arm_base_t::n_arm_samples;
+    using arm_base_t::n_arms;
 
     using base_t::critical_values;
     void critical_values(const Eigen::Ref<const colvec_type<value_t>>& cv) {
@@ -55,15 +63,17 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
-            *this, grid_range);
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, grid_range);
     }
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return KevlarBoundStateFixedNLogHazardRate<_ValueType, _TileType>(
-            n_arm_samples());
+        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
     }
+
+    // Extra model-specific functions
+    auto censor_time() const { return censor_time_; }
 };
 
 template <class ValueType>
@@ -109,9 +119,12 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     : SimGlobalState::base_t::sim_state_t {
    private:
     using outer_t = SimGlobalState;
+
+   public:
     using base_t = typename outer_t::base_t::sim_state_t;
     using typename base_t::interface_t;
 
+   private:
     const outer_t& outer_;
     stat::LogRankTest<value_t, uint_t>
         lrt_;  // log-rank test fitter.

@@ -12,12 +12,11 @@ namespace binomial {
 
 template <class ValueType>
 struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
+    using arm_base_t = FixedSingleArmSize;
     using base_t = ModelBase<ValueType>;
     using typename base_t::value_t;
 
    private:
-    using arm_t = FixedSingleArmSize;
-
     const size_t n_phase2_samples_;
 
     /*
@@ -31,17 +30,27 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
               class _GridRangeType>
     struct SimGlobalState;
 
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    using sim_global_state_t =
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
+
+    template <class _ValueType, class _TileType>
+    using kevlar_bound_state_t =
+        KevlarBoundStateFixedNDefault<_ValueType, _TileType>;
+
     SimpleSelection(size_t n_arms, size_t n_arm_samples,
                     size_t n_phase2_samples,
                     const Eigen::Ref<const colvec_type<value_t>>& cv)
-        : arm_t(n_arms, n_arm_samples),
+        : arm_base_t(n_arms, n_arm_samples),
           base_t(),
           n_phase2_samples_(n_phase2_samples) {
+        assert(n_phase2_samples <= n_arm_samples);
         critical_values(cv);
     }
 
-    using arm_t::n_arm_samples;
-    using arm_t::n_arms;
+    using arm_base_t::n_arm_samples;
+    using arm_base_t::n_arms;
 
     KEVLAR_STRONG_INLINE
     constexpr size_t n_phase2_samples() const { return n_phase2_samples_; }
@@ -56,14 +65,14 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
-            *this, grid_range);
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, grid_range);
     }
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return KevlarBoundStateFixedNDefault<_ValueType, _TileType>(
-            n_arms(), n_arm_samples());
+        return kevlar_bound_state_t<_ValueType, _TileType>(n_arms(),
+                                                           n_arm_samples());
     }
 };
 

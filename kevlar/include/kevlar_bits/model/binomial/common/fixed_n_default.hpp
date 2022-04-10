@@ -252,16 +252,14 @@ struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
 template <class ValueType, class TileType>
 struct KevlarBoundStateFixedNDefault
     : KevlarBoundStateBase<ValueType, TileType> {
-   private:
-    using binom_t = distribution::Binomial<int>;
     using base_t = KevlarBoundStateBase<ValueType, TileType>;
     using typename base_t::interface_t;
-
-   public:
     using typename base_t::tile_t;
     using typename base_t::value_t;
 
    private:
+    using binom_t = distribution::Binomial<int>;
+
     size_t n_arms_;
     size_t n_arm_samples_;
     colvec_type<value_t> p_;

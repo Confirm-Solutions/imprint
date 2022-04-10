@@ -16,11 +16,11 @@ namespace binomial {
 
 template <class ValueType>
 struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
+    using arm_base_t = FixedSingleArmSize;
     using base_t = ModelBase<ValueType>;
     using typename base_t::value_t;
 
    private:
-    using arm_t = FixedSingleArmSize;
     using vec_t = colvec_type<value_t>;
     using mat_t = mat_type<value_t>;
 
@@ -40,7 +40,7 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
         size_t n_arms, size_t n_arm_size,
         const Eigen::Ref<const colvec_type<value_t>>& cv,
         const Eigen::Ref<const colvec_type<value_t>>& efficacy_thresholds)
-        : arm_t(n_arms, n_arm_size),
+        : arm_base_t(n_arms, n_arm_size),
           base_t(),
           efficacy_thresholds_(efficacy_thresholds) {
         assert(efficacy_thresholds.size() == n_arms);
@@ -52,8 +52,8 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
                            n_arm_size);
     }
 
-    using arm_t::n_arm_samples;
-    using arm_t::n_arms;
+    using arm_base_t::n_arm_samples;
+    using arm_base_t::n_arms;
 
     using base_t::critical_values;
     void critical_values(const Eigen::Ref<const colvec_type<value_t>>& cv) {

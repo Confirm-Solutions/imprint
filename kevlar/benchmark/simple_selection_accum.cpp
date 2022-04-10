@@ -15,10 +15,10 @@ struct binomial_fixture : benchmark::Fixture {
     using gen_t = std::mt19937;
     using value_t = double;
     using uint_t = uint32_t;
-    using grid_t = Gridder;
-    using tile_t = Tile<value_t>;
-    using grid_range_t = GridRange<value_t, uint_t, tile_t>;
-    using hp_t = HyperPlane<value_t>;
+    using grid_t = grid::Gridder;
+    using tile_t = grid::Tile<value_t>;
+    using grid_range_t = grid::GridRange<value_t, uint_t, tile_t>;
+    using hp_t = grid::HyperPlane<value_t>;
     using model_t = model::binomial::SimpleSelection<double>;
     using acc_t = bound::TypeIErrorAccum<value_t, uint_t>;
 
@@ -77,7 +77,7 @@ BENCHMARK_DEFINE_F(binomial_fixture, bench_fit)(benchmark::State& state) {
     acc_t acc_o(model.n_models(), grid_range.n_tiles(), grid_range.n_params());
 
     for (auto _ : state) {
-        accumulate(sgs, grid_range, acc_o, n_sim, 0, n_threads);
+        driver::accumulate(sgs, grid_range, acc_o, n_sim, 0, n_threads);
     }
 }
 

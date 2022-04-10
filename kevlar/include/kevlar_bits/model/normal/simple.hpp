@@ -27,19 +27,27 @@ struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _ValueType, class _TileType>
     struct KevlarBoundState;
 
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    using sim_global_state_t =
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
+
+    template <class _ValueType, class _TileType>
+    using kevlar_bound_state_t = KevlarBoundState<_ValueType, _TileType>;
+
     Simple(const Eigen::Ref<const colvec_type<value_t>>& cvs)
         : arm_t(1, 1), base_t(cvs) {}
 
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& gr) const {
-        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
-            *this, gr);
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, gr);
     };
 
     template <class _ValueType, class _TileType>
     auto make_kevlar_bound_state() const {
-        return KevlarBoundState<_ValueType, _TileType>(*this);
+        return kevlar_bound_state_t<_ValueType, _TileType>(*this);
     };
 };
 
