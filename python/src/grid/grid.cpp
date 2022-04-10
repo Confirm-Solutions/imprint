@@ -10,12 +10,12 @@
 #include <grid/gridder.hpp>
 #include <grid/hyperplane.hpp>
 #include <grid/tile.hpp>
+#include <kevlar_bits/bound/typeI_error_bound.hpp>
 #include <kevlar_bits/grid/adagrid_internal.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/stats/upper_bound.hpp>
 
 namespace kevlar {
 namespace grid {
@@ -25,7 +25,7 @@ void add_to_module(pybind11::module_& m) {
     using gr_t = GridRange<py_double_t, py_uint_t, tile_t>;
     using gridder_t = Gridder;
     using adagrid_t = AdaGridInternal;
-    using ub_t = UpperBound<py_double_t>;
+    using ub_t = bound::TypeIErrorBound<py_double_t>;
     using hp_t = HyperPlane<py_double_t>;
     using vec_surf_t = std::vector<hp_t>;
     using tile_t = Tile<py_double_t>;

@@ -21,13 +21,14 @@ PACKAGE_VERSION = "0.1"
 
 py_library(
     name = "pykevlar_lib",
-    srcs = glob(["pykevlar/**/*py"]),
+    srcs = glob(["pykevlar/**/*.py"]),
     data = ["pykevlar/core.so"],
     imports = ["."],
     deps = [
         requirement("numpy"),
         requirement("pybind11"),
     ],
+    visibility = ["//visibility:public"],
 )
 
 pybind_extension(
@@ -38,6 +39,7 @@ pybind_extension(
     ]),
     includes = ["src/"],
     deps = ["//kevlar"],
+    visibility = ["//visibility:public"]
 )
 
 genrule(
