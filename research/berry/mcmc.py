@@ -1,61 +1,57 @@
-import scipy.stats
 import numpy as np
-
-def proposal(x, sigma=0.25):
-    rv = scipy.stats.norm.rvs(x, sigma, size=(x.shape[0], 6))
-
-    while np.any(rv[:, 5] < 0):
-        # Truncate normal distribution for the precision at 0.
-        bad = rv[:, 5] < 0
-        badx = x[bad]
-        rv[bad, 5] = scipy.stats.norm.rvs(badx[:, 5], sigma, size=badx.shape[0])
-    ratio = 1
-    return rv, ratio
+import jax
+import numpyro
+from numpyro.infer import MCMC, NUTS
+import numpyro.distributions as dist
 
 
-def mcmc(y, n, iterations=2000, burn_in=500, skip=2):
-    def joint(xstar):
-        a = xstar[:, -2]
-        Qv = xstar[:, -1]
-        return np.exp(calc_log_joint(xstar[:, :4], y, n, a, Qv))
+def mcmc_berry(model, data, suc_thresh):
+    logit_p1 = model.logit_p1
 
-    M = y.shape[0]
-    x = np.zeros((M, 6))
-    x[:, -1] = 1
+    def mcmc_berry_model(y, n):
+        mu = numpyro.sample("mu", dist.Normal(-1.34, 10))
+        sigma2 = numpyro.sample("sigma2", dist.InverseGamma(0.0005, 0.000005))
+        theta = numpyro.sample(
+            "theta",
+            dist.MultivariateNormal(
+                mu, jax.numpy.diag(jax.numpy.repeat(jax.numpy.sqrt(sigma2), 4))
+            ),
+        )
+        with numpyro.plate("i", 4):
+            numpyro.sample(
+                "y",
+                dist.BinomialLogits(theta + logit_p1, total_count=n),
+                obs=y,
+            )
 
-    Jx = joint(x)
-    x_chain = [x]
-    J_chain = [Jx]
-    accept = [np.ones(M)]
-
-    for i in range(iterations):
-        xstar, ratio = proposal(x)
-
-        Jxstar = joint(xstar)
-        hastings_ratio = (Jxstar * ratio) / Jx
-        U = np.random.uniform(size=M)
-        should_accept = U < hastings_ratio
-        x[should_accept] = xstar[should_accept]
-        Jx[should_accept] = Jxstar[should_accept]
-
-        accept.append(should_accept)
-        x_chain.append(x.copy())
-        J_chain.append(Jx.copy())
-    x_chain = np.array(x_chain)
-    J_chain = np.array(J_chain)
-    accept = np.array(accept).T
-
-    x_chain_burnin = x_chain[burn_in::skip]
-
-    ci025n = int(x_chain_burnin.shape[0] * 0.025)
-    ci975n = int(x_chain_burnin.shape[0] * 0.975)
-    results = dict(
-        CI025=np.empty(x.shape), CI975=np.empty(x.shape), mean=np.empty(x.shape)
+    mcmc_stats = dict(
+        cilow=np.empty((6, 4)),
+        cihi=np.empty((6, 4)),
+        theta_map=np.empty((6, 4)),
+        exceedance=np.empty((6, 4)),
     )
-    for j in range(6):
-        x_sorted = np.sort(x_chain_burnin[:, :, j], axis=0)
-        x_mean = x_sorted.mean(axis=0)
-        results["CI025"][:, j] = x_sorted[ci025n]
-        results["mean"][:, j] = x_mean
-        results["CI975"][:, j] = x_sorted[ci975n]
-    return results
+    mcmc_data = []
+    for i in range(data.shape[0]):
+        y = data[i, ..., 0]
+        n = data[i, ..., 1]
+        nuts_kernel = NUTS(mcmc_berry_model)
+        mcmc = MCMC(
+            nuts_kernel, num_warmup=5000, num_samples=20000, thinning=5
+        )
+        rng_key = jax.random.PRNGKey(0)
+        mcmc.run(
+            rng_key,
+            y,
+            n,
+        )
+        x = mcmc.get_samples(group_by_chain=True)
+        summary = numpyro.diagnostics.summary(x, prob=0.95)
+        mcmc_stats["cilow"][i] = summary["theta"]["2.5%"]
+        mcmc_stats["cihi"][i] = summary["theta"]["97.5%"]
+        mcmc_stats["theta_map"][i] = summary["theta"]["mean"]
+        n_samples = x["theta"].shape[0] * x["theta"].shape[1]
+        mcmc_stats["exceedance"][i] = (
+            np.sum(x["theta"] > suc_thresh[i], axis=(0, 1)) / n_samples
+        )
+        mcmc_data.append(mcmc)
+    return mcmc_data, mcmc_stats
