@@ -1,0 +1,15 @@
+[py_binary(
+    name = name,
+    srcs = ["{}.py".format(name)],
+    data = ["//python:pykevlar/core.so"],
+    deps = [
+        "//python:pykevlar_lib",
+    ],
+) for name in [
+    "adagrid_bin_example",
+    "adagrid_exp_example",
+    "bckt_example",
+    "eckt_example",
+    "fit_driver_example",
+    "fit_process_example",
+]]

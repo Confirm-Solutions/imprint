@@ -13,8 +13,11 @@ PYBIND11_MODULE(core, m) {
 
     py::module_ grid_m = m.def_submodule("grid", "Grid submodule.");
     kevlar::grid::add_to_module(grid_m);
-    // kevlar::stats::add_to_module(m);
-    // kevlar::driver::add_to_module(m);
 
+    py::module_ driver_m = m.def_submodule("driver", "Driver submodule.");
+    kevlar::driver::add_to_module(driver_m);
+
+    py::module_ bound_m = m.def_submodule("bound", "Bound submodule.");
+    kevlar::bound::add_to_module(bound_m);
     /* Rest of the dependencies */
 }

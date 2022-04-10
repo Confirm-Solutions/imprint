@@ -14,7 +14,9 @@ void add_tile(py::module_& m) {
     using value_t = typename tile_t::value_t;
     py::class_<tile_t>(m, "Tile")
         .def(py::init<const Eigen::Ref<const colvec_type<value_t>>,
-                      const Eigen::Ref<const colvec_type<value_t>>>())
+                      const Eigen::Ref<const colvec_type<value_t>>>(),
+             py::arg("center"),
+             py::arg("radius"))
         .def(py::pickle(
             [](const tile_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

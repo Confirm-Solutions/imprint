@@ -13,10 +13,13 @@ void add_grid_range(py::module_& m) {
     using uint_t = typename gr_t::uint_t;
     py::class_<gr_t>(m, "GridRange")
         .def(py::init<>())
-        .def(py::init<uint_t, uint_t>())
-        .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>)
+        .def(py::init<uint_t, uint_t>(), py::arg("n_params"),
+             py::arg("n_gridpts"))
+        .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>,
+             py::arg("surfaces"))
         .def("prune", &gr_t::prune)
-        .def("n_tiles", py::overload_cast<size_t>(&gr_t::n_tiles, py::const_))
+        .def("n_tiles", py::overload_cast<size_t>(&gr_t::n_tiles, py::const_),
+             py::arg("gridpt_idx"))
         .def("n_tiles", py::overload_cast<>(&gr_t::n_tiles, py::const_))
         .def("n_gridpts", &gr_t::n_gridpts)
         .def("n_params", &gr_t::n_params)
@@ -33,7 +36,8 @@ void add_grid_range(py::module_& m) {
         .def("sim_sizes_const",
              py::overload_cast<>(&gr_t::sim_sizes, py::const_),
              py::return_value_policy::reference_internal)
-        .def("check_null", &gr_t::check_null)
+        .def("check_null", &gr_t::check_null, py::arg("tile_idx"),
+             py::arg("hypo_idx"))
         .def(py::pickle(
             [](const gr_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */

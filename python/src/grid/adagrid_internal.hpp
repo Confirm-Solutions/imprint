@@ -6,11 +6,11 @@ namespace grid {
 
 namespace py = pybind11;
 
-template <class AdaGridInternalType, class UpperBoundType, class GRType,
+template <class AdaGridInternalType, class KevlarBoundType, class GRType,
           class ValueType>
 void add_adagrid_internal(py::module_& m) {
     using ada_t = AdaGridInternalType;
-    using ub_t = UpperBoundType;
+    using ub_t = KevlarBoundType;
     using gr_t = GRType;
     using value_t = ValueType;
     py::class_<ada_t>(m, "AdaGridInternal")

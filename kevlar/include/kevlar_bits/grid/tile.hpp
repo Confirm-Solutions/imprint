@@ -96,7 +96,8 @@ struct Tile {
 
     Tile(const Eigen::Ref<const colvec_type<value_t>>& center,
          const Eigen::Ref<const colvec_type<value_t>>& radius)
-        : center_(center.data(), center.size()),
+        : vertices_(),
+          center_(center.data(), center.size()),
           radius_(radius.data(), radius.size()) {}
 
     Tile(const Tile& t)

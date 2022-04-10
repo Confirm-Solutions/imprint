@@ -1,13 +1,16 @@
+from pykevlar.core.driver import accumulate
+from pykevlar.core.bound import TypeIErrorAccum
 import os
 
-from pykevlar.core import InterSum, fit
-
-
-def fit_process(model, grid_range, sim_size, base_seed, n_threads=os.cpu_count()):
-    """
+def accumulate_process(model,
+                       grid_range,
+                       sim_size,
+                       base_seed,
+                       n_threads=os.cpu_count()):
+    '''
     Runs simulations for a given range of grid-points and a model.
     Splits the workload evenly across n_threads number of threads
-    where each thread fits with sim_size /= n_threads
+    where each thread accumulates with sim_size /= n_threads
     (some threads have an additional simulation).
     Stores the (pooled) output in a SQL database.
 
@@ -30,29 +33,43 @@ def fit_process(model, grid_range, sim_size, base_seed, n_threads=os.cpu_count()
     -------
     InterSum object updated with sim_size
     number of simulations under the given model.
-    """
+    '''
 
-    # attach grid range to model
-    model.set_grid_range(grid_range)
+    # create sim global state
+    sgs = model.make_sim_global_state(grid_range)
 
     # prepare output
-    is_o = InterSum()
+    acc_o = TypeIErrorAccum(
+        model.n_models(),
+        grid_range.n_tiles(),
+        grid_range.n_params()
+    )
 
     # run C++ core routine
-    fit(model, grid_range, is_o, sim_size, base_seed, n_threads)
+    accumulate(
+        sim_global_state=sgs,
+        grid_range=grid_range,
+        accum=acc_o,
+        sim_size=sim_size,
+        seed=base_seed,
+        n_threads=n_threads
+    )
 
-    return is_o
+    return acc_o
 
 
-def fit_driver(batcher, model, base_seed, n_threads=os.cpu_count()):
-    """
+def accumulate_driver(batcher,
+                      model,
+                      base_seed,
+                      n_threads=os.cpu_count()):
+    '''
     Batches grid points using batcher
     and simulates each batch on a node in a cluster.
 
     TODO: for PoC, we're currently just sequentially
     processing each batch and yielding each result.
-    Eventually, once fit_process stores into SQL,
-    fit_driver doesn't need to yield or output anything.
+    Eventually, once accumulate_process stores into SQL,
+    accumulate_driver doesn't need to yield or output anything.
 
     Parameters
     ----------
@@ -70,16 +87,16 @@ def fit_driver(batcher, model, base_seed, n_threads=os.cpu_count()):
     -------
 
     Yields each InterSum output for each batch
-    """
+    '''
 
     for batch, sim_size in batcher:
-        # TODO: fit_process won't output anything later
-        is_o = fit_process(
+        # TODO: accumulate_process won't output anything later
+        acc_o = accumulate_process(
             model=model,
             grid_range=batch,
             sim_size=sim_size,
             base_seed=base_seed,
-            n_threads=n_threads,
+            n_threads=n_threads
         )
         # TODO: no need to yield anything later
-        yield is_o
+        yield acc_o

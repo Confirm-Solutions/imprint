@@ -17,21 +17,18 @@ void add_typeI_error_accum(pybind11::module_& m) {
     using uint_t = typename acc_t::uint_t;
     py::class_<acc_t>(m, "TypeIErrorAccum")
         .def(py::init<>())
-        .def(py::init<py_size_t, py_size_t, py_size_t>())
+        .def(py::init<py_size_t, py_size_t, py_size_t>(), py::arg("n_models"),
+             py::arg("n_tiles"), py::arg("n_params"))
         .def("update",
              &acc_t::template update<Eigen::Ref<const colvec_type<uint_t>>,
-                                     ss_t, grid_range_t>)
-        .def("pool", &acc_t::pool)
-        .def("reset", &acc_t::reset)
-        .def("typeI_sum", py::overload_cast<>(&acc_t::typeI_sum),
+                                     ss_t, grid_range_t>,
+             py::arg("rej_len"), py::arg("sim_state"), py::arg("grid_range"))
+        .def("pool", &acc_t::pool, py::arg("other"))
+        .def("reset", &acc_t::reset, py::arg("n_models"), py::arg("n_tiles"),
+             py::arg("n_params"))
+        .def("typeI_sum", py::overload_cast<>(&acc_t::typeI_sum, py::const_),
              py::return_value_policy::reference_internal)
-        .def("typeI_sum_const",
-             py::overload_cast<>(&acc_t::typeI_sum, py::const_),
-             py::return_value_policy::reference_internal)
-        .def("score_sum", py::overload_cast<>(&acc_t::score_sum),
-             py::return_value_policy::reference_internal)
-        .def("score_sum_const",
-             py::overload_cast<>(&acc_t::score_sum, py::const_),
+        .def("score_sum", py::overload_cast<>(&acc_t::score_sum, py::const_),
              py::return_value_policy::reference_internal)
         .def("n_tiles", &acc_t::n_tiles)
         .def("n_params", &acc_t::n_params)

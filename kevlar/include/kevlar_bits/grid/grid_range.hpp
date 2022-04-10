@@ -28,15 +28,30 @@ struct GridRange {
     std::vector<tile_t>
         tiles_;  // vector of tiles (flattened across all gridpoints)
 
+    bits_t all_alt_bits_;
+
     KEVLAR_STRONG_INLINE
-    void set_null(bits_t& bits, size_t hypo, bool b = true) {
-        unsigned char t = (static_cast<unsigned char>(1) << hypo);
-        auto true_bit = -b;
-        bits = (true_bit & (bits | t)) | ((~true_bit) & (bits & (~t)));
+    static constexpr bits_t compute_init_bits(size_t max_bits) { return 0; }
+
+    KEVLAR_STRONG_INLINE
+    static constexpr bits_t compute_all_alt_bits(size_t max_bits) {
+        bits_t out = 0;
+        bits_t pos = 1;
+        for (size_t b = 0; b < max_bits; ++b, pos <<= 1) {
+            out |= pos;
+        }
+        return out;
     }
 
     KEVLAR_STRONG_INLINE
-    bool none(bits_t bits) const { return bits == 0; }
+    void set_null(bits_t& bits, size_t hypo, bool is_null = true) {
+        unsigned char t = (static_cast<unsigned char>(1) << hypo);
+        auto true_bit = -is_null;
+        bits = ((~true_bit) & (bits | t)) | (true_bit & (bits & (~t)));
+    }
+
+    KEVLAR_STRONG_INLINE
+    bool is_all_alt(bits_t bits) const { return bits == all_alt_bits_; }
 
     void reset_tiles_viewer() {
         // if tiles haven't been created yet
@@ -120,13 +135,25 @@ struct GridRange {
             n_gridpts());  // slight optimization
                            // we know we need at least 1 for each gridpoint.
 
+        const size_t max_bits = vec_surf.size();  // max number of bits allowed
+        assert(max_bits <= sizeof(bits_t) * 8);
+
+        // this represents all alternative hypothesis being true
+        // note that there may be some padded bits which are
+        // set to null hypothesis being true,
+        // so if max_bits < sizeof(bits_t) * 8, this value is non-trivial.
+        all_alt_bits_ = compute_all_alt_bits(max_bits);
+
+        // this represents all null-hypothesis being true.
+        const bits_t init_bits = compute_init_bits(max_bits);
+
         size_t tiles_begin = 0;  // begin position of tiles_ for gridpt j
         for (int j = 0; j < thetas_.cols(); ++j) {
             auto theta_j = thetas_.col(j);
             auto radius_j = radii_.col(j);
 
             // start the queue of tiles with one (regular) tile
-            bits_.emplace_back(-1);  // sets all null to 1
+            bits_.emplace_back(init_bits);  // sets current bit to init_bits
             tiles_.emplace_back(theta_j, radius_j);
 
             for (size_t s = 0; s < vec_surf.size(); ++s) {
@@ -144,7 +171,7 @@ struct GridRange {
                     }
 
                     // add new (regular) tile
-                    bits_.emplace_back(-1);
+                    bits_.emplace_back();
                     tiles_.emplace_back(theta_j, radius_j);
 
                     auto& c_bits = bits_[tiles_begin + i];
@@ -175,6 +202,8 @@ struct GridRange {
             n_tiles_[j] = tiles_.size() - tiles_begin;
             tiles_begin += n_tiles_[j];
         }
+
+        assert(tiles_begin == n_tiles());
     }
 
     /*
@@ -183,6 +212,8 @@ struct GridRange {
      * where we should not even compute Type I error since no null is ever true.
      */
     void prune() {
+        if (n_tiles() == 0) return;
+
         std::vector<uint_t> grid_idx;
         std::vector<uint_t> new_n_tiles;
         std::vector<bits_t> new_bits;
@@ -198,7 +229,7 @@ struct GridRange {
             for (size_t j = 0; j < n_tiles(g); ++j) {
                 const auto& tile = tiles_[pos + j];
                 auto bi = bits_[pos + j];
-                if (none(bi)) continue;
+                if (is_all_alt(bi)) continue;
                 ++n_append;
                 new_bits.emplace_back(bi);
                 new_tiles.emplace_back(std::move(tile));
@@ -238,13 +269,7 @@ struct GridRange {
         sim_sizes_.swap(new_sim_sizes);
 
         // make sure to reset the viewers for the tile objects!
-        pos = 0;
-        for (size_t i = 0; i < n_gridpts(); ++i) {
-            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
-                tiles_[pos].center(thetas_.col(i));
-                tiles_[pos].radius(radii_.col(i));
-            }
-        }
+        reset_tiles_viewer();
     }
 
     /*
@@ -281,7 +306,7 @@ struct GridRange {
     KEVLAR_STRONG_INLINE
     bool check_null(size_t tile_idx, size_t hypo_idx) const {
         return (bits_[tile_idx] &
-                (static_cast<unsigned char>(1) << hypo_idx)) != 0;
+                (static_cast<unsigned char>(1) << hypo_idx)) == 0;
     }
 
     /*

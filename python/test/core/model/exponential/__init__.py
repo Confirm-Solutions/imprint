@@ -1,1 +1,1 @@
-from .simple_log_rank_unittest import *
+from core.model.exponential.simple_log_rank_unittest import *

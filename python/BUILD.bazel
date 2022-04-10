@@ -3,22 +3,6 @@ load("@pykevlar_deps//:requirements.bzl", "requirement")
 
 PACKAGE_VERSION = "0.1"
 
-[py_binary(
-    name = name,
-    srcs = ["examples/{}.py".format(name)],
-    data = ["pykevlar/core.so"],
-    deps = [
-        ":pykevlar_lib",
-    ],
-) for name in [
-    "adagrid_bin_example",
-    "adagrid_exp_example",
-    "bckt_example",
-    "eckt_example",
-    "fit_driver_example",
-    "fit_process_example",
-]]
-
 py_library(
     name = "pykevlar_lib",
     srcs = glob(["pykevlar/**/*.py"]),
