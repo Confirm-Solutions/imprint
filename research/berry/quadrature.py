@@ -149,7 +149,7 @@ def integrate(
     )
 
 
-def exact_posterior_x(model, data, thresh):
+def quadrature_posterior_theta(model, data, thresh):
     theta_map = np.empty_like(thresh)
     cilow = np.empty_like(thresh)
     cihi = np.empty_like(thresh)
@@ -177,7 +177,6 @@ def exact_posterior_x(model, data, thresh):
             cdf_pts.append(t_rule.pts[j - 1])
         cdf = np.array(cdf).T
         cdf_pts = np.array(cdf_pts)
-        print(cdf.shape, cdf_pts.shape)
 
         # TODO: I should do a linear interpolation here too
         cilow[:, i] = cdf_pts[np.argmax(cdf > 0.025, axis=1)]
