@@ -185,7 +185,6 @@ class Berry(inla.INLAModel):
 
     def sigma2_from_H(self, H):
         na = np.arange(self.n_arms)
-        print(H.shape)
         return -np.linalg.inv(H)[..., na, na]
 
     def newton_step(self, x, data, hyper):

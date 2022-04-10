@@ -41,7 +41,7 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
     n_sigma2 = sigma2_rule.pts.shape[0]
     mu_posterior = np.empty((N, n_sigma2, d))
     sigma2_posterior = np.empty((N, n_sigma2, d))
-    joint_sigma2_y = np.empty((N, n_sigma2, d))
+    joint_sigma2_y = np.empty((N, n_sigma2))
     for i in range(N):
         for j in range(n_sigma2):
             # Step 1-4: see above.
@@ -64,14 +64,14 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
             joint_sigma2_y[i, j] = prior * y_given_sig2
 
     # Step 8: Compute the integration weights: p(sigma2 | y) * dsigma2
-    py = np.sum(joint_sigma2_y * sigma2_rule.wts[None, :, None], axis=1)
-    sigma2_given_y = joint_sigma2_y / py[:, None, :]
-    weights = sigma2_given_y * sigma2_rule.wts[None, :, None]
+    py = np.sum(joint_sigma2_y * sigma2_rule.wts[None, :], axis=1)
+    sigma2_given_y = joint_sigma2_y / py[:, None]
+    weights = sigma2_given_y * sigma2_rule.wts[None, :]
 
     # Step 9: Compute (mu, sigma) for normal p(theta|y): mixture of gaussians
-    mu_db = np.sum(mu_posterior * weights, axis=1)
+    mu_db = np.sum(mu_posterior * weights[...,None], axis=1)
     T = (mu_posterior - mu_db[:, None, :]) ** 2 + sigma2_posterior
-    sigma2_db = np.sum(T * weights, axis=1)
+    sigma2_db = np.sum(T * weights[...,None], axis=1)
     sigma_db = np.sqrt(sigma2_db)
 
     # Step 10: compute exceedance probability separately.
@@ -82,13 +82,14 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
                 thresh[:, None, :], mu_posterior, np.sqrt(sigma2_posterior)
             )
         )
-        * weights,
+        * weights[...,None],
         axis=1,
     )
 
     return dict(
         mu_posterior=mu_posterior,
         sigma2_posterior=sigma2_posterior,
+        sigma2_given_y=sigma2_given_y,
         theta_map=mu_db,
         mu_appx=mu_db,
         sigma_appx=sigma_db,
