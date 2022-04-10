@@ -15,7 +15,6 @@ repos:
     rev: 3.8.4
     hooks:
       - id: flake8
-        args: [--exclude, "./python/test/core_main.py"]
   - repo: https://github.com/pycqa/isort
     rev: 5.7.0
     hooks:
