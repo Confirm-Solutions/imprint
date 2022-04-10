@@ -82,31 +82,30 @@ struct SimGlobalStateBase<GenType, ValueType, UIntType>::SimState {
  * TODO: this interface will need to be further refactored
  * once we start playing around with new kevlar bounds.
  */
-template <class ValueType, class TileType>
+template <class ValueType>
 struct KevlarBoundStateBase {
     using value_t = ValueType;
-    using tile_t = TileType;
     using interface_t = KevlarBoundStateBase;
 
     virtual ~KevlarBoundStateBase(){};
 
     /*
-     * Computes Jacobian of eta evaluated at gridpt and multiplies to v.
+     * Computes Jacobian of eta evaluated at gridpt given by gridpt_idx
+     * and multiplies to v.
      * Eta is the transformation that maps a grid-point to
      * the corresponding natural parameter of the exponential family.
      * The result is stored in out.
      */
     virtual void apply_eta_jacobian(
-        const Eigen::Ref<const colvec_type<value_t>>& gridpt,
-        const Eigen::Ref<const colvec_type<value_t>>& v,
+        size_t gridpt_idx, const Eigen::Ref<const colvec_type<value_t>>& v,
         Eigen::Ref<colvec_type<value_t>> out) = 0;
 
     /*
-     * Computes the covariance (evaluated at gridpt) quadratic form.
+     * Computes the covariance (evaluated at gridpt given by gridpt_idx)
+     * quadratic form.
      */
     virtual value_t covar_quadform(
-        const Eigen::Ref<const colvec_type<value_t>>& gridpt,
-        const Eigen::Ref<const colvec_type<value_t>>& v) = 0;
+        size_t gridpt_idx, const Eigen::Ref<const colvec_type<value_t>>& v) = 0;
 
     /*
      * Computes an upper bound U(v) of
@@ -116,7 +115,7 @@ struct KevlarBoundStateBase {
      * to other functions like bias, MSE, FDR.
      */
     virtual value_t hessian_quadform_bound(
-        const tile_t& tile,
+        size_t gridpt_idx, size_t tile_idx,
         const Eigen::Ref<const colvec_type<value_t>>& v) = 0;
 
     /*

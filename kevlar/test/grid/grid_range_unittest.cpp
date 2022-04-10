@@ -314,6 +314,7 @@ TEST_F(grid_range_fixture, prune_off_gridpt) {
     vec_surf_t vs;
     normal << 1, 1;
     normal /= normal.norm();
+    vs.emplace_back(normal, 0);
 
     gr.create_tiles(vs);
     gr.prune();
@@ -324,6 +325,30 @@ TEST_F(grid_range_fixture, prune_off_gridpt) {
     EXPECT_EQ(gr.n_tiles(), 0);
     EXPECT_EQ(gr.n_gridpts(), 0);
     EXPECT_EQ(gr.n_params(), d);  // should not have changed
+}
+
+TEST_F(grid_range_fixture, prune_no_surfaces) {
+    size_t d = 2, n = 10;
+    gr_t gr(d, n);
+    gr.thetas().setRandom();
+    gr.radii().fill(0.5);
+
+    vec_surf_t vs;
+    gr.create_tiles(vs);
+    gr.prune();
+
+    EXPECT_EQ(gr.thetas().cols(), n);
+    EXPECT_EQ(gr.radii().cols(), n);
+    EXPECT_EQ(gr.sim_sizes().size(), n);
+    EXPECT_EQ(gr.n_tiles(), n);
+    EXPECT_EQ(gr.n_gridpts(), n);
+    EXPECT_EQ(gr.n_params(), d);
+
+    for (size_t i = 0; i < gr.n_tiles(); ++i) {
+        for (size_t j = 0; j < gr.max_bits(); ++j) {
+            EXPECT_TRUE(gr.check_null(i, j));
+        }
+    }
 }
 
 TEST_F(grid_range_fixture, prune_twice_invariance) {

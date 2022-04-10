@@ -91,21 +91,26 @@ TEST_F(ss_fixture, score_test) {
 
 struct kbs_fixture : base_fixture {
     using value_t = double;
+    using uint_t = uint32_t;
     using tile_t = grid::Tile<value_t>;
-    using kbs_t = KevlarBoundStateFixedNLogHazardRate<value_t, tile_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
+    using kbs_t = KevlarBoundStateFixedNLogHazardRate<gr_t>;
     const size_t d = 2;
+    static constexpr value_t tol = 2e-15;
 };
 
 TEST_F(kbs_fixture, apply_eta_jacobian) {
     size_t n_arm_samples = 32;
-    kbs_t kbs(n_arm_samples);
 
-    colvec_type<value_t> theta(d);
-    theta << 1, -2;
+    gr_t gr(d, 1);
+    gr.thetas() << 1, -2;
+
+    kbs_t kbs(n_arm_samples, gr);
+
     colvec_type<value_t> v(d);
     v.setRandom();
 
-    colvec_type<value_t> nat = theta.array().exp();
+    colvec_type<value_t> nat = gr.thetas().array().exp();
     nat[0] = -nat[0];
     nat[1] *= nat[0];
     mat_type<value_t> deta(d, d);
@@ -113,48 +118,49 @@ TEST_F(kbs_fixture, apply_eta_jacobian) {
     colvec_type<value_t> expected = deta * v;
 
     colvec_type<value_t> out(d);
-    kbs.apply_eta_jacobian(theta, v, out);
+    kbs.apply_eta_jacobian(0, v, out);
 
     expect_double_eq_vec(out, expected);
 }
 
 TEST_F(kbs_fixture, covar_quadform) {
     size_t n_arm_samples = 32;
-    kbs_t kbs(n_arm_samples);
 
-    colvec_type<value_t> theta(d);
-    theta << 1, -2;
+    gr_t gr(d, 1);
+    gr.thetas() << 1, -2;
+
+    kbs_t kbs(n_arm_samples, gr);
+
     colvec_type<value_t> v(d);
     v.setRandom();
 
-    colvec_type<value_t> lmda = theta.array().exp();
+    colvec_type<value_t> lmda = gr.thetas().array().exp();
     lmda[1] *= lmda[0];
     value_t expected =
         n_arm_samples *
         ((1. / lmda.array()).square() * v.array().square()).sum();
 
-    value_t actual = kbs.covar_quadform(theta, v);
+    value_t actual = kbs.covar_quadform(0, v);
 
-    EXPECT_DOUBLE_EQ(actual, expected);
+    EXPECT_NEAR(actual, expected, expected * tol);
 }
 
 TEST_F(kbs_fixture, hessian_quadform_bound) {
     size_t n_arm_samples = 32;
-    kbs_t kbs(n_arm_samples);
+
+    gr_t gr(d, 1);
 
     // these values should not matter
     // just set them to some dummy values
-    colvec_type<value_t> theta(d);
-    theta.setRandom();
-    colvec_type<value_t> radius(d);
-    radius.setRandom();
+    gr.thetas().setRandom();
+    gr.radii().setRandom();
+
+    kbs_t kbs(n_arm_samples, gr);
 
     // v is used in this test,
     // but any values should make this test work
     colvec_type<value_t> v(d);
     v.setRandom();
-
-    tile_t tile(theta, radius);
 
     mat_type<value_t, 2, 2> A;
     A << 2, 1, 1, 1;
@@ -162,7 +168,7 @@ TEST_F(kbs_fixture, hessian_quadform_bound) {
 
     value_t expected =
         v.dot(A * v) + v.squaredNorm() * 3 * std::sqrt(n_arm_samples);
-    value_t actual = kbs.hessian_quadform_bound(tile, v);
+    value_t actual = kbs.hessian_quadform_bound(0, 0, v);
     EXPECT_DOUBLE_EQ(actual, expected);
 }
 

@@ -35,6 +35,8 @@ int main() {
     gr.create_tiles(null_hypos);
     gr.prune();
 
+    std::cout << "n_tiles: " << gr.n_tiles() << std::endl;
+
     model_t model(cvs);
     auto sgs = model.make_sim_global_state<std::mt19937, double, uint32_t>(gr);
     auto ss = sgs.make_sim_state();

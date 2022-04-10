@@ -32,17 +32,17 @@ struct MockKevlarBoundState {
      *  where the absolute value is element-wise.
      */
 
-    value_t covar_quadform(const Eigen::Ref<const colvec_type<value_t>>&,
+    value_t covar_quadform(size_t,
                            const Eigen::Ref<const colvec_type<value_t>>& v) {
         return v.squaredNorm();
     }
 
     value_t hessian_quadform_bound(
-        const tile_t&, const Eigen::Ref<const colvec_type<value_t>>& v) {
+        size_t, size_t, const Eigen::Ref<const colvec_type<value_t>>& v) {
         return v.squaredNorm();
     }
 
-    void apply_eta_jacobian(const Eigen::Ref<const colvec_type<value_t>>&,
+    void apply_eta_jacobian(size_t,
                             const Eigen::Ref<const colvec_type<value_t>>& v,
                             Eigen::Ref<colvec_type<value_t>> out) {
         out = v;
@@ -137,9 +137,9 @@ TEST_F(typeI_error_bound_fixture, delta_1_u) {
     const auto& actual = ub.delta_1_u();
     mat_type<value_t> expected(actual.rows(), actual.cols());
     for (int j = 0; j < expected.cols(); ++j) {
-        expected.col(j).array() = std::sqrt(
-            kbs.covar_quadform(gr.thetas().col(j), gr.radii().col(j)) /
-            sim_size * (2. / delta - 1));
+        expected.col(j).array() =
+            std::sqrt(kbs.covar_quadform(0, gr.radii().col(j)) / sim_size *
+                      (2. / delta - 1));
     }
     expect_double_eq_mat(actual, expected);
 }
@@ -149,7 +149,7 @@ TEST_F(typeI_error_bound_fixture, delta_2_u) {
     mat_type<value_t> expected(actual.rows(), actual.cols());
     for (int j = 0; j < expected.cols(); ++j) {
         expected.col(j).array() =
-            0.5 * kbs.hessian_quadform_bound(gr.tiles()[j], gr.radii().col(j));
+            0.5 * kbs.hessian_quadform_bound(0, 0, gr.radii().col(j));
     }
     expect_double_eq_mat(actual, expected);
 }

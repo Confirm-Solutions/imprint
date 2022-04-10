@@ -10,12 +10,11 @@ namespace normal {
 
 template <class ValueType>
 struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
+    using arm_t = FixedSingleArmSize;
     using base_t = ModelBase<ValueType>;
     using typename base_t::value_t;
 
    private:
-    using arm_t = FixedSingleArmSize;
-
     KEVLAR_STRONG_INLINE
     constexpr auto n_params() const { return 1; }
 
@@ -24,7 +23,7 @@ struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
               class _GridRangeType>
     struct SimGlobalState;
 
-    template <class _ValueType, class _TileType>
+    template <class _GridRangeType>
     struct KevlarBoundState;
 
     template <class _GenType, class _ValueType, class _UIntType,
@@ -32,8 +31,8 @@ struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
     using sim_global_state_t =
         SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
 
-    template <class _ValueType, class _TileType>
-    using kevlar_bound_state_t = KevlarBoundState<_ValueType, _TileType>;
+    template <class _GridRangeType>
+    using kevlar_bound_state_t = KevlarBoundState<_GridRangeType>;
 
     Simple(const Eigen::Ref<const colvec_type<value_t>>& cvs)
         : arm_t(1, 1), base_t(cvs) {}
@@ -45,9 +44,10 @@ struct Simple : FixedSingleArmSize, ModelBase<ValueType> {
                                   _GridRangeType>(*this, gr);
     };
 
-    template <class _ValueType, class _TileType>
-    auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(*this);
+    // grid range is not used, but we keep it as a parameter for consistency.
+    template <class _GridRangeType>
+    auto make_kevlar_bound_state(const _GridRangeType&) const {
+        return kevlar_bound_state_t<_GridRangeType>();
     };
 };
 
@@ -158,28 +158,27 @@ struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
 };
 
 template <class ValueType>
-template <class _ValueType, class _TileType>
+template <class _GridRangeType>
 struct Simple<ValueType>::KevlarBoundState
-    : KevlarBoundStateBase<_ValueType, _TileType> {
-    using base_t = KevlarBoundStateBase<_ValueType, _TileType>;
+    : KevlarBoundStateBase<typename _GridRangeType::value_t> {
+    using grid_range_t = _GridRangeType;
+    using base_t = KevlarBoundStateBase<typename grid_range_t::value_t>;
     using typename base_t::interface_t;
-    using typename base_t::tile_t;
     using typename base_t::value_t;
 
-    void apply_eta_jacobian(const Eigen::Ref<const colvec_type<value_t>>&,
+    void apply_eta_jacobian(size_t,
                             const Eigen::Ref<const colvec_type<value_t>>& v,
                             Eigen::Ref<colvec_type<value_t>> out) override {
         out = v;
     }
 
     value_t covar_quadform(
-        const Eigen::Ref<const colvec_type<value_t>>&,
-        const Eigen::Ref<const colvec_type<value_t>>& v) override {
+        size_t, const Eigen::Ref<const colvec_type<value_t>>& v) override {
         return v.squaredNorm();
     }
 
     value_t hessian_quadform_bound(
-        const tile_t&,
+        size_t, size_t,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
         return v.squaredNorm();
     }

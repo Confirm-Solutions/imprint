@@ -222,18 +222,22 @@ TEST_F(ss_fixed_n_default_fixture, two_arm_suff_stat_score) {
 struct kbs_fixed_n_default_fixture : base_fixture {
    protected:
     using value_t = double;
+    using uint_t = uint32_t;
     using tile_t = grid::Tile<value_t>;
-    using kbs_t = KevlarBoundStateFixedNDefault<value_t, tile_t>;
+    using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
+    using kbs_t = KevlarBoundStateFixedNDefault<gr_t>;
 };
 
 TEST_F(kbs_fixed_n_default_fixture, apply_eta_jacobian) {
     size_t d = 5;              // arbitrary
     size_t n_arm_samples = 3;  // arbitrary
-    kbs_t kbs(d, n_arm_samples);
     colvec_type<value_t> v;
     v.setRandom(d);
+    gr_t gr(d, 1);
+    gr.thetas() = v;  // dummy
+    kbs_t kbs(n_arm_samples, gr);
     colvec_type<value_t> out(v.size());
-    kbs.apply_eta_jacobian(/*dummy*/ v, v, out);
+    kbs.apply_eta_jacobian(0, v, out);
     expect_double_eq_vec(out, v);
 }
 
@@ -241,23 +245,24 @@ TEST_F(kbs_fixed_n_default_fixture, covar_quadform) {
     size_t d = 3;  // number of params
     size_t n_arm_samples = 100;
 
-    kbs_t kbs(d, n_arm_samples);
-
     // the invariance is that
     // the values of theta and v does not matter
 
-    colvec_type<value_t> theta;
-    theta.setRandom(d);
+    gr_t gr(d, 1);
+    gr.thetas().setRandom();
+
+    kbs_t kbs(n_arm_samples, gr);
+
     colvec_type<value_t> v;
     v.setRandom(d);
 
-    colvec_type<value_t> prob = sigmoid(theta.array());
+    colvec_type<value_t> prob = sigmoid(gr.thetas().array());
     auto prob_a = prob.array();
     auto v_a = v.array();
     value_t expected =
         (n_arm_samples * v_a.square() * prob_a * (1.0 - prob_a)).sum();
 
-    value_t actual = kbs.covar_quadform(theta, v);
+    value_t actual = kbs.covar_quadform(0, v);
     EXPECT_DOUBLE_EQ(actual, expected);
 }
 
@@ -265,20 +270,22 @@ TEST_F(kbs_fixed_n_default_fixture, hessian_quadform_bound) {
     size_t d = 3;  // number of params
     size_t n_arm_samples = 250;
 
-    colvec_type<value_t> theta(d);
-    theta << -0.5, 0., 0.5;
-    colvec_type<value_t> radius(d);
-    radius.array() = 0.25;
-    tile_t tile(theta, radius);
+    gr_t gr(d, 1);
+    gr.thetas() << -0.5, 0., 0.5;
+    gr.radii().array() = 0.25;
+    // technically, tiles should be initialized,
+    // but it should not be used.
 
-    kbs_t kbs(d, n_arm_samples);
+    kbs_t kbs(n_arm_samples, gr);
 
     colvec_type<value_t> v(d);
     v.setRandom();
 
-    value_t actual = kbs.hessian_quadform_bound(tile, v);
+    value_t actual = kbs.hessian_quadform_bound(0, 0, v);
 
     // compute the expected bound
+    auto theta = gr.thetas().col(0);
+    auto radius = gr.radii().col(0);
     value_t expected = 0;
     value_t p = 0;
     p = sigmoid(theta[0] + radius[0]);

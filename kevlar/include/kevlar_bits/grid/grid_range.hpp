@@ -51,7 +51,9 @@ struct GridRange {
     }
 
     KEVLAR_STRONG_INLINE
-    bool is_all_alt(bits_t bits) const { return bits == all_alt_bits_; }
+    bool is_all_alt(bits_t bits) const {
+        return all_alt_bits_ && (bits == all_alt_bits_);
+    }
 
     void reset_tiles_viewer() {
         // if tiles haven't been created yet
@@ -300,8 +302,11 @@ struct GridRange {
     /*
      * Returns true if the tile specified by tile_idx
      * has ISH configuration such that null hypothesis for hypo_idx is true.
-     * Note that this function is for non-regular tiles.
      * This function is only valid once create_tiles() has been called.
+     * It is well-defined for hypo_idx in the range [0, max_bits()).
+     * If create_tiles() were called with a vector of surfaces of size k,
+     * then, hypo_idx in the range [k, max_bits()) will return true,
+     * i.e. by default, an "empty" hypothesis is assumed to be null.
      */
     KEVLAR_STRONG_INLINE
     bool check_null(size_t tile_idx, size_t hypo_idx) const {
@@ -327,6 +332,9 @@ struct GridRange {
      */
     KEVLAR_STRONG_INLINE
     bool is_regular(size_t idx) const { return n_tiles_[idx] == 1; }
+
+    KEVLAR_STRONG_INLINE
+    static constexpr size_t max_bits() { return sizeof(bits_t) * 8; }
 
     /*
      * Returns the vector of tiles.

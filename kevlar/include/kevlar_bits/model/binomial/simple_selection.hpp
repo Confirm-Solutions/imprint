@@ -35,9 +35,8 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
     using sim_global_state_t =
         SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
 
-    template <class _ValueType, class _TileType>
-    using kevlar_bound_state_t =
-        KevlarBoundStateFixedNDefault<_ValueType, _TileType>;
+    template <class _GridRangeType>
+    using kevlar_bound_state_t = KevlarBoundStateFixedNDefault<_GridRangeType>;
 
     SimpleSelection(size_t n_arms, size_t n_arm_samples,
                     size_t n_phase2_samples,
@@ -69,10 +68,9 @@ struct SimpleSelection : FixedSingleArmSize, ModelBase<ValueType> {
                                   _GridRangeType>(*this, grid_range);
     }
 
-    template <class _ValueType, class _TileType>
-    auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arms(),
-                                                           n_arm_samples());
+    template <class _GridRangeType>
+    auto make_kevlar_bound_state(const _GridRangeType& gr) const {
+        return kevlar_bound_state_t<_GridRangeType>(n_arm_samples(), gr);
     }
 };
 

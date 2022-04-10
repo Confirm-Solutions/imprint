@@ -124,24 +124,26 @@ struct TypeIErrorBound {
               class ThetasType, class KBSType, class AccumType,
               class D11U2UType, class SaveCornerType>
     void update_d11u2u(const TileType& tile, Iter begin, Iter end, bool is_reg,
-                       size_t gp, size_t pos, size_t ss,
+                       size_t gp, size_t tile_pos, size_t ss,
                        value_t d1u_factor_sqrt_ss, VDiffType& v_diff,
                        DetaVDiffType& deta_v_diff, const ThetasType& thetas,
                        KBSType&& kbs, size_t n_models, size_t n_params,
                        size_t slice_size, const AccumType& acc_o,
                        D11U2UType& d11u2u, SaveCornerType save_corner) {
         Eigen::Map<const mat_type<value_t> > score_tile(
-            acc_o.score_sum().data() + slice_size * pos, n_models, n_params);
+            acc_o.score_sum().data() + slice_size * tile_pos, n_models,
+            n_params);
 
         for (; begin != end; ++begin) {
             auto&& v = *begin;  // vertex
 
             auto center = thetas.col(gp);
             v_diff = v - center;
-            kbs.apply_eta_jacobian(center, v_diff, deta_v_diff);
-            value_t d1u = std::sqrt(kbs.covar_quadform(center, deta_v_diff)) *
+            kbs.apply_eta_jacobian(gp, v_diff, deta_v_diff);
+            value_t d1u = std::sqrt(kbs.covar_quadform(gp, deta_v_diff)) *
                           d1u_factor_sqrt_ss;
-            value_t d2u = 0.5 * kbs.hessian_quadform_bound(tile, v_diff);
+            value_t d2u =
+                0.5 * kbs.hessian_quadform_bound(gp, tile_pos, v_diff);
 
             for (size_t m = 0; m < n_models; ++m) {
                 // compute current v^T Deta^T score
@@ -154,10 +156,10 @@ struct TypeIErrorBound {
                 // save new maximum sum and the components
                 if (is_new) {
                     d11u2u[m] = new_max;
-                    delta_1_(m, pos) = d1;
-                    delta_1_u_(m, pos) = d1u;
-                    delta_2_u_(m, pos) = d2u;
-                    save_corner(m, pos, v);
+                    delta_1_(m, tile_pos) = d1;
+                    delta_1_u_(m, tile_pos) = d1u;
+                    delta_2_u_(m, tile_pos) = d2u;
+                    save_corner(m, tile_pos, v);
                 }
 
             }  // end for-loop on models
@@ -176,7 +178,8 @@ struct TypeIErrorBound {
      *                              generated kbs.
      * @param   grid_range          GridRange-like object.
      *                              Assumes that this is the same grid range
-     *                              that acc_o was updated with.
+     *                              that acc_o was updated with and that kbs
+     *                              is initialized with.
      * @param   delta               1-confidence of provable upper bound.
      * @param   delta_prop_0to1     proportion of delta to put
      *                              into 0th order upper bound.

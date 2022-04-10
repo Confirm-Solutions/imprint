@@ -40,9 +40,9 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
     using sim_global_state_t =
         SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
 
-    template <class _ValueType, class _TileType>
+    template <class _GridRangeType>
     using kevlar_bound_state_t =
-        KevlarBoundStateFixedNLogHazardRate<_ValueType, _TileType>;
+        KevlarBoundStateFixedNLogHazardRate<_GridRangeType>;
 
     SimpleLogRank(size_t n_arm_samples, value_t censor_time,
                   const Eigen::Ref<const colvec_type<value_t>>& cv)
@@ -67,9 +67,9 @@ struct SimpleLogRank : FixedSingleArmSize, ModelBase<ValueType> {
                                   _GridRangeType>(*this, grid_range);
     }
 
-    template <class _ValueType, class _TileType>
-    auto make_kevlar_bound_state() const {
-        return kevlar_bound_state_t<_ValueType, _TileType>(n_arm_samples());
+    template <class _GridRangeType>
+    auto make_kevlar_bound_state(const _GridRangeType& gr) const {
+        return kevlar_bound_state_t<_GridRangeType>(n_arm_samples(), gr);
     }
 
     // Extra model-specific functions

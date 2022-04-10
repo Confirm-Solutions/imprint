@@ -249,57 +249,82 @@ struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
  * This class represents the default kevlar bound state for all binomial models.
  * See the assumptions of binomial model in global state class above.
  */
-template <class ValueType, class TileType>
+template <class GridRangeType>
 struct KevlarBoundStateFixedNDefault
-    : KevlarBoundStateBase<ValueType, TileType> {
-    using base_t = KevlarBoundStateBase<ValueType, TileType>;
+    : KevlarBoundStateBase<typename GridRangeType::value_t> {
+    using grid_range_t = GridRangeType;
+    using base_t = KevlarBoundStateBase<typename grid_range_t::value_t>;
     using typename base_t::interface_t;
-    using typename base_t::tile_t;
     using typename base_t::value_t;
 
    private:
     using binom_t = distribution::Binomial<int>;
 
-    size_t n_arms_;
+    const grid_range_t& grid_range_;
     size_t n_arm_samples_;
-    colvec_type<value_t> p_;
-    colvec_type<value_t> p_lower_;
-    colvec_type<value_t> p_upper_;
+    colvec_type<value_t> p_buffer_;
+
+    template <bool do_const>
+    auto p_slice(size_t slice) const {
+        using mat_t = std::conditional_t<do_const, const mat_type<value_t>,
+                                         mat_type<value_t>>;
+        using vec_t = std::conditional_t<do_const, const colvec_type<value_t>,
+                                         colvec_type<value_t>>;
+        auto& p_buffer_cast = const_cast<vec_t&>(p_buffer_);
+        const auto mat_size = grid_range_.n_params() * grid_range_.n_gridpts();
+        return Eigen::Map<mat_t>(p_buffer_cast.data() + mat_size * slice,
+                                 grid_range_.n_params(),
+                                 grid_range_.n_gridpts());
+    }
+
+    auto p_lower() const { return p_slice<true>(0); }
+    auto p() const { return p_slice<true>(1); }
+    auto p_upper() const { return p_slice<true>(2); }
 
    public:
-    KevlarBoundStateFixedNDefault(size_t n_arms, size_t n_arm_samples)
-        : n_arms_(n_arms), n_arm_samples_(n_arm_samples) {}
+    KevlarBoundStateFixedNDefault(size_t n_arm_samples,
+                                  const grid_range_t& grid_range)
+        : grid_range_(grid_range),
+          n_arm_samples_(n_arm_samples),
+          p_buffer_(grid_range.n_params() * grid_range.n_gridpts() * 3) {
+        const auto& thetas = grid_range.thetas();
+        const auto& radii = grid_range.radii();
+        p_slice<false>(0) =
+            binom_t::nat_to_mean(thetas.array() - radii.array());
+        p_slice<false>(1) = binom_t::nat_to_mean(thetas.array());
+        p_slice<false>(2) =
+            binom_t::nat_to_mean(thetas.array() + radii.array());
+    }
 
-    void apply_eta_jacobian(const Eigen::Ref<const colvec_type<value_t>>&,
+    /*
+     * Note that grid-point information is not used.
+     */
+    void apply_eta_jacobian(size_t,
                             const Eigen::Ref<const colvec_type<value_t>>& v,
                             Eigen::Ref<colvec_type<value_t>> out) override {
-        assert(v.size() == n_arms_);
-        assert(out.size() == n_arms_);
+        assert(v.size() == n_natural_params());
+        assert(v.size() == out.size());
         out = v;
     }
 
     value_t covar_quadform(
-        const Eigen::Ref<const colvec_type<value_t>>& gridpt,
+        size_t gridpt_idx,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
-        assert(gridpt.size() == n_arms_);
-        assert(v.size() == n_arms_);
-        p_ = binom_t::nat_to_mean(gridpt.array());
-        return binom_t::covar_quadform(n_arm_samples_, p_.array(), v.array());
+        assert(v.size() == n_natural_params());
+        return binom_t::covar_quadform(n_arm_samples_,
+                                       p().col(gridpt_idx).array(), v.array());
     }
 
+    /*
+     * Note that tile information is not used in this bound.
+     */
     value_t hessian_quadform_bound(
-        const tile_t& tile,
+        size_t gridpt_idx, size_t,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
-        assert(v.size() == n_arms_);
+        assert(v.size() == n_natural_params());
 
-        const auto& c = tile.center();
-        const auto& r = tile.radius();
-
-        assert(c.size() == n_arms_);
-
-        p_ = binom_t::nat_to_mean(c.array());
-        p_lower_ = binom_t::nat_to_mean((c - r).array());
-        p_upper_ = binom_t::nat_to_mean((c + r).array());
+        auto p_lower_ = p_lower().col(gridpt_idx);
+        auto p_upper_ = p_upper().col(gridpt_idx);
 
         value_t hess_bd = 0;
         for (int k = 0; k < v.size(); ++k) {
@@ -318,7 +343,7 @@ struct KevlarBoundStateFixedNDefault
         return hess_bd * n_arm_samples_;
     }
 
-    size_t n_natural_params() const override { return n_arms_; }
+    size_t n_natural_params() const override { return grid_range_.n_params(); }
 };
 
 }  // namespace binomial

@@ -9,5 +9,6 @@
     ],
 ) for type_ in [
     "direct_bayes",
+    "kevlar_bound",
     "simple_selection_accum",
 ]]

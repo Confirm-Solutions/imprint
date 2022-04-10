@@ -36,6 +36,14 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
               class _GridRangeType>
     struct SimGlobalState;
 
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
+    using sim_global_state_t =
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
+
+    template <class _GridRangeType>
+    using kevlar_bound_state_t = KevlarBoundStateFixedNDefault<_GridRangeType>;
+
     DirectBayes(
         size_t n_arms, size_t n_arm_size,
         const Eigen::Ref<const colvec_type<value_t>>& cv,
@@ -65,14 +73,13 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>(
-            *this, grid_range);
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, grid_range);
     }
 
-    template <class _ValueType, class _TileType>
-    auto make_kevlar_bound_state() const {
-        return KevlarBoundStateFixedNDefault<_ValueType, _TileType>(
-            n_arms(), n_arm_samples());
+    template <class _GridRangeType>
+    auto make_kevlar_bound_state(const _GridRangeType& gr) const {
+        return kevlar_bound_state_t<_GridRangeType>(n_arm_samples(), gr);
     }
 
     // TODO: clean-up

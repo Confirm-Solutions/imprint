@@ -174,82 +174,82 @@ struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
     }
 };
 
-template <class ValueType, class TileType>
+template <class _GridRangeType>
 struct KevlarBoundStateFixedNLogHazardRate
-    : KevlarBoundStateBase<ValueType, TileType> {
-    using base_t = KevlarBoundStateBase<ValueType, TileType>;
-    using typename base_t::tile_t;
+    : KevlarBoundStateBase<typename _GridRangeType::value_t> {
+    using grid_range_t = _GridRangeType;
+    using base_t = KevlarBoundStateBase<typename grid_range_t::value_t>;
+    using typename base_t::interface_t;
     using typename base_t::value_t;
 
    private:
+    using exp_t = distribution::Exponential<value_t>;
+
     const mat_type<value_t, 2, 2> max_cov_;
     const size_t n_arm_samples_;
     const value_t max_eta_hess_cov_;
-
-    /*
-     * Natural parameters:
-     *  \[ \eta = -\lambda \]
-     * Grid parameters:
-     * \begin{align*}
-     *      \theta_1 = \log(\lambda_1)
-     *      \theta_2 = \log(\lambda_2 / \lambda_1)
-     * \end{align*}
-     */
-    template <class ThetaType, class OutType>
-    void eta(const ThetaType& theta, OutType& out) {
-        out[0] = -std::exp(theta[0]);
-        out[1] = -std::exp(theta[0] + theta[1]);
-    }
+    const mat_type<value_t> lmdas_;
 
    public:
-    KevlarBoundStateFixedNLogHazardRate(size_t n_arm_samples)
+    KevlarBoundStateFixedNLogHazardRate(size_t n_arm_samples,
+                                        const grid_range_t& grid_range)
         : n_arm_samples_(n_arm_samples),
-          max_eta_hess_cov_(3 * std::sqrt(n_arm_samples)) {
+          max_eta_hess_cov_(3 * std::sqrt(n_arm_samples)),
+          lmdas_(grid_range.n_params(), grid_range.n_gridpts()) {
         // temporarily const-cast just to initialize the values
         auto& max_cov_nc_ = const_cast<mat_type<value_t, 2, 2>&>(max_cov_);
         max_cov_nc_.setOnes();
         max_cov_nc_(0, 0) = 2;
         max_cov_nc_ *= n_arm_samples;
+
+        auto& lmdas_nc_ = const_cast<mat_type<value_t>&>(lmdas_);
+        lmdas_nc_ = grid_range.thetas();
+        lmdas_nc_.row(1) += lmdas_nc_.row(0);
+        lmdas_nc_.array() = lmdas_nc_.array().exp();
     }
 
     /*
      * \begin{align*}
      *      D\eta &=
      *      \begin{bmatrix}
-     *          -e^{\theta_1} & 0 \\
-     *          -e^{\theta_1 + \theta_2} & -e^{\theta_1 + \theta_2}
+     *          -\lambda_1 & 0 \\
+     *          -\lambda_2 & -\lambda_2
      *      \end{bmatrix}
      * \end{align*}
-     *
-     * Note that gridpt is synonymous to $\theta$ above.
      */
-    void apply_eta_jacobian(
-        const Eigen::Ref<const colvec_type<value_t>>& gridpt,
-        const Eigen::Ref<const colvec_type<value_t>>& v,
-        Eigen::Ref<colvec_type<value_t>> out) override {
-        assert(gridpt.size() == n_natural_params());
+    void apply_eta_jacobian(size_t gridpt_idx,
+                            const Eigen::Ref<const colvec_type<value_t>>& v,
+                            Eigen::Ref<colvec_type<value_t>> out) override {
         assert(v.size() == n_natural_params());
         assert(out.size() == n_natural_params());
-        mat_type<value_t, 2, 1> nat;
-        eta(gridpt, nat);
+        auto lmdas = lmdas_.col(gridpt_idx);
         mat_type<value_t, 2, 2> deta;
-        deta(0, 0) = nat[0];
+        deta(0, 0) = -lmdas[0];
         deta(0, 1) = 0;
-        deta.row(1).array() = nat[1];
+        deta.row(1).array() = -lmdas[1];
 
         out = deta * v;
     }
 
+    /*
+     * Computes the covariance quadratic form of v given by:
+     *
+     *      v^\top
+     *      \begin{align*}
+     *          \lambda_1^{-1} & 0 \\
+     *          0 & \lambda_2^{-1}
+     *      \end{align*}
+     *      v
+     *
+     * where $\lambda$ is the mean parameter at grid-point
+     * given by gridpt_idx.
+     */
     value_t covar_quadform(
-        const Eigen::Ref<const colvec_type<value_t>>& gridpt,
+        size_t gridpt_idx,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
-        assert(gridpt.size() == n_natural_params());
         assert(v.size() == n_natural_params());
-        mat_type<value_t, 2, 1> lmda;
-        eta(gridpt, lmda);
-        lmda *= -1;
-        return distribution::Exponential<value_t>::covar_quadform(
-            n_arm_samples_, lmda.array(), v.array());
+        auto lmdas = lmdas_.col(gridpt_idx);
+        return exp_t::covar_quadform(n_arm_samples_, lmdas.array(), v.array());
     }
 
     /*
@@ -268,7 +268,7 @@ struct KevlarBoundStateFixedNLogHazardRate
      * where n is the number of samples per arm.
      */
     value_t hessian_quadform_bound(
-        const tile_t&,
+        size_t, size_t,
         const Eigen::Ref<const colvec_type<value_t>>& v) override {
         assert(v.size() == n_natural_params());
         return (v.dot(max_cov_ * v)) + v.squaredNorm() * max_eta_hess_cov_;
