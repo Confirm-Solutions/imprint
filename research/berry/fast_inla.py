@@ -55,7 +55,10 @@ class FastINLA:
     def numpy_inference(self, y, n):
         N = y.shape[0]
         # TODO: warm start with DB theta ?
+        # Step 1) Compute the mode of p(theta, y, sigma^2) holding y and sigma^2 fixed.
+        # This is a simple Newton's method implementation.
         theta_max = np.zeros((N, self.sigma2_n, 4))
+        converged = False
         for i in range(100):
             theta_m0 = theta_max - self.mu_0
             exp_theta_adj = np.exp(theta_max + self.logit_p1)
@@ -79,8 +82,11 @@ class FastINLA:
             # np.testing.assert_allclose(step, step2, atol=1e-12)
 
             if np.max(np.linalg.norm(step, axis=-1)) < self.tol:
+                converged = True
                 break
+        assert(converged)
 
+        # Step 2) Calculate the joint distribution p(theta, y, sigma^2)
         theta_m0 = theta_max - self.mu_0
         theta_adj = theta_max + self.logit_p1
         exp_theta_adj = np.exp(theta_adj)
@@ -94,8 +100,13 @@ class FastINLA:
             + self.log_prior
         )
 
-        # The last step will be sufficiently small that we shouldn't need to update the
-        # hessian
+        # Step 3) Calculate p(sigma^2 | y) = (
+        #   p(theta_max, y, sigma^2) 
+        #   - log(det(-hessian(theta_max, y, sigma^2)))
+        # )
+        # The last step in the optimization  will be sufficiently small that we
+        # shouldn't need to update the hessian that was calculated during the
+        # optimization.
         # hess = np.tile(-precQ, (N, 1, 1, 1))
         # hess[:, :, arms, arms] -= n[:, None] * np.exp(theta_adj) / ((np.exp(theta_adj) + 1) ** 2)
         log_sigma2_post = logjoint + 0.5 * np.log(np.linalg.det(-hess_inv))
@@ -104,8 +115,13 @@ class FastINLA:
         sigma2_post = np.exp(log_sigma2_post)
         sigma2_post /= np.sum(sigma2_post * self.sigma2_rule.wts, axis=1)[:, None]
 
+        # Step 4) Calculate p(theta_i | y, sigma^2). This a gaussian
+        # approximation using the mode found in the previous optimization step.
         theta_sigma = np.sqrt(np.diagonal(-hess_inv, axis1=2, axis2=3))
         theta_mu = theta_max
+
+        # Step 5) Calculate exceedance probabilities. We do this per sigma^2 and
+        # then integrate over sigma^2
         exceedances = []
         for i in range(4):
             exc_sigma2 = 1.0 - scipy.stats.norm.cdf(
