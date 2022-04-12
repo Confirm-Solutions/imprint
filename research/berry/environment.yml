@@ -22,6 +22,8 @@ dependencies:
   - seaborn
 
 # numerical tools
+  - jax
+  - numpyro
   - pip:
     - setuptools
     - "pybind11[global]"
