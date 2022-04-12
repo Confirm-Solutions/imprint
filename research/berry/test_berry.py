@@ -1,12 +1,16 @@
+import time
+
+import pytest
 import numpy as np
 import scipy.stats
 from scipy.special import logit
 
 import inla
+import fast_inla
 import util
 import berry
 import dirty_bayes
-import exact
+import quadrature
 
 
 def test_binomial_hierarchical_grad_hess():
@@ -225,23 +229,82 @@ def test_exact_integrate():
     ]
     np.testing.assert_allclose(p_sigma2_g_y[0], expected, 1e-6)
 
+
 def test_exact_integrate2():
     n_i = np.full((1, 4), 10)
     y_i = np.array([[1, 6, 3, 3]])
     data = np.stack((y_i, n_i), axis=2)
     b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-1, 1e2))
 
-    p_sigma2_g_y = exact.integrate(
+    p_sigma2_g_y = quadrature.integrate(
         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=15
     )
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-if __name__ == "__main__":
-    import time
+# @pytest.mark.parametrize('method', ['jax', 'numpy', 'cpp'])
+@pytest.mark.parametrize('method', ['cpp'])
+def test_fast_inla(method, N=10, iterations=1):
+    n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
+    y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
+    inla_model = fast_inla.FastINLA()
 
-    for i in range(5):
+    runtimes = []
+    for i in range(iterations):
         start = time.time()
-        # test_inla_sim(n_sims=1000, check=False)
-        test_exact_integrate2()
-        print(time.time() - start)
+        if method == "numpy":
+            out = inla_model.numpy_inference(y_i, n_i)
+        elif method == "jax":
+            out = inla_model.jax_inference(y_i, n_i)
+        elif method == 'cpp':
+            out = inla_model.cpp_inference(y_i, n_i)
+        end = time.time()
+        runtimes.append(end - start)
+
+    if iterations > 1:
+        print("fastest runtime", np.min(runtimes))
+        print("median runtime", np.median(runtimes))
+        print("us per sample", np.median(runtimes) * 1e6 / N)
+
+    sigma2_post, exceedances, theta_max = out
+
+    np.testing.assert_allclose(
+        theta_max[0, 12],
+        [-6.04682818, -2.09586893, -0.21474981, -0.07019088],
+        rtol=1e-3,
+    )
+    correct = np.array(
+        [
+            1.25954474e02,
+            4.52520893e02,
+            8.66625278e02,
+            5.08333300e02,
+            1.30365045e02,
+            2.20403048e01,
+            3.15183578e00,
+            5.50967224e-01,
+            2.68365061e-01,
+            1.23585852e-01,
+            1.13330444e-02,
+            5.94800210e-04,
+            4.01075571e-05,
+            4.92782335e-06,
+            1.41605356e-06,
+        ]
+    )
+    np.testing.assert_allclose(sigma2_post[0], correct, rtol=1e-3)
+    np.testing.assert_allclose(
+        exceedances[0], [0.28306264, 0.4077219, 0.99714174, 0.99904684], rtol=1e-3
+    )
+
+
+if __name__ == "__main__":
+    test_fast_inla('jax', 100, 10)
+    test_fast_inla('numpy', 100, 10)
+    # import time
+
+    # for i in range(5):
+    #     start = time.time()
+    #     # test_inla_sim(n_sims=1000, check=False)
+    #     test_exact_integrate2()
+    #     print(time.time() - start)
