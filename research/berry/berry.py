@@ -104,7 +104,6 @@ class Berry(inla.INLAModel):
         beta = 0.000005
         return scipy.stats.invgamma.logpdf(sigma2, alpha, scale=beta)
 
-    @profile
     def log_gaussian_x(self, x, hyper, include_det):
         """
         The gaussian latent variables likelihood term of the form:
@@ -127,7 +126,6 @@ class Berry(inla.INLAModel):
             out += 0.5 * np.log(Qdet)
         return out
 
-    @profile
     def get_Q(self, sigma2):
         unique_s, indices = np.unique(sigma2, return_inverse=True)
         np.testing.assert_allclose(unique_s, self.sigma2_rule.pts)
@@ -142,7 +140,6 @@ class Berry(inla.INLAModel):
         adj_x = x + self.logit_p1
         return np.sum(adj_x * y - n * np.log(np.exp(adj_x) + 1), axis=-1)
 
-    @profile
     def log_joint(self, x, data, hyper):
         # There are three terms here:
         # 1) The terms from the Gaussian distribution of the latent variables
