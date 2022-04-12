@@ -30,8 +30,8 @@ def test_binomial_hierarchical_grad_hess():
     def calc_numerical_grad(local_x_i, row):
         dx_vec = np.zeros(4)
         dx_vec[row] = dx
-        f0 = model.log_joint(model, local_x_i - dx_vec, data, theta)
-        f2 = model.log_joint(model, local_x_i + dx_vec, data, theta)
+        f0 = model.log_joint(local_x_i - dx_vec, data, theta)
+        f2 = model.log_joint(local_x_i + dx_vec, data, theta)
         f0_xonly = model.log_joint_xonly(local_x_i - dx_vec, data, theta)
         f2_xonly = model.log_joint_xonly(local_x_i + dx_vec, data, theta)
 
@@ -242,8 +242,8 @@ def test_exact_integrate2():
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-# @pytest.mark.parametrize('method', ['jax', 'numpy', 'cpp'])
-@pytest.mark.parametrize('method', ['cpp'])
+# @pytest.mark.parametrize('method', ['cpp'])
+@pytest.mark.parametrize('method', ['jax', 'numpy'])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
