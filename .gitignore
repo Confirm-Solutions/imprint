@@ -2,6 +2,7 @@
 build/
 /.vs
 .vscode/
+.history/
 /kevlar/CMakeSettings.json
 CMakeCache.txt
 CMakeFiles/
