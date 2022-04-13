@@ -12,9 +12,11 @@ pandas = "*"
 scipy = "*"
 matplotlib = "*"
 sympy = "*"
+numpyro = "*"
 
 [dev-packages]
 build = "*"
+black = "*"
 
 [requires]
 python_version = "3.8"
