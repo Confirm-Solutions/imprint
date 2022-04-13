@@ -165,7 +165,7 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
         // the censor time must be dilated to be on the same scale.
         auto lambda_control = outer_.lmda_control(i);
         auto censor_dilated_curr = outer_.model_.censor_time_ * lambda_control;
-        auto z = lrt_.stat(censor_dilated_curr);
+        auto z = lrt_.stat(censor_dilated_curr, false);
 
         const auto& cvs = outer_.model_.critical_values();
         int cv_i = 0;

@@ -154,7 +154,7 @@ struct LogRankTest {
      * which uses this convention.
      */
     KEVLAR_STRONG_INLINE
-    value_t stat(value_t censor_time) const {
+    value_t stat(value_t censor_time, bool control_based) const {
         // computes the number of observations in v <= censor_time
         auto n_observed = [&](const auto& v) {
             // find first time v outcome > censor_time
@@ -167,7 +167,8 @@ struct LogRankTest {
         auto n_t_observed = n_observed(treatment_);
 
         size_t idx = n_c_observed + n_t_observed;
-        return logrank_accum_[idx];
+        auto lr_stat = logrank_accum_[idx];
+        return control_based ? lr_stat : -lr_stat;
     }
 };
 

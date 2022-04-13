@@ -134,7 +134,7 @@ struct ExpControlkTreatment
                 v_cum_sum_[0] = 0.0;
 
                 Eigen::Matrix<value_t, 2, 1> N_j;
-                value_t O_0j = 0.0;
+                value_t O_1j = 0.0;
                 N_j.array() = outer_.n_samples();
                 int cr_idx = 0, tr_idx = 0,
                     cs_idx = 0;  // control, treatment, and cum_sum index
@@ -145,17 +145,17 @@ struct ExpControlkTreatment
                         (exp_treatment[tr_idx] < exp_control[cr_idx]);
                     tr_idx += failed_in_treatment;
                     cr_idx += (1 - failed_in_treatment);
-                    O_0j = !failed_in_treatment;
+                    O_1j = failed_in_treatment;
 
                     auto N = N_j.sum();
-                    auto E_0j = N_j[0] / N;
+                    auto E_1j = N_j[1] / N;
                     logrank_cum_sum_[cs_idx + 1] =
-                        logrank_cum_sum_[cs_idx] + (O_0j - E_0j);
+                        logrank_cum_sum_[cs_idx] + (O_1j - E_1j);
                     v_cum_sum_[cs_idx + 1] =
-                        v_cum_sum_[cs_idx] + E_0j * (1 - E_0j);
+                        v_cum_sum_[cs_idx] + E_1j * (1 - E_1j);
 
                     --N_j[failed_in_treatment];
-                    O_0j = 0.0;
+                    O_1j = 0.0;
                     ++cs_idx;
                 }
 
@@ -163,10 +163,6 @@ struct ExpControlkTreatment
                 logrank_cum_sum_.tail(tot - cs_idx).array() =
                     logrank_cum_sum_[cs_idx];
                 v_cum_sum_.tail(tot - cs_idx).array() = v_cum_sum_[cs_idx];
-
-                colvec_type<value_t> out = logrank_cum_sum_;
-                out.tail(out.size() - 1).array() /=
-                    v_cum_sum_.tail(out.size() - 1).array().sqrt();
             }
 
             // compute the log-rank statistic given the treatment lambda value.

@@ -87,7 +87,7 @@ TEST(LogRankTestSuite, distinct_outcomes) {
 
     // compare with expected
     for (int i = 0; i < censor_times.size(); ++i) {
-        value_t actual = lrt.stat(censor_times[i]);
+        value_t actual = lrt.stat(censor_times[i], false);
         EXPECT_NEAR(actual * actual, expected[i], tol * expected[i]);
     }
 }
@@ -160,7 +160,7 @@ TEST(LogRankTestSuite, with_repeat_times) {
 
     // compare with expected
     for (int i = 0; i < censor_times.size(); ++i) {
-        value_t actual = lrt.stat(censor_times[i]);
+        value_t actual = lrt.stat(censor_times[i], false);
         EXPECT_NEAR(actual * actual, expected[i], tol * expected[i]);
     }
 }
