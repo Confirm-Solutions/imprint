@@ -47,7 +47,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
     int na = 4;
     double tol2 = tol * tol;
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int p = 0; p < N; p++) {
         std::vector<double> theta_sigma(nsig2 * 4);
         for (int s = 0; s < nsig2; s++) {
@@ -72,9 +72,9 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                     }
 
                     for (int j = 0; j < 4; j++) {
-                        hess_inv[i][j] = -cov.get(s, i, j);
+                        hess_inv[i][j] = cov.get(s, i, j);
                     }
-                    hess_diag[i] = -nCeta * C;
+                    hess_diag[i] = nCeta * C;
                 }
 
                 // invert hessian.
@@ -99,7 +99,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                 for (int i = 0; i < 4; i++) {
                     step[i] = 0.0;
                     for (int j = 0; j < 4; j++) {
-                        step[i] -= hess_inv[i][j] * grad[j];
+                        step[i] += hess_inv[i][j] * grad[j];
                     }
                     step_len2 += step[i] * step[i];
                     t[i] += step[i];
@@ -114,24 +114,27 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
 
             // marginal std dev is the sqrt of the hessian diagonal.
             for (int i = 0; i < 4; i++) {
-                theta_sigma[s * 4 + i] = std::sqrt(-hess_inv[i][i]);
+                theta_max.get(p, s, i) = t[i];
+                theta_sigma[s * 4 + i] = std::sqrt(hess_inv[i][i]);
             }
 
             assert(converged);
             // calculate log joint distribution
+            std::array<double,4> tmm0;
+            for (int i = 0; i < 4; i++) {
+                tmm0[i] = t[i] - mu_0;
+            }
             double logjoint = logprecQdet.get(s) + log_prior.get(s);
             for (int i = 0; i < 4; i++) {
-                theta_max.get(p, s, i) = t[i];
-
+                double quadsum = 0.0;
                 for (int j = 0; j < 4; j++) {
-                    logjoint += 0.5 * (t[i] - mu_0) * neg_precQ.get(s, i, j) *
-                                (t[j] - mu_0);
+                    quadsum += neg_precQ.get(s, i, j) * tmm0[j];
                 }
+                logjoint += 0.5 * tmm0[i] * quadsum;
 
                 auto theta_adj = t[i] + logit_p1;
-                auto exp_theta_adj = std::exp(theta_adj);
                 logjoint += theta_adj * y.get(p, i) -
-                            n.get(p, i) * std::log(exp_theta_adj + 1);
+                            n.get(p, i) * std::log(std::exp(theta_adj) + 1);
             }
 
             // determinant of hessian (this destroys hess_inv!)
@@ -170,8 +173,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                 double mu = theta_max.get(p, s, i);
                 double normalized =
                     (thresh_theta - mu) / theta_sigma[s * 4 + i];
-                double cdf = 0.5 * erfc(-normalized * M_SQRT1_2);
-                double exc_sigma2 = 1.0 - cdf;
+                double exc_sigma2 = 0.5 * (erf(-normalized * M_SQRT1_2) + 1);
                 exceedances.get(p, i) +=
                     exc_sigma2 * sigma2_post.get(p, s) * sigma2_wts.get(s);
             }
