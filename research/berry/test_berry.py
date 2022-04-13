@@ -301,11 +301,11 @@ def test_fast_inla(method, N=10, iterations=1):
 
 if __name__ == "__main__":
     N = 100000
-    it = 10
-    print('jax')
-    test_fast_inla('jax', N, it)
-    # print('cpp')
-    # test_fast_inla('cpp', N, it)
+    it = 4
+    # print('jax')
+    # test_fast_inla('jax', N, it)
+    print('cpp')
+    test_fast_inla('cpp', N, it)
     # print('numpy')
     # test_fast_inla('numpy', N, it)
     # import time
