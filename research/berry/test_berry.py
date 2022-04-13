@@ -1,3 +1,4 @@
+
 import time
 
 import pytest
@@ -242,31 +243,24 @@ def test_exact_integrate2():
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-# @pytest.mark.parametrize('method', ['cpp'])
-@pytest.mark.parametrize('method', ['jax', 'numpy'])
+# @pytest.mark.parametrize('method', ['jax', 'numpy'])
+@pytest.mark.parametrize('method', ['numpy', 'cpp'])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
     inla_model = fast_inla.FastINLA()
 
-    from line_profiler import LineProfiler
-    lp = LineProfiler()
     runtimes = []
     for i in range(iterations):
         start = time.time()
         if method == "numpy":
             out = inla_model.numpy_inference(y_i, n_i)
         elif method == "jax":
-            if i == 1: 
-                f = lp(inla_model.jax_inference)
-                out = f(y_i, n_i)
-            else:
-                out = inla_model.jax_inference(y_i, n_i)
+            out = inla_model.jax_inference(y_i, n_i)
         elif method == 'cpp':
             out = inla_model.cpp_inference(y_i, n_i)
         end = time.time()
         runtimes.append(end - start)
-    lp.print_stats()
 
     if iterations > 1:
         print("fastest runtime", np.min(runtimes))
@@ -306,8 +300,14 @@ def test_fast_inla(method, N=10, iterations=1):
 
 
 if __name__ == "__main__":
-    test_fast_inla('jax', 1000, 40)
-    test_fast_inla('numpy', 1000, 40)
+    N = 100000
+    it = 10
+    print('jax')
+    test_fast_inla('jax', N, it)
+    # print('cpp')
+    # test_fast_inla('cpp', N, it)
+    # print('numpy')
+    # test_fast_inla('numpy', N, it)
     # import time
 
     # for i in range(5):

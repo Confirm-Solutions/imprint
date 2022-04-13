@@ -2,12 +2,12 @@ import numpy as np
 from scipy.special import logit
 import scipy.stats
 import scipy.linalg
+
 import jax
 import jax.numpy as jnp
-
-# This line is critical for enabling 64-bit floats.
 from jax.config import config
 
+# This line is critical for enabling 64-bit floats.
 config.update("jax_enable_x64", True)
 
 import util
@@ -50,15 +50,17 @@ class FastINLA:
         self.logprecQdet_jax = jnp.asarray(self.logprecQdet)
         self.log_prior_jax = jnp.asarray(self.log_prior)
 
-        self.jax_opt_step_vec = jax.jit(jax.vmap(
+        self.jax_opt_vec = jax.jit(
             jax.vmap(
-                jax_opt_step,
-                in_axes=(0, None, None, 0, 0, None, None, None),
-                out_axes=(0, 0, 0, 0),
-            ),
-            in_axes=(0, 0, 0, None, None, None, None, None),
-            out_axes=(0, 0, 0, 0),
-        ))
+                jax.vmap(
+                    jax_opt,
+                    in_axes=(None, None, 0, 0, 0, None, None, None),
+                    out_axes=(0, 0),
+                ),
+                in_axes=(0, 0, None, None, None, None, None, None),
+                out_axes=(0, 0),
+            )
+        )
 
     def numpy_inference(self, y, n):
         N = y.shape[0]
@@ -147,26 +149,16 @@ class FastINLA:
         N = y.shape[0]
         y = jnp.asarray(y)
         n = jnp.asarray(n)
-        theta_max = jnp.zeros((N, self.sigma2_n, 4), dtype=np.float64)
-
-        converged = False
-
-        for i in range(20):
-            theta_max, S, offset, stop = self.jax_opt_step_vec(
-                theta_max,
-                y,
-                n,
-                self.cov_jax,
-                self.neg_precQ_jax,
-                self.logit_p1,
-                self.mu_0,
-                self.tol,
-            )
-            if jnp.all(stop):
-                converged = True
-                break
-
-        assert converged
+        theta_max, hess_inv = self.jax_opt_vec(
+            y,
+            n,
+            self.cov_jax,
+            self.neg_precQ_jax,
+            self.sigma2_pts_jax,
+            self.logit_p1,
+            self.mu_0,
+            self.tol,
+        )
 
         sigma2_post, exceedances = jax_calc_posterior_and_exceedances(
             theta_max,
@@ -175,8 +167,7 @@ class FastINLA:
             self.log_prior_jax,
             self.neg_precQ_jax,
             self.logprecQdet_jax,
-            S,
-            offset,
+            hess_inv,
             self.sigma2_wts_jax,
             self.logit_p1,
             self.mu_0,
@@ -192,55 +183,70 @@ class FastINLA:
         sigma2_post = np.empty((y.shape[0], self.sigma2_n))
         exceedances = np.empty((y.shape[0], 4))
         theta_max = np.empty((y.shape[0], self.sigma2_n, 4))
-        print(
-            ext.inla_inference(
-                sigma2_post,
-                exceedances,
-                theta_max,
-                y,
-                n,
-                self.sigma2_rule.pts,
-                self.sigma2_rule.wts,
-                self.log_prior,
-                self.neg_precQ,
-                self.cov,
-                self.logprecQdet,
-                self.mu_0,
-                self.logit_p1,
-            )
+        ext.inla_inference(
+            sigma2_post,
+            exceedances,
+            theta_max,
+            y,
+            n,
+            self.sigma2_rule.pts,
+            self.sigma2_rule.wts,
+            self.log_prior,
+            self.neg_precQ,
+            self.cov,
+            self.logprecQdet,
+            self.mu_0,
+            self.logit_p1,
+            self.tol,
+            self.thresh_theta
         )
         return sigma2_post, exceedances, theta_max
 
 
-def jax_opt_step(theta_max, y, n, cov, neg_precQ, logit_p1, mu_0, tol):
-    theta_m0 = theta_max - mu_0
-    exp_theta_adj = jnp.exp(theta_max + logit_p1)
-    C = 1.0 / (exp_theta_adj + 1)
-    nCeta = n * C * exp_theta_adj
+def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
+    def step(args):
+        theta_max, hess_inv, stop = args
+        theta_m0 = theta_max - mu_0
+        exp_theta_adj = jnp.exp(theta_max + logit_p1)
+        C = 1.0 / (exp_theta_adj + 1)
+        nCeta = n * C * exp_theta_adj
 
-    grad = neg_precQ.dot(theta_m0) + y - nCeta
-    diag = nCeta * C
-    # hess = neg_precQ - jnp.diag(diag)
-    # hess_cho = jax.scipy.linalg.cho_factor(hess, lower=False)
-    # print(hess, hess_cho)
-    # step = -jax.scipy.linalg.solve(hess, grad, sym_pos=True)
-    # hess_inv = jnp.linalg.inv(neg_precQ - jnp.diag(diag))
-    # print(jnp.sum(jnp.abs(-cov - jnp.linalg.inv(neg_precQ))))
-    S, offset = jax_fast_invert(-cov, -diag)
-    step = -S.dot(grad) + offset * S[-1,:] * S[:, -1].dot(grad)
-    # (S - (offset * (S[k, None, :] * S[:, None, k]))).dot(grad)
-    # step = -hess_inv.dot(grad)
+        grad = neg_precQ.dot(theta_m0) + y - nCeta
+        diag = nCeta * C
 
-    stop = jnp.sum(step ** 2) < tol ** 2
-    return theta_max + step, S, offset, stop
+        hess_inv = jax_fast_invert(-cov, -diag)
+        # for i in range(1,4):
+        #     for j in range(i, 4):
+        #         hess_inv.at[i,j].set(hess_inv[j,i])
+        step = -hess_inv.dot(grad)
+        go = jnp.sum(step**2) > tol**2
+        return theta_max + step, hess_inv, go
 
+    # NOTE: Warm starting was not helpful but I left this code here in case it's
+    # useful.
+    # When sigma2 is small, the MLE from summing all the trials is a good guess.
+    # When sigma2 is large, the individual arm MLE is a good starting guess.
+    # theta_max0 = jnp.where(
+    #     sigma2 < 1e-3,
+    #     jnp.repeat(jax.scipy.special.logit(y.sum()/n.sum()),4) - logit_p1,
+    #     jax.scipy.special.logit((y + 1e-4) / n) - logit_p1
+    # )
+    theta_max0 = jnp.zeros(4)
+
+    out = jax.lax.while_loop(
+        lambda args: args[2], step, (theta_max0, jnp.zeros((4, 4)), True)
+    )
+    theta_max, hess_inv, stop = out
+    return theta_max, hess_inv
 
 def jax_fast_invert(S, d):
+    # NOTE: It's possible to improve performance by about 10% by doing an
+    # incomplete inversion here. In the last iteration through the loop, return
+    # both S and offset. Then, perform .dot(grad) with those components directly.
     for k in range(d.shape[0]):
         offset = d[k] / (1 + d[k] * S[k, k])
         S = S - (offset * (S[k, None, :] * S[:, None, k]))
-    offset = d[-1] / (1 + d[-1] * S[-1, -1])
-    return S, offset
+    return S
 
 
 @jax.jit
@@ -251,14 +257,12 @@ def jax_calc_posterior_and_exceedances(
     log_prior,
     neg_precQ,
     logprecQdet,
-    S,
-    offset,
+    hess_inv,
     sigma2_wts,
     logit_p1,
     mu_0,
     thresh_theta,
 ):
-    hess_inv = S - (offset[..., None, None] * (S[..., -1, None, :] * S[..., :, None, -1]))
     theta_m0 = theta_max - mu_0
     theta_adj = theta_max + logit_p1
     exp_theta_adj = jnp.exp(theta_adj)
