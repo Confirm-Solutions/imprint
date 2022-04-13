@@ -1,6 +1,5 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 #include <array>
 #include <cmath>
@@ -22,48 +21,6 @@ Access<T, D> get(Arr x) {
     auto buf = x.request();
     T* ptr = static_cast<T*>(buf.ptr);
     return Access<T, D>{std::move(buf), ptr, x.mutable_unchecked<D>()};
-}
-
-std::array<std::array<double,4>,4> cholesky(std::array<std::array<double,4>,4> mat) {
-    std::array<std::array<double,4>,4> lower;
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < i; j++) {
-            double sum = 0;
-            // Evaluating L(i, j) using L(j, j)
-            for (int k = 0; k < j; k++) {
-                sum += lower[i][k] * lower[j][k];
-            }
-            lower[i][j] = (mat[i][j] - sum) / lower[j][j];
-        }
-        double sum = 0;
-        for (int k = 0; k < i; k++) {
-            sum += lower[i][k] * lower[i][k];
-        }
-        lower[i][i] = sqrt(mat[i][i] - sum);
-    }
-    return lower;
-}
-
-std::array<double,4> cho_solve(std::array<std::array<double,4>,4> lower, std::array<double,4> b)  {
-    std::array<double,4> y;
-    for (int i = 0; i < 4; i++) {
-        double sum = b[i];
-        for (int j = 0; j < i; j++) {
-            sum -= lower[i][j] * y[j];
-        }
-        y[i] = sum / lower[i][i];
-    }
-
-    std::array<double,4> x;
-    for (int i = 3; i >= 0; i--) {
-        double sum = y[i];
-        for (int j = 3; j > i; j--) {
-            sum -= lower[j][i] * x[j];
-        }
-        x[i] = sum / lower[i][i];
-    }
-
-    return x;
 }
 
 int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
@@ -96,9 +53,11 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
         for (int s = 0; s < nsig2; s++) {
             std::array<double, 4> t{};
             std::array<double, 4> grad;
+            std::array<double, 4> hess_diag;
+            std::array<double, 4> step;
 
-            std::array<std::array<double, 4>, 4> hess;
-            std::array<std::array<double, 4>, 4> hess_cho;
+            std::array<std::array<double, 4>, 4> tmp;
+            std::array<std::array<double, 4>, 4> hess_inv;
             bool converged = false;
             for (int opt_iter = 0; opt_iter < 20; opt_iter++) {
                 // construct gradient and hessian.
@@ -113,22 +72,40 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                     }
 
                     for (int j = 0; j < 4; j++) {
-                        hess[i][j] = -neg_precQ.get(s, i, j);
+                        hess_inv[i][j] = -cov.get(s, i, j);
                     }
-                    hess[i][i] += nCeta * C;
+                    hess_diag[i] = -nCeta * C;
                 }
 
+                // invert hessian.
+                for (int k = 0; k < 4; k++) {
+                    double offset =
+                        hess_diag[k] / (1 + hess_diag[k] * hess_inv[k][k]);
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            tmp[i][j] =
+                                offset * hess_inv[k][i] * hess_inv[j][k];
+                        }
+                    }
+                    for (int i = 0; i < 4; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            hess_inv[i][j] -= tmp[i][j];
+                        }
+                    }
+                }
 
-                // solve for newton step
-                hess_cho = cholesky(hess);
-                auto step = cho_solve(hess_cho, grad);
-
-                // check for convergence.
+                // take newton step
                 double step_len2 = 0.0;
                 for (int i = 0; i < 4; i++) {
+                    step[i] = 0.0;
+                    for (int j = 0; j < 4; j++) {
+                        step[i] -= hess_inv[i][j] * grad[j];
+                    }
                     step_len2 += step[i] * step[i];
                     t[i] += step[i];
                 }
+
+                // check for convergence.
                 if (step_len2 < tol2) {
                     converged = true;
                     break;
@@ -137,10 +114,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
 
             // marginal std dev is the sqrt of the hessian diagonal.
             for (int i = 0; i < 4; i++) {
-                std::array<double,4> e{};
-                e[i] = 1.0;
-                auto hess_inv_row = cho_solve(hess_cho, e);
-                theta_sigma[s * 4 + i] = std::sqrt(hess_inv_row[i]);
+                theta_sigma[s * 4 + i] = std::sqrt(-hess_inv[i][i]);
             }
 
             assert(converged);
@@ -161,13 +135,22 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             }
 
             // determinant of hessian (this destroys hess_inv!)
+            double c;
             double det = 1;
             for (int i = 0; i < 4; i++) {
-                det *= hess_cho[i][i] * hess_cho[i][i];
+                for (int k = i + 1; k < 4; k++) {
+                    c = hess_inv[k][i] / hess_inv[i][i];
+                    for (int j = i; j < 4; j++) {
+                        hess_inv[k][j] = hess_inv[k][j] - c * hess_inv[i][j];
+                    }
+                }
+            }
+            for (int i = 0; i < 4; i++) {
+                det *= hess_inv[i][i];
             }
 
             // calculate p(sigma^2 | y)
-            sigma2_post.get(p, s) = std::exp(logjoint - 0.5 * std::log(det));
+            sigma2_post.get(p, s) = std::exp(logjoint + 0.5 * std::log(det));
         }
 
         // normalize the sigma2_post distribution
@@ -197,15 +180,11 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
     return 0;
 }
 
-PYBIND11_MODULE(fast_inla_ext, m) { 
-    m.def("inla_inference", &inla_inference); 
-    m.def("cholesky", &cholesky); 
-    m.def("cho_solve", &cho_solve); 
-}
+PYBIND11_MODULE(fast_inla_ext, m) { m.def("inla_inference", &inla_inference); }
 /*
 <%
 setup_pybind11(cfg)
-cfg['extra_compile_args'].extend(['-Ofast', '-fopenmp'])
+cfg['extra_compile_args'].extend(['-O3', '-fopenmp'])
 cfg['extra_link_args'].extend(['-fopenmp'])
 %>
 */
