@@ -82,26 +82,26 @@ INSTANTIATE_TEST_SUITE_P(
 // TEST Natural parameter to mean parameter
 // ==============================================
 
-using exponential_nat_to_mean_input_t =
+using exponential_natural_to_mean_input_t =
     std::tuple<colvec_type<double>, colvec_type<double> >;
 
-struct exponential_nat_to_mean_fixture
+struct exponential_natural_to_mean_fixture
     : exponential_fixture,
-      ::testing::WithParamInterface<exponential_nat_to_mean_input_t> {};
+      ::testing::WithParamInterface<exponential_natural_to_mean_input_t> {};
 
-TEST_P(exponential_nat_to_mean_fixture, covar_quadform_test) {
+TEST_P(exponential_natural_to_mean_fixture, covar_quadform_test) {
     auto [t, e] = GetParam();
-    colvec_type<double> actual = dist_t::nat_to_mean(t.array());
+    colvec_type<double> actual = dist_t::natural_to_mean(t.array());
     expect_double_eq_vec(actual, e);
 
     // test if n is a scalar also
-    auto actual_s = dist_t::nat_to_mean(t[0]);
+    auto actual_s = dist_t::natural_to_mean(t[0]);
     EXPECT_DOUBLE_EQ(actual_s, e[0]);
 }
 
 INSTANTIATE_TEST_SUITE_P(ExponentialNatToMeanTest,
-                         exponential_nat_to_mean_fixture,
-                         testing::Values(exponential_nat_to_mean_input_t(
+                         exponential_natural_to_mean_fixture,
+                         testing::Values(exponential_natural_to_mean_input_t(
                              make_colvec({1., 2., 3.}),
                              make_colvec({-1., -2., -3.}))));
 

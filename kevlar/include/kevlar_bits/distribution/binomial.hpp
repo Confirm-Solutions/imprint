@@ -60,7 +60,7 @@ struct Binomial {
      * a binomial natural parameter.
      */
     template <class NatType>
-    KEVLAR_STRONG_INLINE static auto nat_to_mean(const NatType& nat) {
+    KEVLAR_STRONG_INLINE static auto natural_to_mean(const NatType& nat) {
         return sigmoid(nat);
     }
 };

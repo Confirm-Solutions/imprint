@@ -82,7 +82,7 @@ struct SimGlobalStateFixedNDefault
             prob_set.clear();
 
             // insert all prob values in arm i into the set
-            prob = binom_t::nat_to_mean(thetas.row(i).array());
+            prob = binom_t::natural_to_mean(thetas.row(i).array());
             for (int j = 0; j < prob.size(); ++j) {
                 prob_set.insert(prob[j]);
             }
@@ -290,10 +290,10 @@ struct KevlarBoundStateFixedNDefault
         const auto& thetas = grid_range.thetas();
         const auto& radii = grid_range.radii();
         p_slice<false>(0) =
-            binom_t::nat_to_mean(thetas.array() - radii.array());
-        p_slice<false>(1) = binom_t::nat_to_mean(thetas.array());
+            binom_t::natural_to_mean(thetas.array() - radii.array());
+        p_slice<false>(1) = binom_t::natural_to_mean(thetas.array());
         p_slice<false>(2) =
-            binom_t::nat_to_mean(thetas.array() + radii.array());
+            binom_t::natural_to_mean(thetas.array() + radii.array());
     }
 
     /*

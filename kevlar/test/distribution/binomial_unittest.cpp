@@ -78,25 +78,26 @@ INSTANTIATE_TEST_SUITE_P(
 // TEST Natural parameter to mean parameter
 // ==============================================
 
-using binomial_nat_to_mean_input_t =
+using binomial_natural_to_mean_input_t =
     std::tuple<colvec_type<double>, colvec_type<double> >;
 
-struct binomial_nat_to_mean_fixture
+struct binomial_natural_to_mean_fixture
     : binomial_fixture,
-      ::testing::WithParamInterface<binomial_nat_to_mean_input_t> {};
+      ::testing::WithParamInterface<binomial_natural_to_mean_input_t> {};
 
-TEST_P(binomial_nat_to_mean_fixture, covar_quadform_test) {
+TEST_P(binomial_natural_to_mean_fixture, covar_quadform_test) {
     auto [t, e] = GetParam();
-    colvec_type<double> actual = dist_t::nat_to_mean(t.array());
+    colvec_type<double> actual = dist_t::natural_to_mean(t.array());
     expect_double_eq_vec(actual, e);
 
     // test if n is a scalar also
-    auto actual_s = dist_t::nat_to_mean(t[0]);
+    auto actual_s = dist_t::natural_to_mean(t[0]);
     EXPECT_DOUBLE_EQ(actual_s, e[0]);
 }
 
-INSTANTIATE_TEST_SUITE_P(BinomialNatToMeanTest, binomial_nat_to_mean_fixture,
-                         testing::Values(binomial_nat_to_mean_input_t(
+INSTANTIATE_TEST_SUITE_P(BinomialNatToMeanTest,
+                         binomial_natural_to_mean_fixture,
+                         testing::Values(binomial_natural_to_mean_input_t(
                              make_colvec({-0.5, 0., 0.5}),
                              make_colvec({0.3775406687981454353611, 0.5,
                                           0.6224593312018545646389}))));
