@@ -40,4 +40,4 @@ class TestSimpleLogRank(unittest.TestCase):
         sgs = m.make_sim_global_state(gr)
         ss = sgs.make_sim_state()
 
-        m.make_kevlar_bound_state()
+        m.make_kevlar_bound_state(gr)
