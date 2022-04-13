@@ -76,7 +76,7 @@ struct GridRange {
 
     GridRange(const Eigen::Ref<const mat_type<value_t>>& thetas,
               const Eigen::Ref<const mat_type<value_t>>& radii,
-              const Eigen::Ref<const colvec_type<value_t>>& sim_sizes)
+              const Eigen::Ref<const colvec_type<uint_t>>& sim_sizes)
         : thetas_(thetas), radii_(radii), sim_sizes_(sim_sizes) {}
 
     GridRange(const GridRange& gr)

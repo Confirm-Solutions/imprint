@@ -1,6 +1,8 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
+#include <kevlar_bits/util/types.hpp>
+
 namespace kevlar {
 namespace grid {
 
@@ -9,12 +11,17 @@ namespace py = pybind11;
 template <class GRType, class VecSurfType>
 void add_grid_range(py::module_& m) {
     using gr_t = GRType;
+    using value_t = typename gr_t::value_t;
     using vec_surf_t = VecSurfType;
     using uint_t = typename gr_t::uint_t;
     py::class_<gr_t>(m, "GridRange")
         .def(py::init<>())
         .def(py::init<uint_t, uint_t>(), py::arg("n_params"),
              py::arg("n_gridpts"))
+        .def(py::init<const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const colvec_type<uint_t>>&>(),
+             py::arg("thetas"), py::arg("radii"), py::arg("sim_sizes"))
         .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>,
              py::arg("surfaces"))
         .def("prune", &gr_t::prune)
