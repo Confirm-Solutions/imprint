@@ -249,17 +249,24 @@ def test_fast_inla(method, N=10, iterations=1):
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
     inla_model = fast_inla.FastINLA()
 
+    from line_profiler import LineProfiler
+    lp = LineProfiler()
     runtimes = []
     for i in range(iterations):
         start = time.time()
         if method == "numpy":
             out = inla_model.numpy_inference(y_i, n_i)
         elif method == "jax":
-            out = inla_model.jax_inference(y_i, n_i)
+            if i == 1: 
+                f = lp(inla_model.jax_inference)
+                out = f(y_i, n_i)
+            else:
+                out = inla_model.jax_inference(y_i, n_i)
         elif method == 'cpp':
             out = inla_model.cpp_inference(y_i, n_i)
         end = time.time()
         runtimes.append(end - start)
+    lp.print_stats()
 
     if iterations > 1:
         print("fastest runtime", np.min(runtimes))
@@ -299,8 +306,8 @@ def test_fast_inla(method, N=10, iterations=1):
 
 
 if __name__ == "__main__":
-    test_fast_inla('jax', 100, 10)
-    test_fast_inla('numpy', 100, 10)
+    test_fast_inla('jax', 1000, 40)
+    test_fast_inla('numpy', 1000, 40)
     # import time
 
     # for i in range(5):
