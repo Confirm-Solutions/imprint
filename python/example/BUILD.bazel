@@ -6,8 +6,6 @@
         "//python:pykevlar_lib",
     ],
 ) for name in [
-    "adagrid_simple_selection",
-    "adagrid_simple_log_rank",
     "simple_selection",
     "simple_log_rank",
 ]]

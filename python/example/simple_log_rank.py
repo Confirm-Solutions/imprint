@@ -79,7 +79,7 @@ sub_parsers = global_parser.add_subparsers(
 main_parser = sub_parsers.add_parser(
     "main",
     parents=[common_parser],
-    help='Main example parser.',
+    help='Main example.',
 )
 main_parser.add_argument('--sims', type=int, nargs='?',
                     default=sims_def,
@@ -248,10 +248,75 @@ gr = make_cartesian_grid_range(
 )
 
 # create model
-model = SimpleLogRank(n_samples, censor_time, [critval])
+model = SimpleLogRank(n_samples, censor_time, [])
 
 if args.example_type == 'adagrid':
-    pass
+    # TODO: temporary values to feed.
+    alpha_minus = alpha - 2*np.sqrt(alpha*(1-alpha)/init_sim_size)
+    thr = norm.isf(alpha)
+    thr_minus = norm.isf(alpha_minus)
+
+    # create batcher
+    batcher = SimpleBatch(max_size=max_batch_size)
+    adagrid = AdaGrid()
+    gr_new = adagrid.fit(
+        batcher=batcher,
+        model=model,
+        null_hypos=null_hypos,
+        init_grid=gr,
+        alpha=alpha,
+        delta=delta,
+        seed=seed,
+        max_iter=n_iter,
+        N_max=N_max,
+        alpha_minus=alpha_minus,
+        thr=thr,
+        thr_minus=thr_minus,
+        finalize_thr=finalize,
+        rand_iter=False,
+        debug=True,
+    )
+
+    finals = None
+    curr = None
+
+    # iterate through adagrid and study output
+    i = 0
+    adagrid_time = 0
+    while 1:
+        try:
+            start = timer()
+            curr, finals = next(gr_new)
+            end = timer()
+            adagrid_time += end-start
+        except StopIteration:
+            break
+
+        if do_plot:
+            thetas = curr.thetas_const()
+
+            plt.scatter(thetas[0,:], thetas[1,:],
+                        marker='.',
+                        c=curr.sim_sizes(),
+                        cmap='plasma')
+
+            plt.show()
+
+        i += 1
+
+    n_pts = 0
+    s_max = 0
+    if not (curr is None):
+        finals.append(curr)
+    for final in finals:
+        n_pts += final.thetas().shape[1]
+        if final.sim_sizes().size != 0:
+            s_max = max(s_max, np.max(final.sim_sizes()))
+
+    logger.info("AdaGrid n_gridpts: {}".format(n_pts))
+    logger.info("AdaGrid max_sim_size: {}".format(s_max))
+    logger.info("AdaGrid n_iters: {}".format(i))
+    logger.info("AdaGrid time: {}".format(timedelta(seconds=adagrid_time)))
 
 elif args.example_type == 'main':
     model.critical_values([critval])
