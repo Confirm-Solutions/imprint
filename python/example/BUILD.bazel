@@ -6,10 +6,8 @@
         "//python:pykevlar_lib",
     ],
 ) for name in [
-    "adagrid_bin_example",
-    "adagrid_exp_example",
-    "bckt_example",
-    "eckt_example",
-    "fit_driver_example",
-    "fit_process_example",
+    "adagrid_simple_selection",
+    "adagrid_simple_log_rank",
+    "simple_selection",
+    "simple_log_rank",
 ]]

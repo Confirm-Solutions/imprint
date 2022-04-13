@@ -46,11 +46,11 @@ void add_kevlar_bound_state_base(pybind11::module_& m) {
     using kbs_t = KBSB;
     py::class_<kbs_t>(m, "KevlarBoundStateBase")
         .def("apply_eta_jacobian", &kbs_t::apply_eta_jacobian,
-             py::arg("gridpt"), py::arg("v"), py::arg("output"))
-        .def("covar_quad", &kbs_t::covar_quadform, py::arg("gridpt"),
+             py::arg("gridpt_idx"), py::arg("v"), py::arg("output"))
+        .def("covar_quad", &kbs_t::covar_quadform, py::arg("gridpt_idx"),
              py::arg("v"))
         .def("hessian_quadform_bound", &kbs_t::hessian_quadform_bound,
-             py::arg("tile"), py::arg("v"))
+             py::arg("gridpt_idx"), py::arg("tile_idx"), py::arg("v"))
         .def("n_natural_params", &kbs_t::n_natural_params);
 }
 

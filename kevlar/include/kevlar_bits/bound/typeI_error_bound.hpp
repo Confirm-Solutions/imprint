@@ -3,7 +3,7 @@
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>
-#include <stats.hpp>  // third-party
+//#include <stats.hpp>  // third-party
 
 namespace kevlar {
 namespace bound {
@@ -90,8 +90,10 @@ struct TypeIErrorBound {
                 auto delta_0_u_j = delta_0_u_.col(pos);
                 for (int m = 0; m < delta_0_u_j.size(); ++m) {
                     delta_0_u_j[m] =
-                        ::stats::qbeta(d0u_factor, typeIsum_j[m] + 1,
-                                       ss - typeIsum_j[m]) -
+                        ibeta_inv(typeIsum_j[m] + 1, ss - typeIsum_j[m],
+                                  d0u_factor) -
+                        //::stats::qbeta(d0u_factor, typeIsum_j[m] + 1,
+                        //               ss - typeIsum_j[m]) -
                         delta_0_j[m];
                 }
 

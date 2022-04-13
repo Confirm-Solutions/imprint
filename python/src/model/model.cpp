@@ -34,8 +34,7 @@ void add_binomial_to_module(py::module_& m) {
     using namespace binomial;
     using sgs_fixed_n_default_t =
         SimGlobalStateFixedNDefault<gen_t, value_t, uint_t, gr_t>;
-    using kbs_fixed_n_default_t =
-        KevlarBoundStateFixedNDefault<value_t, tile_t>;
+    using kbs_fixed_n_default_t = KevlarBoundStateFixedNDefault<gr_t>;
     using simple_selection_t = SimpleSelection<value_t>;
 
     add_fixed_n_default<sgs_fixed_n_default_t, kbs_fixed_n_default_t>(m);
@@ -51,7 +50,7 @@ void add_exponential_to_module(py::module_& m) {
     using sgs_fixed_n_log_hazard_rate_t =
         SimGlobalStateFixedNLogHazardRate<gen_t, value_t, uint_t, gr_t>;
     using kbs_fixed_n_log_hazard_rate_t =
-        KevlarBoundStateFixedNLogHazardRate<value_t, tile_t>;
+        KevlarBoundStateFixedNLogHazardRate<gr_t>;
     using simple_log_rank_t = exponential::SimpleLogRank<value_t>;
 
     add_fixed_n_log_hazard_rate<sgs_fixed_n_log_hazard_rate_t,
@@ -67,7 +66,7 @@ void add_exponential_to_module(py::module_& m) {
 void add_to_module(py::module_& m) {
     using mb_t = ModelBase<value_t>;
     using sgs_t = SimGlobalStateBase<gen_t, value_t, uint_t>;
-    using kbs_t = KevlarBoundStateBase<value_t, tile_t>;
+    using kbs_t = KevlarBoundStateBase<value_t>;
 
     add_model_base<mb_t>(m);
     add_sim_global_state_base<sgs_t>(m);

@@ -113,8 +113,9 @@ TEST_F(typeI_error_bound_fixture, delta_0_u) {
     const auto& actual = ub.delta_0_u();
     Eigen::MatrixXd expected =
         Eigen::MatrixXd::NullaryExpr(d0.rows(), d0.cols(), [&](auto i, auto j) {
-            return ::stats::qbeta(1 - 0.5 * delta, acc_o.typeI_sum()(i, j) + 1,
-                                  sim_size - acc_o.typeI_sum()(i, j)) -
+            return ibeta_inv(acc_o.typeI_sum()(i, j) + 1,
+                             sim_size - acc_o.typeI_sum()(i, j),
+                             1 - 0.5 * delta) -
                    d0(i, j);
         });
     expect_double_eq_mat(actual, expected);

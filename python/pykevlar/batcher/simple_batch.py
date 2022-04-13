@@ -1,5 +1,5 @@
+from pykevlar.grid import GridRange
 import numpy as np
-from pykevlar.core import GridRange
 
 
 class SimpleBatchIter:

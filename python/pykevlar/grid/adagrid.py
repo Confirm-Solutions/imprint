@@ -1,4 +1,4 @@
-from pykevlar.driver import accumulate
+from pykevlar.driver import accumulate_process
 from pykevlar.core.grid import (
     AdaGridInternal,
     GridRange,
@@ -92,7 +92,7 @@ class AdaGrid(AdaGridInternal):
         """
 
         # set thresholds for model
-        model.set_thresholds(np.array([thr_minus, thr]))
+        model.critical_values(np.array([thr_minus, thr]))
 
         # attach batcher to current grid range
         batcher.reset(grid_range=grid_range, null_hypos=null_hypos)
@@ -106,19 +106,20 @@ class AdaGrid(AdaGridInternal):
         grs = []
         gfs = []
         for gr, sim_size in batcher:
-            is_o = fit_process(
+            is_o = accumulate_process(
                 model=model,
                 grid_range=gr,
                 sim_size=sim_size,
                 base_seed=base_seed,
                 n_threads=n_threads,
             )
-            ub = UpperBound()
-            ub.create(model, is_o, gr, delta)
+            ub = TypeIErrorBound()
+            kbs = model.make_kevlar_bound_state(gr)
+            ub.create(kbs, is_o, gr, delta)
 
             # extract estimates of alpha, alpha_minus, N_crit
-            d0 = ub.delta_0_const()
-            N = gr.sim_sizes_const()
+            d0 = ub.delta_0()
+            N = gr.sim_sizes()
 
             i_star = np.argmax(d0[1, :])
             alpha_hat = d0[1, i_star]
