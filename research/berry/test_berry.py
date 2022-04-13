@@ -243,8 +243,30 @@ def test_exact_integrate2():
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-# @pytest.mark.parametrize('method', ['jax', 'numpy'])
-@pytest.mark.parametrize('method', ['numpy', 'cpp'])
+def test_cholesky():
+    import cppimport
+    ext = cppimport.imp("fast_inla_ext")
+
+    A = np.random.rand(4,4)
+    A += A.T
+    A += np.diag(np.full(4, 10))
+    np.testing.assert_allclose(A, A.T)
+
+    cho_cpp = ext.cholesky(A)
+    # subtract the upper triangular part so that the test passes despite bogus
+    # data in the upper part
+    cho_cpp -= np.triu(cho_cpp, k=1)
+    cho_sp = scipy.linalg.cho_factor(A, lower=True)
+    cho_sp[0][:] -= np.triu(cho_sp[0], k=1)
+    np.testing.assert_allclose(cho_sp[0], cho_cpp, atol=1e-14)
+
+    b = np.random.rand(4)
+    soln_cpp = ext.cho_solve(cho_cpp, b)
+    soln_sp = scipy.linalg.cho_solve(cho_sp, b)
+    np.testing.assert_allclose(soln_sp, soln_cpp, atol=1e-14)
+
+
+@pytest.mark.parametrize('method', ['numpy', 'jax', 'cpp'])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
@@ -302,10 +324,10 @@ def test_fast_inla(method, N=10, iterations=1):
 if __name__ == "__main__":
     N = 100000
     it = 10
-    print('jax')
-    test_fast_inla('jax', N, it)
-    # print('cpp')
-    # test_fast_inla('cpp', N, it)
+    # print('jax')
+    # test_fast_inla('jax', N, it)
+    print('cpp')
+    test_fast_inla('cpp', N, it)
     # print('numpy')
     # test_fast_inla('numpy', N, it)
     # import time
