@@ -25,7 +25,7 @@ cc_library(
     ],
 ) for type_ in [
     "grid",
-    "model",
     "stats",
     "util",
+    "model",
 ]]

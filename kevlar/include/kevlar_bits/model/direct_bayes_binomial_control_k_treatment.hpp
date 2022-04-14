@@ -75,19 +75,18 @@ class DirectBayesBinomialControlkTreatment
     }
 
     static vec_t conditional_exceed_prob_given_sigma(
-        value_t sigma_sq, value_t mu_sig_sq, const vec_t &sample_I,
+        const value_t sigma_sq, const value_t mu_sig_sq, const vec_t &sample_I,
         const vec_t &thetahat, const vec_t &logit_thresholds, const vec_t &mu_0,
         const bool use_fast_inverse = true) {
         const int d = sample_I.size();
-        mat_t S_0 = vec_t::Constant(d, sigma_sq).asDiagonal();
-        S_0.array() += mu_sig_sq;
-        ASSERT_GOOD(S_0);
-
+        // TODO: precompute sigma_sq_inv, V_0, shift
+        // TODO: minimize the heap allocations in this function
         vec_t sigma_sq_inv = vec_t::Constant(d, 1. / sigma_sq);
         mat_t V_0 = sigma_sq_inv.asDiagonal();
         auto shift = -1 * (mu_sig_sq / sigma_sq) / (sigma_sq + d * mu_sig_sq);
         V_0.array() += shift;
         mat_t Sigma_posterior;
+        // TODO template this and use if constexpr
         if (use_fast_inverse) {
             vec_t V_0 = 1. / (sigma_sq_inv + sample_I).array();
             Sigma_posterior = faster_invert(V_0, shift);
@@ -98,7 +97,6 @@ class DirectBayesBinomialControlkTreatment
                 precision_posterior.llt().solve(mat_t::Identity(d, d));
         }
         ASSERT_GOOD(Sigma_posterior);
-
         ASSERT_GOOD(sample_I);
         ASSERT_GOOD(thetahat);
         const vec_t mu_posterior =
@@ -128,7 +126,8 @@ class DirectBayesBinomialControlkTreatment
         // TODO: consider constexpr
         const value_t a = std::log(1e-8);
         const value_t b = std::log(1e3);
-        auto pair = leggauss(n_integration_points);
+        // TODO: template leggauss and remove cast
+        auto pair = leggauss(n_integration_points).cast<value_t>();
         // TODO: transpose this in leggauss for efficiency
         vec_t quadrature_points = pair.row(0);
         vec_t quadrature_weights = pair.row(1);
@@ -138,7 +137,8 @@ class DirectBayesBinomialControlkTreatment
         quadrature_weights = quadrature_weights * ((b - a) / 2);
         // TODO: remove second alloc here
         vec_t density_logspace =
-            invgamma_pdf(quadrature_points, alpha_prior, beta_prior);
+            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
+                .template cast<value_t>();
         density_logspace.array() *= quadrature_points.array();
         auto weighted_density_logspace =
             density_logspace.array() * quadrature_weights.array();
@@ -165,6 +165,7 @@ class DirectBayesBinomialControlkTreatment
         vec_t sample_I_inv = 1.0 / sample_I.array();
         vec_t posterior_reweight(n_integration_points);
         for (int i = 0; i < n_integration_points; ++i) {
+            // TODO: template this and use if constexpr
             if (use_optimized) {
                 auto sigma_sq = quadrature_points[i];
                 vec_t diaginv = 1.0 / (sample_I_inv.array() + sigma_sq);
@@ -257,8 +258,6 @@ class DirectBayesBinomialControlkTreatment
                     (posterior_exceedance_probs.array() <=
                      critical_values[critical_values.size() - 1])
                         .all();
-                PRINT(phat);
-                PRINT(posterior_exceedance_probs);
                 if (do_optimized_update) {
                     rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
                     pos += gr_view.n_tiles(grid_i);
