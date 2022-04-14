@@ -15,6 +15,9 @@ dependencies:
   - pytest
   - pre-commit
   - black
+  - flake8
+  - isort
+  - jupytext
   - cython
   - cxx-compiler
   - line_profiler

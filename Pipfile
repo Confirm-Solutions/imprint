@@ -17,6 +17,10 @@ numpyro = "*"
 [dev-packages]
 build = "*"
 black = "*"
+isort = "*"
+flake8 = "*"
+jupytext = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.8"
