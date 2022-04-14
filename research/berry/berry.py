@@ -96,7 +96,6 @@ class Berry(inla.INLAModel):
         self.Q = np.linalg.inv(cov)
         self.Qdet = np.linalg.det(self.Q)
 
-    @profile
     def log_prior(self, hyper):
         # sigma prior: InvGamma(0.0005, 0.000005)
         sigma2 = hyper[..., 0]
