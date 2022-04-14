@@ -215,9 +215,6 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
         diag = nCeta * C
 
         hess_inv = jax_fast_invert(-cov, -diag)
-        # for i in range(1,4):
-        #     for j in range(i, 4):
-        #         hess_inv.at[i,j].set(hess_inv[j,i])
         step = -hess_inv.dot(grad)
         go = jnp.sum(step**2) > tol**2
         return theta_max + step, hess_inv, go
@@ -240,6 +237,13 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
     return theta_max, hess_inv
 
 def jax_fast_invert(S, d):
+    """
+    Invert a matrix plus a diagonal by iteratively applying the Sherman-Morrison
+    formula. If we are computing Binv = (A + d)^-1, 
+    then the arguments are:
+    - S: A^-1
+    - d: d
+    """
     # NOTE: It's possible to improve performance by about 10% by doing an
     # incomplete inversion here. In the last iteration through the loop, return
     # both S and offset. Then, perform .dot(grad) with those components directly.
