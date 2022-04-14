@@ -8,6 +8,7 @@ struct base_fixture : ::testing::Test {
    protected:
     using value_t = double;
     using index_t = Eigen::Index;
+};
 
     // Useful tools to test vector equality
 #define expect_double_eq_vec(v1, v2)              \
@@ -90,6 +91,5 @@ struct base_fixture : ::testing::Test {
             }                                         \
         }                                             \
     }
-};
 
 }  // namespace kevlar
