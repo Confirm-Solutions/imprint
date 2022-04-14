@@ -22,7 +22,7 @@ def test_binomial_hierarchical_grad_hess():
     y_i = np.array([[28, 14, 33, 36]]) * nT / 50
     data = np.stack((y_i, n_i), axis=2)
     qv0 = np.array([1.0])
-    a = np.array([0.0])
+    a = np.array([1.0])
     theta = np.stack((a, qv0), axis=1)
     dx = 0.001
     model = berry.BerryMu()
@@ -212,7 +212,7 @@ def test_exact_integrate():
     data = np.stack((y_i, n_i), axis=2)
     b = berry.Berry(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
 
-    p_sigma2_g_y = exact.integrate(
+    p_sigma2_g_y = quadrature.integrate(
         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=11
     )
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
@@ -243,8 +243,7 @@ def test_exact_integrate2():
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-# @pytest.mark.parametrize('method', ['jax', 'numpy'])
-@pytest.mark.parametrize('method', ['numpy', 'cpp'])
+@pytest.mark.parametrize('method', ['jax', 'numpy', 'cpp'])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
