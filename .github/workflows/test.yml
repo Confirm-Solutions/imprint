@@ -25,13 +25,13 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Lint with flake8
       run: |
-        flake8 . 
+        flake8 .
     - name: Check formatting with black
       run: |
-        black --check . 
+        black --check .
     - name: Check import ordering with isort
       run: |
-        isort --check . 
+        isort --check .
     - name: Test
       run: |
         pytest .
