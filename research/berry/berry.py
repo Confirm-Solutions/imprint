@@ -13,13 +13,12 @@ b = 0.000005
 (normally p1 = 0.3)
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.special
-from scipy.special import logit, expit
-
 import inla
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.special
 import util
+from scipy.special import expit, logit
 
 
 def p_to_theta(p, logit_p1):
@@ -40,8 +39,10 @@ class Berry(inla.INLAModel):
         sigma2_bounds=(1e-8, 1e3),
     ):
         """
-        sigma2_n_quad: int, the number of quadrature points to use integrating over the sigma2 hyperparameter
-        sigma2_bounds: a tuple (a, b) specifying the integration limits in the sigma2 dimension
+        sigma2_n_quad: int, the number of quadrature points to use integrating
+          over the sigma2 hyperparameter
+        sigma2_bounds: a tuple (a, b) specifying the integration limits in the
+          sigma2 dimension
         """
         self.n_stages = 6
         self.n_arms = 4
@@ -130,7 +131,7 @@ class Berry(inla.INLAModel):
         np.testing.assert_allclose(unique_s, self.sigma2_rule.pts)
         return (
             self.Q[indices].reshape((*sigma2.shape, self.n_arms, self.n_arms)),
-            self.Qdet[indices].reshape(sigma2.shape)
+            self.Qdet[indices].reshape(sigma2.shape),
         )
 
     def log_binomial(self, x, data):
@@ -363,7 +364,8 @@ def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
         zorder=1,
     )
     #         # draw hatch
-    # ax1.bar(range(1, 5), range(1, 5), color='none', edgecolor='red', hatch="/", lw=1., zorder = 0)
+    # ax1.bar(range(1, 5), range(1, 5), color='none', edgecolor='red',
+    # hatch="/", lw=1., zorder = 0)
     # # draw edge
     plt.bar([0, 1, 2, 3], y[i], color="none", edgecolor="k", zorder=2)
     ticks = np.arange(0, 36, 5)
