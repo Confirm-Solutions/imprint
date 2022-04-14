@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
 # essentials
-  - python=3.10
+  - python
   - jupyterlab
   - numpy
   - scipy
@@ -29,4 +29,3 @@ dependencies:
     - "pybind11[global]"
     - httpstan
     - pystan
-
