@@ -39,7 +39,6 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
     auto log_prior = get<double, 1>(log_prior_in);
     auto neg_precQ = get<double, 3>(neg_precQ_in);
 
-    // TODO: remove?
     auto cov = get<double, 3>(cov_in);
     auto logprecQdet = get<double, 1>(logprecQdet_in);
     int N = y.buf.shape[0];
@@ -60,6 +59,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             std::array<std::array<double, 4>, 4> hess_inv;
             bool converged = false;
             for (int opt_iter = 0; opt_iter < 20; opt_iter++) {
+
                 // construct gradient and hessian.
                 for (int i = 0; i < 4; i++) {
                     auto theta_adj = t[i] + logit_p1;
@@ -77,7 +77,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                     hess_diag[i] = nCeta * C;
                 }
 
-                // invert hessian.
+                // invert hessian by repeatedly using the Sherman-Morrison formula.
                 for (int k = 0; k < 4; k++) {
                     double offset =
                         hess_diag[k] / (1 + hess_diag[k] * hess_inv[k][k]);
