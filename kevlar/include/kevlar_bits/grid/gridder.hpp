@@ -1,9 +1,10 @@
 #pragma once
 #include <cstddef>
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
+namespace grid {
 
 /*
  * This class is responsible for defining routines to easily
@@ -35,4 +36,5 @@ struct Gridder {
     }
 };
 
+}  // namespace grid
 }  // namespace kevlar

@@ -1,60 +1,267 @@
 \documentclass[10pt, a4paper]{article}
 \input{../../../latex/mathtools}
+\usepackage{cite}
 \usepackage{fullpage}
 
 \begin{document}
-\title{Exponential Control k Treatment Model}
+\title{Exponential Model}
 \author{James Yang}
 \maketitle
 
-\section*{Grid Space}
+\section{Introduction}
 
-We will take the grid-space to be $(\xi_1, \xi_2)$
-where $\xi_1 = \log(\lambda_c)$ ($\lambda_c$ is the control arm's $\lambda$),
-and $\xi_2 = \log(h)$ ($h = \lambda_t / \lambda_c$ is the hazard rate,
-i.e.\ the ratio of treatment to control $\lambda$ parameter).
-Note that the grid-space is not in the natural parameter space.
-This results in a slightly different upper-bound formulation,
-which is outlined below.
+The exponential model is one where each arm $i$ is assumed to follow
+an exponential distribution with hazard $\lambda_i$.
+Depending on the design procedure (the test statistic)
+there are numerous choices of grid spaces and parametrizations
+of the natural parameter space.
+This document will focus on the log-rank statistic with two arms 
+(control and a treatment).
 
-\section*{Upper Bound}
+\section{Model Assumptions}\label{sec:model}
 
-The 0th order Monte Carlo term and its upper bound
-need no change from this reparametrization.
+Assume that there are $n$ patients in each of the $d=2$ arms
+with independent $X_{ci} \sim E(\lambda_c), X_{ti} \sim E(\lambda_t)$,
+$i=1,\ldots, n$.
+$X_{c\cdot}$ are the samples for the control arm and
+$X_{t\cdot}$ are for the treatment arm.
+Then, the distribution of $X \in \R^{n \times 2}$ forms an exponential family
+with sufficient statistic $T(x) = \paren{\sum\limits_{i=1}^n x_{ci}, \sum\limits_{i=1}^n x_{ti}}$
+natural parameter $\eta = (-\lambda_c, -\lambda_t)$,
+and log-partition function $A(\eta) := -n\log(\eta_c \eta_t)$.
 
-\subsection*{Gradient Term}
+\section{Grid Space}
 
-Let $\xi = (\xi_1, \xi_2)$, $\lambda = (\lambda_c, \lambda_t)$,
-and $A$ be the event of false rejection.
-\begin{align*}
-    \nabla_{\xi} P_\lambda(A) 
+Since the log-rank statistic only depends on the hazard rate
+$h = \lambda_t / \lambda_c$,
+it is convenient to parametrize the natural parameter space
+as a function of $(\lambda_c, h)$.
+Moreover, we will see in Section~\ref{ssec:max-cov-quad-form}
+that we get major computation benefits of parametrizing in the log-space
+$\theta = (\log(\lambda_c), \log(h))$.
+
+This parametrization defines a mapping $\eta(\theta) = \paren{-e^{\theta_1}, -e^{\theta_1+\theta_2}}$
+from the grid space to the natural parameter space.
+We conclude this section with the Jacobian and hessian computations
+needed in the later sections.
+\begin{align}
+    D_\theta \eta(\theta)
     &=
-    \nabla_{\xi} \int_A \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
+    \begin{bmatrix}
+        -e^{\theta_1} & 0 \\
+        -e^{\theta_1+\theta_2} & -e^{\theta_1+\theta_2}
+    \end{bmatrix}
+    \label{eq:eta-jac}
+    \\
+    \nabla^2_\theta \eta_1(\theta)
+    &=
+    -e^{\theta_1} e_1e_1^\top 
+    \label{eq:eta-1-hess}
+    \\
+    \nabla^2_\theta \eta_2(\theta)
+    &=
+    -e^{\theta_1+\theta_2} \vec{1} \vec{1}^\top
+    \label{eq:eta-2-hess}
+\end{align}
+where $ e_i$ is the ith standard basis vector 
+and $ \vec{1}$ is a vector of ones.
+
+\section{Upper Bound}
+
+For any model, we must be able to compute
+the upper bound estimate.
+The generalized upper bound estimate requires model-specific quantities,
+which are given by
+\begin{align*}
+    \text{Gradient Term}&: T(x) - \nabla_\eta A(\eta) \\
+    \text{$\eta$ transform}&: D_\theta\eta(\theta) v \\
+    \text{Covariance quadratic form}&: u^\top \var{T}_{\eta} u \\
+    \text{Max covariance quadratic form}&:
+    \sup\limits_{\theta \in R} \bracket{v^\top (D\eta(\theta))^\top \var{T}_{\eta(\theta)} (D\eta(\theta)) v} \\
+    \text{Max covariance and $\eta$ hessian}&: 
+    \norm{v}^2
+    \sum\limits_{k=1}^d
+    \sup\limits_{\theta \in R}
+    \bracket{%
+        \norm{\nabla^2 \eta_k(\theta)}_{op}
+        \sqrt{\var{T_k}_{\eta(\theta)}}
+    }
+\end{align*}
+for any $v, u \in \R^d$ and a bounded subset $R \subseteq \R^d$.
+
+The next few subsections will derive the formulas
+for each of the quantities above.
+
+\subsection{Gradient Term}
+
+As shown in Section~\ref{sec:model},
+we have the form for $T(x)$ and $A(\eta)$.
+\begin{align*}
+    \nabla_\eta A(\eta)
+    &=
+    -n \paren{\eta_c^{-1}, \eta_t^{-1}}
     =
-    \int_A \nabla_{\xi} \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
-    \\&=
-    \int_A (D_{\xi}\lambda)^\top \nabla_{\lambda} \frac{P_{\lambda}}{P_{\lambda_0}} dP_{\lambda_0}
+    n \paren{\lambda_c^{-1}, \lambda_t^{-1}}
 \end{align*}
-If $\xi_0$ is the point at which we are Taylor expanding,
-it suffices to compute this gradient at $\xi = \xi_0$ (equivalently, $\lambda_0$).
-This results in
-
+This gives us
 \begin{align*}
-    \nabla_{\xi} P_{\lambda_0}(A) 
+    T(x) - \nabla_\eta A(\eta)
     &=
-    \int_A (D_{\xi}\lambda(\xi_0))^\top (T - \nabla_\lambda A(\lambda_0)) dP_{\lambda_0}
+    \paren{%
+        \sum\limits_{i=1}^n x_{ci} - n\lambda_c^{-1},
+        \sum\limits_{i=1}^n x_{ti} - n\lambda_t^{-1}
+    }
 \end{align*}
 
-Hence, our gradient Monte Carlo estimate will be
+\subsection{$\eta$ Transform}
+
+Using Eq.~\ref{eq:eta-jac},
+for any $v \in \R^d$,
 \begin{align*}
-    \hat{\nabla f}
-    :=
-    \frac{1}{N}
-    \sum\limits_{i=1}^N
-    D_{\xi} \lambda(\xi_0)^\top (T(X_i)-\nabla_\lambda A(\lambda_0)) \indic{X_i \in A}
+    D_\theta \eta(\theta) v 
+    &=
+    -
+    \begin{bmatrix}
+        e^{\theta_1} & 0 \\
+        e^{\theta_1+\theta_2} & e^{\theta_1+\theta_2} 
+    \end{bmatrix}
+    v
+    =
+    -
+    \begin{bmatrix}
+        e^{\theta_1} v_1 \\
+        e^{\theta_1+\theta_2} (v_1+v_2)
+    \end{bmatrix}
+    =
+    -
+    \begin{bmatrix}
+        \lambda_c v_1 \\
+        \lambda_t (v_1+v_2)
+    \end{bmatrix}
 \end{align*}
 
-\subsection*{Hessian Term}
+\subsection{Covariance Quadratic Form}
 
+The covariance of $T$ is given by 
+\begin{align}
+    \var{T}_\eta &= 
+    n
+    \begin{bmatrix}
+        \eta_c^{-2} & 0 \\
+        0 & \eta_t^{-2}
+    \end{bmatrix}
+    =
+    n
+    \begin{bmatrix}
+        \lambda_c^{-2} & 0 \\
+        0 & \lambda_t^{-2}
+    \end{bmatrix}
+    \label{eq:t-cov}
+\end{align}
+and so,
+\begin{align*}
+    u^\top \var{T}_\eta u &=
+    n (u_1^2 \lambda_c^{-2} + u_2^2 \lambda_t^{-2})
+\end{align*}
+
+\subsection{Max Covariance Quadratic Form}\label{ssec:max-cov-quad-form}
+
+Using Eq.~\ref{eq:eta-jac},~\ref{eq:t-cov},
+\begin{align*}
+    D_\theta \eta(\theta)^\top 
+    \var{T}_\eta 
+    D_\theta \eta(\theta)
+    &=
+    n
+    D_\theta \eta(\theta)^\top
+    \begin{bmatrix}
+        \eta_c^{-2} & 0 \\
+        0 & \eta_t^{-2}
+    \end{bmatrix}
+    \begin{bmatrix}
+        e^{\theta_1} & 0 \\
+        e^{\theta_1+\theta_2} & e^{\theta_1+\theta_2}
+    \end{bmatrix}
+    \\&=
+    n
+    D_\theta \eta(\theta)^\top
+    \begin{bmatrix}
+        e^{-2\theta_1} & 0 \\
+        0 & e^{-2(\theta_1+\theta_2)}
+    \end{bmatrix}
+    \begin{bmatrix}
+        e^{\theta_1} & 0 \\
+        e^{\theta_1+\theta_2} & e^{\theta_1+\theta_2}
+    \end{bmatrix}
+    \\&=
+    n
+    \begin{bmatrix}
+        e^{\theta_1} & e^{\theta_1+\theta_2} \\
+        0 & e^{\theta_1+\theta_2}
+    \end{bmatrix}
+    \begin{bmatrix}
+        e^{-\theta_1} & 0 \\
+        e^{-(\theta_1+\theta_2)} & e^{-(\theta_1+\theta_2)}
+    \end{bmatrix}
+    \\&=
+    n
+    \begin{bmatrix}
+        2 & 1 \\
+        1 & 1
+    \end{bmatrix}
+\end{align*}
+Note the incredible simplification due to our choice of the $\eta$ transformation.
+This gives us
+\begin{align*}
+    \sup\limits_{\theta \in R} \bracket{%
+    v^\top
+        D_\theta \eta(\theta)^\top 
+        \var{T}_\eta 
+        D_\theta \eta(\theta)
+    v
+    }
+    &=
+    n v^\top
+    \begin{bmatrix}
+        2 & 1 \\
+        1 & 1
+    \end{bmatrix}
+    v
+\end{align*}
+
+\subsection{Max Covariance and $\eta$ Hessian}
+
+From Eq.~\ref{eq:eta-1-hess},~\ref{eq:eta-2-hess},
+\begin{align*}
+    \norm{\nabla^2 \eta_1(\theta)}_{op}
+    &=
+    e^{\theta_1} \norm{e_1 e_1^\top}_{op}
+    =
+    e^{\theta_1}
+    \\
+    \norm{\nabla^2 \eta_2(\theta)}_{op}
+    &=
+    e^{\theta_1+\theta_2} \norm{\vec{1}\vec{1}^\top}_{op}
+    =
+    e^{\theta_1+\theta_2} d
+\end{align*}
+
+This gives us
+\begin{align*}
+    \norm{v}^2
+    \sum\limits_{k=1}^d
+    \sup\limits_{\theta \in R}
+    \bracket{%
+        \norm{\nabla^2 \eta_k(\theta)}_{op}
+        \sqrt{\var{T_k}_{\eta(\theta)}}
+    }
+    &=
+    \norm{v}^2
+    \sqrt{n}
+    \paren{%
+        1 + d
+    }
+\end{align*}
+     
 
 \end{document}

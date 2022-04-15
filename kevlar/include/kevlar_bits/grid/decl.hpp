@@ -2,8 +2,9 @@
 #include <cstddef>
 
 namespace kevlar {
+namespace grid {
 
-template <class ValueType, size_t NBits = 8>
+template <class ValueType>
 struct Tile;
 
 template <class ValueType, class UIntType, class TileType>
@@ -17,4 +18,5 @@ struct HyperPlaneView;
 template <class ValueType>
 struct HyperPlane;
 
+}  // namespace grid
 }  // namespace kevlar

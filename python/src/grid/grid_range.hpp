@@ -1,6 +1,8 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
+#include <kevlar_bits/util/types.hpp>
+
 namespace kevlar {
 namespace grid {
 
@@ -9,14 +11,22 @@ namespace py = pybind11;
 template <class GRType, class VecSurfType>
 void add_grid_range(py::module_& m) {
     using gr_t = GRType;
+    using value_t = typename gr_t::value_t;
     using vec_surf_t = VecSurfType;
     using uint_t = typename gr_t::uint_t;
     py::class_<gr_t>(m, "GridRange")
         .def(py::init<>())
-        .def(py::init<uint_t, uint_t>())
-        .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>)
+        .def(py::init<uint_t, uint_t>(), py::arg("n_params"),
+             py::arg("n_gridpts"))
+        .def(py::init<const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const colvec_type<uint_t>>&>(),
+             py::arg("thetas"), py::arg("radii"), py::arg("sim_sizes"))
+        .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>,
+             py::arg("surfaces"))
         .def("prune", &gr_t::prune)
-        .def("n_tiles", py::overload_cast<size_t>(&gr_t::n_tiles, py::const_))
+        .def("n_tiles", py::overload_cast<size_t>(&gr_t::n_tiles, py::const_),
+             py::arg("gridpt_idx"))
         .def("n_tiles", py::overload_cast<>(&gr_t::n_tiles, py::const_))
         .def("n_gridpts", &gr_t::n_gridpts)
         .def("n_params", &gr_t::n_params)
@@ -33,7 +43,8 @@ void add_grid_range(py::module_& m) {
         .def("sim_sizes_const",
              py::overload_cast<>(&gr_t::sim_sizes, py::const_),
              py::return_value_policy::reference_internal)
-        .def("check_null", &gr_t::check_null)
+        .def("check_null", &gr_t::check_null, py::arg("tile_idx"),
+             py::arg("hypo_idx"))
         .def(py::pickle(
             [](const gr_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
@@ -73,12 +84,6 @@ void add_grid_range(py::module_& m) {
                 p.n_tiles__() = n_tiles;
                 p.tiles__() = tiles;
                 p.bits__() = bits;
-                // std::swap(p.thetas(), thetas);
-                // std::swap(p.radii(), radii);
-                // std::swap(p.sim_sizes(), sim_sizes);
-                // std::swap(p.n_tiles__(), n_tiles);
-                // std::swap(p.tiles__(), tiles);
-                // std::swap(p.bits__(), bits);
 
                 return p;
             }));

@@ -1,6 +1,8 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
+#include <kevlar_bits/util/types.hpp>
+
 namespace kevlar {
 namespace model {
 
@@ -9,37 +11,47 @@ namespace py = pybind11;
 template <class MB>
 void add_model_base(py::module_& m) {
     using mb_t = MB;
+    using value_t = typename mb_t::value_t;
     py::class_<mb_t>(m, "ModelBase")
-        .def("cov_quad", &mb_t::cov_quad)
-        .def("max_cov_quad", &mb_t::max_cov_quad)
-        .def("eta_transform", &mb_t::eta_transform)
-        .def("max_eta_hess_cov", &mb_t::max_eta_hess_cov)
+        .def(py::init<>())
+        .def(py::init<const Eigen::Ref<const colvec_type<value_t>>&>())
         .def("n_models", &mb_t::n_models)
-        .def("grid_range", &mb_t::grid_range,
+        .def("critical_values", py::overload_cast<>(&mb_t::critical_values),
              py::return_value_policy::reference_internal)
-        .def("make_state", &mb_t::make_state);
+        .def("critical_values",
+             py::overload_cast<>(&mb_t::critical_values, py::const_),
+             py::return_value_policy::reference_internal)
+        .def("critical_values",
+             py::overload_cast<const Eigen::Ref<const colvec_type<value_t>>&>(
+                 &mb_t::critical_values),
+             py::arg("critical_values"));
 }
 
-template <class MSB>
-void add_model_state_base(pybind11::module_& m) {
-    using msb_t = MSB;
-    py::class_<msb_t>(m, "ModelStateBase")
-        .def("gen_rng", &msb_t::gen_rng)
-        .def("gen_suff_stat", &msb_t::gen_suff_stat)
-        .def("rej_len", &msb_t::rej_len)
-        .def("grad", &msb_t::grad)
-        .def("grid_range", &msb_t::grid_range,
-             py::return_value_policy::reference_internal);
+template <class SGSB>
+void add_sim_global_state_base(pybind11::module_& m) {
+    using sbs_t = SGSB;
+    py::class_<sbs_t>(m, "SimGlobalStateBase")
+        .def("make_sim_state", &sbs_t::make_sim_state);
+    ;
+
+    using ss_t = typename sbs_t::sim_state_t;
+    py::class_<ss_t>(m, "SimStateBase")
+        .def("simulate", &ss_t::simulate, py::arg("gen"),
+             py::arg("rejection_length"))
+        .def("score", &ss_t::score, py::arg("gridpt_idx"), py::arg("output"));
 }
 
-template <class CKTB>
-void add_control_k_treatment_base(pybind11::module_& m) {
-    using cktb_t = CKTB;
-    py::class_<cktb_t>(m, "ControlkTreatmentBase")
-        .def(py::init<size_t, size_t, size_t>())
-        .def("n_arms", &cktb_t::n_arms)
-        .def("ph2_size", &cktb_t::ph2_size)
-        .def("n_samples", &cktb_t::n_samples);
+template <class KBSB>
+void add_kevlar_bound_state_base(pybind11::module_& m) {
+    using kbs_t = KBSB;
+    py::class_<kbs_t>(m, "KevlarBoundStateBase")
+        .def("apply_eta_jacobian", &kbs_t::apply_eta_jacobian,
+             py::arg("gridpt_idx"), py::arg("v"), py::arg("output"))
+        .def("covar_quad", &kbs_t::covar_quadform, py::arg("gridpt_idx"),
+             py::arg("v"))
+        .def("hessian_quadform_bound", &kbs_t::hessian_quadform_bound,
+             py::arg("gridpt_idx"), py::arg("tile_idx"), py::arg("v"))
+        .def("n_natural_params", &kbs_t::n_natural_params);
 }
 
 }  // namespace model

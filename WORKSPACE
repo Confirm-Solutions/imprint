@@ -18,7 +18,7 @@ pip_install(
     requirements = "//python:requirements.txt",
 )
 
-# GoogleTest/GoogleMock framework. Used by most unit-tests.
+# GoogleTest/GoogleMock framework. Used by most unit-tests
 http_archive(
     name = "com_google_googletest",
     sha256 = "205ddbea89a0dff059cd681f3ec9b0a6c12de7036a04cd57f0254105257593d9",
@@ -26,7 +26,7 @@ http_archive(
     urls = ["https://github.com/google/googletest/archive/13a433a94dd9c7e55907d7a9b75f44ff82f309eb.zip"],
 )
 
-# Google benchmark.
+# Google benchmark
 http_archive(
     name = "com_github_google_benchmark",
     sha256 = "59f918c8ccd4d74b6ac43484467b500f1d64b40cc1010daa055375b322a43ba3",
@@ -42,6 +42,7 @@ http_archive(
     urls = ["https://github.com/bazelbuild/rules_cc/archive/262ebec3c2296296526740db4aefce68c80de7fa.zip"],
 )
 
+# PyBind11 Bazel
 PYBIND_BAZEL_VERSION = "72cbbf1fbc830e487e3012862b7b720001b70672"
 
 PYBIND_VERSION = "2.9.1"
@@ -139,42 +140,20 @@ cc_library(
 )
 
 # ====================================
-# KTHOHR STATS + DEPENDENCIES
+# Boost Math library
 # ====================================
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-KTHOHR_GCEM_VERSION = "1.14.1"
-
-KTHOHR_STATS_VERSION = "3.1.2"
-
-http_archive(
-    name = "kthohr_gcem",
-    build_file_content =
-        """
-cc_library(
-    name = "kthohr_gcem",
-    includes = ['include'],
-    hdrs = glob(['include/**']),
-    visibility = ['//visibility:public'],
-)
-""",
-    sha256 = "fd0860e89f47eeddf5a2280dd6fb3f9b021ce36fe8798116b3f703fa0e01409d",
-    strip_prefix = "gcem-{}".format(KTHOHR_GCEM_VERSION),
-    urls = ["https://github.com/kthohr/gcem/archive/refs/tags/v{0}.tar.gz".format(KTHOHR_GCEM_VERSION)],
-)
+_RULES_BOOST_COMMIT = "652b21e35e4eeed5579e696da0facbe8dba52b1f"
 
 http_archive(
-    name = "kthohr_stats",
-    build_file_content =
-        """
-cc_library(
-    name = "kthohr_stats",
-    includes = ['include'],
-    hdrs = glob(['include/**']),
-    visibility = ['//visibility:public'],
-    deps = ['@kthohr_gcem'],
+    name = "com_github_nelhage_rules_boost",
+    sha256 = "c1b8b2adc3b4201683cf94dda7eef3fc0f4f4c0ea5caa3ed3feffe07e1fb5b15",
+    strip_prefix = "rules_boost-%s" % _RULES_BOOST_COMMIT,
+    urls = [
+        "https://github.com/nelhage/rules_boost/archive/%s.tar.gz" % _RULES_BOOST_COMMIT,
+    ],
 )
-""",
-    sha256 = "fe82c679dbed0cbea284ce077e2c2503afaec745658a3791f9fe5010e438305e",
-    strip_prefix = "stats-{}".format(KTHOHR_STATS_VERSION),
-    urls = ["https://github.com/kthohr/stats/archive/refs/tags/v{0}.tar.gz".format(KTHOHR_STATS_VERSION)],
-)
+
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+boost_deps()

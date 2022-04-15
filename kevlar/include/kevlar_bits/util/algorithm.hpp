@@ -40,7 +40,7 @@ inline void sort_cols(MatType&& m, Comp comp) {
  *                  the number of values of x[,j] < p[i].
  */
 template <class XType, class PType, class DestType>
-inline void cum_count(const XType& x, const PType& p, DestType&& counts) {
+inline void accum_count(const XType& x, const PType& p, DestType&& counts) {
     for (int i = 0; i < x.cols(); ++i) {
         auto x_i = x.col(i);
         auto counts_i = counts.col(i);

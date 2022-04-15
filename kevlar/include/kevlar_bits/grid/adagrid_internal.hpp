@@ -6,6 +6,7 @@
 #include <vector>
 
 namespace kevlar {
+namespace grid {
 
 struct AdaGridInternal {
    private:
@@ -31,22 +32,27 @@ struct AdaGridInternal {
     /*
      * Replaces grid_range with the new iteration of grid-points, and
      * populates grid_final with current iteration of finalized points,
-     * based on the upper bound ub.
+     * based on the kevlar bound ub.
      */
-    template <class UpperBoundType, class GridRangeType, class ValueType>
-    void update(const UpperBoundType& ub, GridRangeType& grid_range,
+    template <class KevlarBoundType, class GridRangeType, class ValueType>
+    void update(const KevlarBoundType& ub, GridRangeType& grid_range,
                 GridRangeType& grid_final, size_t N_max,
                 ValueType finalize_thr) const {
         using value_t = ValueType;
         using gr_t = std::decay_t<GridRangeType>;
 
-        std::vector<action_type> actions(grid_range.n_tiles());
-        const auto& ub_tot = ub.get();
-
+        // allocate aux data one-time.
         const auto d = grid_range.n_params();  // dimension of grid point
-        const auto N_factor = ipow(2, d);      // amount to increase sim size
+        dAryInt bits(2, d);
+        colvec_type<value_t> new_rad;
+        colvec_type<value_t> new_pt;
+        std::vector<action_type> actions(grid_range.n_tiles());
+
+        // aliases and configuration
+        const auto& ub_tot = ub.get();
+        const auto N_factor = bits.n_unique();  // amount to increase sim size
         const auto n_new_pts =
-            ipow(2, d);           // number of new points if eps changes
+            bits.n_unique();      // number of new points if eps changes
         size_t n_finalized = 0;   // number of new finalized points
         size_t n_grid_range = 0;  // number of new grid range points
 
@@ -58,12 +64,7 @@ struct AdaGridInternal {
         const auto& d2_u = ub.delta_2_u();
         const auto& N = grid_range.sim_sizes();
 
-        // allocate aux data one-time.
-        dAryInt bits(2, d);
-        colvec_type<value_t> new_rad;
-        colvec_type<value_t> new_pt;
-
-        // Note: UpperBound rows small->large = model most->least conservative.
+        // Note: KevlarBound rows small->large = model most->least conservative.
         // So, first row is for thr_minus and second is thr.
 
         // First pass through all grid points is just to determine
@@ -99,7 +100,7 @@ struct AdaGridInternal {
                                d2_u(1, pos) / 4.;
 
                 // Compare Gaussian mean approximations:
-                // smaller the mean, the more likely UpperBound < alpha.
+                // smaller the mean, the more likely KevlarBound < alpha.
                 bool do_N = (mu_dN < mu_deps);
                 any_N = any_N || do_N;
                 any_eps = any_eps || !do_N;
@@ -189,4 +190,5 @@ struct AdaGridInternal {
     }
 };
 
+}  // namespace grid
 }  // namespace kevlar

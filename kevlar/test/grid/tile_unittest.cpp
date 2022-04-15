@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 namespace kevlar {
+namespace grid {
 
 struct tile_fixture : base_fixture {
     void SetUp() override {
@@ -50,4 +51,5 @@ TEST_F(tile_fixture, full_iter) {
     }
 }
 
+}  // namespace grid
 }  // namespace kevlar
