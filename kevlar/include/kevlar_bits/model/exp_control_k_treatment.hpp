@@ -1,12 +1,12 @@
 #pragma once
-#include <kevlar_bits/util/types.hpp>
-#include <kevlar_bits/util/algorithm.hpp>
-#include <kevlar_bits/util/math.hpp>
-#include <kevlar_bits/util/macros.hpp>
-#include <kevlar_bits/model/base.hpp>
-#include <Eigen/Core>
-#include <limits>
 #include <algorithm>
+#include <Eigen/Core>
+#include <kevlar_bits/model/base.hpp>
+#include <kevlar_bits/util/algorithm.hpp>
+#include <kevlar_bits/util/macros.hpp>
+#include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/types.hpp>
+#include <limits>
 #include <random>
 
 namespace kevlar {

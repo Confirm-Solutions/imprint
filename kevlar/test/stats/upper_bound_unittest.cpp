@@ -1,9 +1,9 @@
-#include <testutil/base_fixture.hpp>
-#include <kevlar_bits/stats/inter_sum.hpp>
-#include <kevlar_bits/stats/upper_bound.hpp>
-#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
+#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/stats/inter_sum.hpp>
+#include <kevlar_bits/stats/upper_bound.hpp>
+#include <testutil/base_fixture.hpp>
 
 namespace kevlar {
 

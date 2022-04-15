@@ -207,4 +207,3 @@ persp3D(x = unique(Thetaj[,1]),y = unique(Thetaj[,2]),z=matrix(upperBoundThetaj,
         cex.axes = .5,
         main = paste("Type I Error Upper Bound (delta = ", as.character(delta),")"))
 dev.off()
-

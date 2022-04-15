@@ -1,19 +1,20 @@
 #include <pybind11/eigen.h>  // must enable for automatic conversion of Eigen
+#include <pybind11/functional.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-#include <pybind11/functional.h>
+
+#include <export_utils/types.hpp>
+#include <grid/adagrid_internal.hpp>
 #include <grid/grid.hpp>
 #include <grid/grid_range.hpp>
 #include <grid/gridder.hpp>
 #include <grid/hyperplane.hpp>
 #include <grid/tile.hpp>
-#include <grid/adagrid_internal.hpp>
-#include <export_utils/types.hpp>
-#include <kevlar_bits/grid/tile.hpp>
+#include <kevlar_bits/grid/adagrid_internal.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
-#include <kevlar_bits/grid/adagrid_internal.hpp>
+#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/stats/upper_bound.hpp>
 
 namespace kevlar {

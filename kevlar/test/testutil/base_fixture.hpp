@@ -1,6 +1,7 @@
 #pragma once
-#include "gtest/gtest.h"
 #include <Eigen/Core>
+
+#include "gtest/gtest.h"
 
 namespace kevlar {
 

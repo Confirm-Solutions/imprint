@@ -377,4 +377,3 @@ other:
   mem:<addr>[/len][:access]                          [Hardware breakpoint]
 
 Metric Groups:
-
