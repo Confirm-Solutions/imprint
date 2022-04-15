@@ -1,13 +1,13 @@
-from pykevlar.core.driver import accumulate
-from pykevlar.core.bound import TypeIErrorAccum
 import os
 
-def accumulate_process(model,
-                       grid_range,
-                       sim_size,
-                       base_seed,
-                       n_threads=os.cpu_count()):
-    '''
+from pykevlar.core.bound import TypeIErrorAccum
+from pykevlar.core.driver import accumulate
+
+
+def accumulate_process(
+    model, grid_range, sim_size, base_seed, n_threads=os.cpu_count()
+):
+    """
     Runs simulations for a given range of grid-points and a model.
     Splits the workload evenly across n_threads number of threads
     where each thread accumulates with sim_size /= n_threads
@@ -33,16 +33,14 @@ def accumulate_process(model,
     -------
     InterSum object updated with sim_size
     number of simulations under the given model.
-    '''
+    """
 
     # create sim global state
     sgs = model.make_sim_global_state(grid_range)
 
     # prepare output
     acc_o = TypeIErrorAccum(
-        model.n_models(),
-        grid_range.n_tiles(),
-        grid_range.n_params()
+        model.n_models(), grid_range.n_tiles(), grid_range.n_params()
     )
 
     # run C++ core routine
@@ -52,17 +50,14 @@ def accumulate_process(model,
         accum=acc_o,
         sim_size=sim_size,
         seed=base_seed,
-        n_threads=n_threads
+        n_threads=n_threads,
     )
 
     return acc_o
 
 
-def accumulate_driver(batcher,
-                      model,
-                      base_seed,
-                      n_threads=os.cpu_count()):
-    '''
+def accumulate_driver(batcher, model, base_seed, n_threads=os.cpu_count()):
+    """
     Batches grid points using batcher
     and simulates each batch on a node in a cluster.
 
@@ -87,7 +82,7 @@ def accumulate_driver(batcher,
     -------
 
     Yields each InterSum output for each batch
-    '''
+    """
 
     for batch, sim_size in batcher:
         # TODO: accumulate_process won't output anything later
@@ -96,7 +91,7 @@ def accumulate_driver(batcher,
             grid_range=batch,
             sim_size=sim_size,
             base_seed=base_seed,
-            n_threads=n_threads
+            n_threads=n_threads,
         )
         # TODO: no need to yield anything later
         yield acc_o

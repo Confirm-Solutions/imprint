@@ -86,8 +86,8 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
     // let's evaluate the endpoints of the prior in logspace-sigma:
     // determine endpoints:
     static std::pair<vec_t, vec_t> get_quadrature(
-            const value_t alpha_prior, const value_t beta_prior,
-            const int n_integration_points, const int n_arm_size) {
+        const value_t alpha_prior, const value_t beta_prior,
+        const int n_integration_points, const int n_arm_size) {
         // Shared for a given prior
         // TODO: consider constexpr
         const value_t a = std::log(1e-8);
@@ -249,8 +249,8 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     }
 
     static vec_t conditional_exceed_prob_given_sigma(
-        const value_t sigma_sq, const value_t mu_sig_sq, const vec_t &sample_I,
-        const vec_t &thetahat, const vec_t &logit_thresholds, const vec_t &mu_0,
+        const value_t sigma_sq, const value_t mu_sig_sq, const vec_t& sample_I,
+        const vec_t& thetahat, const vec_t& logit_thresholds, const vec_t& mu_0,
         const bool use_fast_inverse = true) {
         const int d = sample_I.size();
         // TODO: precompute sigma_sq_inv, V_0, shift

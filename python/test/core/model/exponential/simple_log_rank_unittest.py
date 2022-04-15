@@ -1,22 +1,23 @@
 import unittest
+
 import numpy as np
 import pykevlar.core.grid as grid
 from pykevlar.core.model.exponential import SimpleLogRank
 
-class TestSimpleLogRank(unittest.TestCase):
 
+class TestSimpleLogRank(unittest.TestCase):
     def make_model(self, n_arm_samples, censor_time, critical_values):
         return SimpleLogRank(
             n_arm_samples=n_arm_samples,
             censor_time=censor_time,
-            critical_values=critical_values
+            critical_values=critical_values,
         )
 
     def make_grid_range(self, n_params, n_gridpts):
         return grid.GridRange(n_params, n_gridpts)
 
     def test_constructor(self):
-        m = self.make_model(10, 2, [3])
+        self.make_model(10, 2, [3])
 
     def test_n_arm_samples(self):
         m = self.make_model(10, 2, [3])
@@ -38,6 +39,6 @@ class TestSimpleLogRank(unittest.TestCase):
         # the following just needs to run without error
         gr = self.make_grid_range(3, 5)
         sgs = m.make_sim_global_state(gr)
-        ss = sgs.make_sim_state()
+        sgs.make_sim_state()
 
         m.make_kevlar_bound_state(gr)

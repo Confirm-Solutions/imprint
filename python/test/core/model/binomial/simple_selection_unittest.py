@@ -1,22 +1,24 @@
 import unittest
+
 import numpy as np
 import pykevlar.core.grid as grid
 import pykevlar.core.model.binomial as binom
 
-class TestSimpleSelection(unittest.TestCase):
 
+class TestSimpleSelection(unittest.TestCase):
     def make_model(self, n_arms, n_arm_samples, n_phase2_samples, critical_values):
         return binom.SimpleSelection(
             n_arms=n_arms,
             n_arm_samples=n_arm_samples,
             n_phase2_samples=n_phase2_samples,
-            critical_values=critical_values)
+            critical_values=critical_values,
+        )
 
     def make_grid_range(self, n_params, n_gridpts):
         return grid.GridRange(n_params, n_gridpts)
 
     def test_constructor(self):
-        m = self.make_model(3, 10, 5, [3])
+        self.make_model(3, 10, 5, [3])
 
     def test_n_arms(self):
         m = self.make_model(3, 10, 5, [3])
@@ -43,6 +45,6 @@ class TestSimpleSelection(unittest.TestCase):
         # the following just needs to run without error
         gr = self.make_grid_range(3, 5)
         sgs = m.make_sim_global_state(gr)
-        ss = sgs.make_sim_state()
+        sgs.make_sim_state()
 
         m.make_kevlar_bound_state(gr)
