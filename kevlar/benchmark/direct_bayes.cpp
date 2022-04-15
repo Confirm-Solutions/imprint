@@ -1,4 +1,5 @@
 #include <benchmark/benchmark.h>
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <kevlar_bits/grid/grid_range.hpp>
@@ -15,10 +16,11 @@ namespace {
 using gen_t = std::mt19937;
 using value_t = double;
 using uint_t = uint32_t;
-using tile_t = Tile<value_t>;
-using gr_t = GridRange<value_t, uint_t, tile_t>;
+using tile_t = grid::Tile<value_t>;
+using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
 using model_t = model::binomial::DirectBayes<value_t>;
-using sgs_t = typename model_t::template sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
+using sgs_t =
+    typename model_t::template sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
 using ss_t = typename sgs_t::sim_state_t;
 using vec_t = colvec_type<value_t>;
 
@@ -34,8 +36,8 @@ const int n_thetas = 32;
 const size_t n_samples = 250;
 const value_t efficacy_threshold = 0.3;
 const auto [quadrature_points, weighted_density_logspace] =
-    model_t::get_quadrature(
-        alpha_prior, beta_prior, n_integration_points, n_arm_size);
+    model_t::get_quadrature(alpha_prior, beta_prior, n_integration_points,
+                            n_arm_size);
 
 vec_t get_efficacy_thresholds() {
     Eigen::Vector<value_t, Eigen::Dynamic> efficacy_thresholds(n_arms);
@@ -43,17 +45,16 @@ vec_t get_efficacy_thresholds() {
     return efficacy_thresholds;
 }
 
-struct MockHyperPlane : HyperPlane<value_t> {
+struct MockHyperPlane : grid::HyperPlane<value_t> {
     using base_t = HyperPlane<value_t>;
     using base_t::base_t;
 };
 
 static void BM_get_posterior_exceedance_probs(benchmark::State& state) {
     for (auto _ : state) {
-        const auto got = ss_t::get_posterior_exceedance_probs(phat, quadrature_points,
-                                                     weighted_density_logspace,
-                                                     get_efficacy_thresholds(),
-                                                     n_arm_size, mu_sig_sq);
+        const auto got = ss_t::get_posterior_exceedance_probs(
+            phat, quadrature_points, weighted_density_logspace,
+            get_efficacy_thresholds(), n_arm_size, mu_sig_sq);
     }
 }
 
@@ -61,8 +62,8 @@ BENCHMARK(BM_get_posterior_exceedance_probs);
 
 static void BM_rej_len(benchmark::State& state) {
     using hp_t = MockHyperPlane;
-    auto theta_1d = Gridder::make_grid(n_thetas, -1., 0.);
-    auto radius = Gridder::radius(n_thetas, -1., 0.);
+    auto theta_1d = grid::Gridder::make_grid(n_thetas, -1., 0.);
+    auto radius = grid::Gridder::radius(n_thetas, -1., 0.);
 
     colvec_type<value_t> normal(n_arms);
     std::vector<hp_t> hps;
@@ -90,19 +91,17 @@ static void BM_rej_len(benchmark::State& state) {
     grid_range.create_tiles(hps);
     grid_range.prune();
 
-    Eigen::Vector<value_t, Eigen::Dynamic> efficacy_thresholds(n_arms);
+    colvec_type<value_t> efficacy_thresholds(n_arms);
     efficacy_thresholds.fill(efficacy_threshold);
-    bckt_t model(n_arms, n_samples, critical_values, efficacy_thresholds);
-    model.set_grid_range(grid_range);
+    model_t model(n_arms, n_samples, critical_values, efficacy_thresholds);
+    auto sgs =
+        model.make_sim_global_state<gen_t, value_t, uint_t, gr_t>(grid_range);
     size_t seed = 3214;
-    std::mt19937 gen;
-    gen.seed(seed);
+    gen_t gen(seed);
+    auto mstate = sgs.make_sim_state();
+    colvec_type<uint_t> rej_len(grid_range.n_tiles());
     for (auto _ : state) {
-        auto mstate = model.make_state();
-        mstate->gen_rng(gen);
-        mstate->gen_suff_stat();
-        colvec_type<uint_t> rejs(grid_range.n_tiles());
-        mstate->rej_len(rejs);
+        mstate->simulate(gen, rej_len);
     }
 }
 
