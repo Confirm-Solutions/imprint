@@ -1,5 +1,35 @@
+fail_fast: false
 repos:
-- repo: https://github.com/pre-commit/mirrors-clang-format
-  rev: v13.0.0
-  hooks:
-  - id: clang-format
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: [-i]
+      # - id: clang-tidy
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        language_version: python3
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.4
+    hooks:
+      - id: flake8
+  - repo: https://github.com/pycqa/isort
+    rev: 5.7.0
+    hooks:
+      - id: isort
+        name: isort (python)
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.13.8
+    hooks:
+    - id: jupytext
+      args: [--from, ipynb, --to, "md"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: debug-statements
+      - id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+      - id: detect-private-key
+      - id: forbid-new-submodules

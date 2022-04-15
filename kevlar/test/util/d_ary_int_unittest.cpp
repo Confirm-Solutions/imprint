@@ -1,7 +1,7 @@
-#include <testutil/base_fixture.hpp>
 #include <Eigen/Core>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/math.hpp>  // separately unittested
+#include <testutil/base_fixture.hpp>
 
 namespace kevlar {
 

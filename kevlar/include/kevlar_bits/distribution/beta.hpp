@@ -1,6 +1,6 @@
 #pragma once
-#include <random>
 #include <Eigen/Core>
+#include <random>
 
 namespace kevlar {
 

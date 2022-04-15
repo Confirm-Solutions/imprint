@@ -1,52 +1,44 @@
-from pykevlar.driver import fit_process
-from pykevlar.core import (
-    AdaGridInternal,
-    UpperBound,
-    GridRange,
-)
 import copy
 import os
+
 import numpy as np
+from pykevlar.core import AdaGridInternal, GridRange, UpperBound
+from pykevlar.driver import fit_process
+
 
 class AdaGrid(AdaGridInternal):
-    '''
+    """
     AdaGrid (adaptive gridding) is a strategy for
     sampling grid-points in a grid in a way that samples
     more near the points of interest (large Type I error),
     and less in the other regions.
-    '''
+    """
 
     def __init__(self):
         AdaGridInternal.__init__(self)
 
     # TODO: This is totally incomplete for now.
     # For now, we let the users pass in initial thresholds.
-    def init_thresh__(self,
-                      model,
-                      grid_range,
-                      null_hypo,
-                      alpha,
-                      seed,
-                      n_threads):
-        '''
+    def init_thresh__(self, model, grid_range, null_hypo, alpha, seed, n_threads):
+        """
         Initializes threshold estimates.
 
         Note: this assumes that we're doing an one-sided upper-tail test
-        because we're always taking the maximum of the thresholds as the conservative lambda.
-        This loop is to get a reasonable estimate for the thresholds.
-        By construction, they always correspond to threshold such that
-        at all initial grid points,
+        because we're always taking the maximum of the thresholds as the
+        conservative lambda. This loop is to get a reasonable estimate for the
+        thresholds. By construction, they always correspond to threshold such
+        that at all initial grid points,
         alpha_hat, alpha_minus_hat <= true alpha, true alpha_minus.
-        '''
+        """
 
-        #model.set_grid_range(grid_range, null_hypo)
-        #model_state = model.make_state()
+        # model.set_grid_range(grid_range, null_hypo)
+        # model_state = model.make_state()
 
-        #sim_sizes = grid_range.sim_sizes()
-        #it_o = InitThresh(alpha)
-        #gen = mt19937()
+        # sim_sizes = grid_range.sim_sizes()
+        # it_o = InitThresh(alpha)
+        # gen = mt19937()
 
-        #for j in range(grid_range.size()):
+        # for j in range(grid_range.size()):
         #    gen.seed(seed)
         #    sim_size_j = sim_sizes[j]
         #    it_o.reset(sim_size_j)
@@ -56,41 +48,43 @@ class AdaGrid(AdaGridInternal):
         #        it_o.update(model_state, j)
         #    it_o.create(model_state, j)
 
-        #thresh = it_o.thresh()
-        #alpha_minus = it_o.alpha_minus()
+        # thresh = it_o.thresh()
+        # alpha_minus = it_o.alpha_minus()
 
-        #i_star = np.argmax(thresh[0,:]) # argmax of thresh
+        # i_star = np.argmax(thresh[0,:]) # argmax of thresh
 
-        #self.alpha_target = alpha
-        #self.alpha_minus_target = alpha_minus[i_star]
-        #self.thr = thresh[0,i_star]
-        #self.thr_minus = thresh[1,i_star]
-        #self.da_dthr = (self.alpha_target - self.alpha_minus_target) /
+        # self.alpha_target = alpha
+        # self.alpha_minus_target = alpha_minus[i_star]
+        # self.thr = thresh[0,i_star]
+        # self.thr_minus = thresh[1,i_star]
+        # self.da_dthr = (self.alpha_target - self.alpha_minus_target) /
         #        (self.thr-self.thr_minus)
 
-        #print('da_dthresh={dd}, alpha_t={at}, alpha_minus_t={amt}'.format(
+        # print('da_dthresh={dd}, alpha_t={at}, alpha_minus_t={amt}'.format(
         #    dd=self.da_dthr, at=self.alpha_target, amt=self.alpha_minus_target))
 
-    def fit_internal__(self,
-                       batcher,
-                       model,
-                       null_hypos,
-                       grid_range,
-                       thr,
-                       thr_minus,
-                       alpha,
-                       delta,
-                       N_max,
-                       base_seed,
-                       n_threads,
-                       finalize_thr):
-        '''
+    def fit_internal__(
+        self,
+        batcher,
+        model,
+        null_hypos,
+        grid_range,
+        thr,
+        thr_minus,
+        alpha,
+        delta,
+        N_max,
+        base_seed,
+        n_threads,
+        finalize_thr,
+    ):
+        """
         Simulates the model for the current grid range.
         Based on the upper bound object,
         it returns finalized points into grid_final,
         and grid_range as the new set of points.
 
-        '''
+        """
 
         # set thresholds for model
         model.set_thresholds(np.array([thr_minus, thr]))
@@ -112,7 +106,7 @@ class AdaGrid(AdaGridInternal):
                 grid_range=gr,
                 sim_size=sim_size,
                 base_seed=base_seed,
-                n_threads=n_threads
+                n_threads=n_threads,
             )
             ub = UpperBound()
             ub.create(model, is_o, gr, delta)
@@ -121,9 +115,9 @@ class AdaGrid(AdaGridInternal):
             d0 = ub.delta_0_const()
             N = gr.sim_sizes_const()
 
-            i_star = np.argmax(d0[1,:])
-            alpha_hat = d0[1,i_star]
-            alpha_minus_hat = d0[0,i_star]
+            i_star = np.argmax(d0[1, :])
+            alpha_hat = d0[1, i_star]
+            alpha_minus_hat = d0[0, i_star]
 
             ntcs = np.cumsum(gr.n_tiles())
             N_crit = N[np.where(ntcs > i_star)[0][0]]
@@ -142,47 +136,45 @@ class AdaGrid(AdaGridInternal):
             grs.append(gr)
             gfs.append(gf)
 
-
         def copy_gr(gs, og):
             pos = 0
             for g in gs:
-                og.thetas()[:,pos:(pos+g.n_gridpts())] = g.thetas()
-                og.radii()[:,pos:(pos+g.n_gridpts())] = g.radii()
-                og.sim_sizes()[pos:(pos+g.n_gridpts())] = g.sim_sizes()
+                og.thetas()[:, pos : (pos + g.n_gridpts())] = g.thetas()
+                og.radii()[:, pos : (pos + g.n_gridpts())] = g.radii()
+                og.sim_sizes()[pos : (pos + g.n_gridpts())] = g.sim_sizes()
                 pos += g.n_gridpts()
 
         grid_range = GridRange(
-            grid_range.n_params(),
-            np.sum(np.array([gr.n_gridpts() for gr in grs]))
+            grid_range.n_params(), np.sum(np.array([gr.n_gridpts() for gr in grs]))
         )
         grid_final = GridRange(
-            grid_range.n_params(),
-            np.sum(np.array([gf.n_gridpts() for gf in gfs]))
+            grid_range.n_params(), np.sum(np.array([gf.n_gridpts() for gf in gfs]))
         )
         copy_gr(grs, grid_range)
         copy_gr(gfs, grid_final)
 
         return alpha_hat, alpha_minus_hat, N_crit, grid_range, grid_final
 
-
-    def fit(self,
-            batcher,
-            model,
-            null_hypos,
-            init_grid,
-            alpha,
-            delta,
-            seed,
-            max_iter,
-            N_max,
-            alpha_minus,
-            thr,
-            thr_minus,
-            finalize_thr=None,
-            n_threads=os.cpu_count(),
-            rand_iter=True,
-            debug=False):
-        '''
+    def fit(
+        self,
+        batcher,
+        model,
+        null_hypos,
+        init_grid,
+        alpha,
+        delta,
+        seed,
+        max_iter,
+        N_max,
+        alpha_minus,
+        thr,
+        thr_minus,
+        finalize_thr=None,
+        n_threads=os.cpu_count(),
+        rand_iter=True,
+        debug=False,
+    ):
+        """
         Samples grid-points by piloting the given model
         under the given configuration.
 
@@ -216,7 +208,7 @@ class AdaGrid(AdaGridInternal):
         alpha_minus :   target for lower nominal level from alpha.
         thr         :   threshold for test associated with level alpha.
         thr_minus   :   threshold for test associated with level alpha_minus.
-        '''
+        """
 
         if finalize_thr is None:
             finalize_thr = alpha * 1.1
@@ -250,8 +242,11 @@ class AdaGrid(AdaGridInternal):
                 seed += n_threads
 
             if debug:
-                print("thr={thr}, thr_minus={thr_minus}".format(
-                    thr=thr, thr_minus=thr_minus))
+                print(
+                    "thr={thr}, thr_minus={thr_minus}".format(
+                        thr=thr, thr_minus=thr_minus
+                    )
+                )
 
             grid_range_old = copy.deepcopy(grid_range)
 
@@ -259,35 +254,43 @@ class AdaGrid(AdaGridInternal):
             # updates in-place:
             #   - grid_range as the next set of grid-range.
             #   - grid_final is appended with points.
-            alpha_hat, alpha_minus_hat, N_crit, grid_range, grid_final = \
-                self.fit_internal__(
-                    batcher=batcher,
-                    model=model,
-                    null_hypos=null_hypos,
-                    grid_range=grid_range,
-                    thr=thr,
-                    thr_minus=thr_minus,
-                    alpha=alpha,
-                    delta=delta,
-                    N_max=N_max,
-                    base_seed=seed,
-                    n_threads=n_threads,
-                    finalize_thr=finalize_thr,
-                )
+            (
+                alpha_hat,
+                alpha_minus_hat,
+                N_crit,
+                grid_range,
+                grid_final,
+            ) = self.fit_internal__(
+                batcher=batcher,
+                model=model,
+                null_hypos=null_hypos,
+                grid_range=grid_range,
+                thr=thr,
+                thr_minus=thr_minus,
+                alpha=alpha,
+                delta=delta,
+                N_max=N_max,
+                base_seed=seed,
+                n_threads=n_threads,
+                finalize_thr=finalize_thr,
+            )
 
             # append current iteration of final grid-points
             # TODO: eventually, all final points should be stored in SQL.
             grid_finals.append(grid_final)
 
             if debug:
-                print("alpha={alpha}, alpha_minus={alpha_minus}".format(
-                    alpha=alpha_hat, alpha_minus=alpha_minus_hat
-                ))
+                print(
+                    "alpha={alpha}, alpha_minus={alpha_minus}".format(
+                        alpha=alpha_hat, alpha_minus=alpha_minus_hat
+                    )
+                )
 
             # update invariants
             alpha_minus = max(
-                1E-8,    # just in case the latter becomes too small (or negative)
-                alpha-2*np.sqrt(alpha*(1.-alpha)/N_crit))
+                1e-8,  # just in case the latter becomes too small (or negative)
+                alpha - 2 * np.sqrt(alpha * (1.0 - alpha) / N_crit),
+            )
             da_dthr = (alpha_hat - alpha_minus_hat) / (thr - thr_minus)
             thr += (alpha - alpha_hat) / da_dthr
             thr_minus += (alpha_minus - alpha_minus_hat) / da_dthr

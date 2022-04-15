@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
-#include <kevlar_bits/util/types.hpp>
 #include <Eigen/Core>
+#include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
 

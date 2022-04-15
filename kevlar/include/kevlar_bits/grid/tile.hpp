@@ -1,9 +1,9 @@
 #pragma once
 #include <bitset>
 #include <kevlar_bits/grid/decl.hpp>
-#include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>
 #include <kevlar_bits/util/macros.hpp>
+#include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
 

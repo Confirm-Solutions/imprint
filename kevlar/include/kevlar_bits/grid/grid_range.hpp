@@ -1,10 +1,10 @@
 #pragma once
-#include <type_traits>
-#include <vector>
 #include <kevlar_bits/grid/decl.hpp>
 #include <kevlar_bits/grid/utils.hpp>
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/types.hpp>
+#include <type_traits>
+#include <vector>
 
 namespace kevlar {
 

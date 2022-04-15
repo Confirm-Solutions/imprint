@@ -1,16 +1,17 @@
 #include <pybind11/eigen.h>
-#include <pybind11/stl.h>
 #include <pybind11/functional.h>
-#include <model/model.hpp>
-#include <model/base.hpp>
-#include <model/binomial_control_k_treatment.hpp>
-#include <model/exp_control_k_treatment.hpp>
+#include <pybind11/stl.h>
+
 #include <export_utils/types.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/model/exp_control_k_treatment.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
+#include <model/base.hpp>
+#include <model/binomial_control_k_treatment.hpp>
+#include <model/exp_control_k_treatment.hpp>
+#include <model/model.hpp>
 
 namespace kevlar {
 namespace model {

@@ -15,7 +15,6 @@ representing y_{ki} and data[:, :, 1] representing n_{ki}
 """
 
 from dataclasses import dataclass
-from operator import index
 from typing import Callable
 
 import numpy as np
@@ -34,7 +33,6 @@ class INLAModel:
     log_joint: Callable
     log_joint_xonly: Callable
 
-    # TODO: it probably makes sense to combine grad/hess together into a single function.
     grad: Callable
     hess: Callable
 

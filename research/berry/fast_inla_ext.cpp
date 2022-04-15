@@ -59,7 +59,6 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             std::array<std::array<double, 4>, 4> hess_inv;
             bool converged = false;
             for (int opt_iter = 0; opt_iter < 20; opt_iter++) {
-
                 // construct gradient and hessian.
                 for (int i = 0; i < 4; i++) {
                     auto theta_adj = t[i] + logit_p1;
@@ -77,7 +76,8 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                     hess_diag[i] = nCeta * C;
                 }
 
-                // invert hessian by repeatedly using the Sherman-Morrison formula.
+                // invert hessian by repeatedly using the Sherman-Morrison
+                // formula.
                 for (int k = 0; k < 4; k++) {
                     double offset =
                         hess_diag[k] / (1 + hess_diag[k] * hess_inv[k][k]);
@@ -120,7 +120,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
 
             assert(converged);
             // calculate log joint distribution
-            std::array<double,4> tmm0;
+            std::array<double, 4> tmm0;
             for (int i = 0; i < 4; i++) {
                 tmm0[i] = t[i] - mu_0;
             }

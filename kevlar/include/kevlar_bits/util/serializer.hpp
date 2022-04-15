@@ -1,7 +1,7 @@
 #pragma once
+#include <Eigen/Core>
 #include <fstream>
 #include <type_traits>
-#include <Eigen/Core>
 
 namespace kevlar {
 

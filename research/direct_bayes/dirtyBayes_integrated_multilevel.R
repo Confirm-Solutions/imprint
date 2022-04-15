@@ -206,4 +206,3 @@ apply(posterior_exceedance_probs,2,sum)
 #   #return(list( thresh_exceed = thresh_exceed, mu_posterior = mu_posterior, Sigma_posterior = Sigma_posterior ))
 #   return(thresh_exceed)
 # }
-

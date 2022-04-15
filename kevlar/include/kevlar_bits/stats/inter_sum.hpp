@@ -1,6 +1,6 @@
 #pragma once
-#include <kevlar_bits/util/types.hpp>
 #include <kevlar_bits/util/macros.hpp>
+#include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
 

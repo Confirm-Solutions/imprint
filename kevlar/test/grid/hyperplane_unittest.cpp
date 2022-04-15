@@ -1,5 +1,5 @@
-#include <testutil/base_fixture.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
+#include <testutil/base_fixture.hpp>
 
 namespace kevlar {
 

@@ -1,11 +1,12 @@
-#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
-#include <kevlar_bits/util/algorithm.hpp>
+#include <kevlar_bits/driver/fit.hpp>
+#include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
 #include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/model/binomial_control_k_treatment.hpp>
 #include <kevlar_bits/stats/inter_sum.hpp>
-#include <kevlar_bits/driver/fit.hpp>
+#include <kevlar_bits/util/algorithm.hpp>
+
 #include "benchmark/benchmark.h"
 
 namespace kevlar {

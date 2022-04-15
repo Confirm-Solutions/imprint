@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
-#include <random>
 #include <Eigen/Core>
+#include <random>
 
 namespace kevlar {
 

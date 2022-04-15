@@ -1,3 +1,1 @@
-from .simple_batch import (
-    SimpleBatch
-)
+from .simple_batch import SimpleBatch

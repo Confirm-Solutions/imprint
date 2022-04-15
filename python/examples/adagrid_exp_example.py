@@ -1,39 +1,33 @@
-from pykevlar.core import (
-    GridRange,
-    HyperPlane,
-    ExpControlkTreatment,
-)
-from pykevlar.driver import (
-    fit_process
-)
-from pykevlar.grid import AdaGrid
-from pykevlar.batcher import SimpleBatch
-from scipy.stats import norm
-import numpy as np
 import os
+from logging import getLogger
 
-from logging import basicConfig, getLogger
-from logging import DEBUG as log_level
+import matplotlib.pyplot as plt
+import numpy as np
+from pykevlar.batcher import SimpleBatch
+from pykevlar.core import ExpControlkTreatment, GridRange, HyperPlane
+from pykevlar.grid import AdaGrid
+from scipy.stats import norm
+
 logger = getLogger(__name__)
 
 # ========== Toggleable ===============
-max_iter = 15       # max iterations into adagrid
-N_max = int(1E5)    # max simulation size
+max_iter = 15  # max iterations into adagrid
+N_max = int(1e5)  # max simulation size
 n_threads = os.cpu_count()
 max_batch_size = 100000
 
-logger.info("max_iter: %d, N_max: %d, "
-            "n_threads: %d, max_batch_size: %d" %
-            (max_iter,
-             N_max, n_threads, max_batch_size))
+logger.info(
+    "max_iter: %d, N_max: %d, "
+    "n_threads: %d, max_batch_size: %d" % (max_iter, N_max, n_threads, max_batch_size)
+)
 # ========== End Toggleable ===============
 
 n_arms = 2
-init_sim_size = int(1E3) # initial simulation size
-                    # (for simplicity, fixed for all points)
-init_size = 8       # initial number of points along each direction
-lower = np.array([-0.1/4, -1])
-upper = np.array([1/4, 0])
+init_sim_size = int(1e3)  # initial simulation size
+# (for simplicity, fixed for all points)
+init_size = 8  # initial number of points along each direction
+lower = np.array([-0.1 / 4, -1])
+upper = np.array([1 / 4, 0])
 alpha = 0.025
 delta = 0.025
 seed = 21324
@@ -42,26 +36,24 @@ n_samples = 250
 finalize_thr = alpha * 1.1
 
 # TODO: temporary values to feed.
-alpha_minus = alpha - 2*np.sqrt(alpha*(1-alpha)/init_sim_size)
+alpha_minus = alpha - 2 * np.sqrt(alpha * (1 - alpha) / init_sim_size)
 thr = norm.isf(alpha)
 thr_minus = norm.isf(alpha_minus)
 
 # define null-hypo
-null_hypos = [HyperPlane(np.array([0,-1]), 0)]
+null_hypos = [HyperPlane(np.array([0, -1]), 0)]
 
 # make initial 1d grid
-rnge = upper-lower
-radius = rnge / (2*init_size)
+rnge = upper - lower
+radius = rnge / (2 * init_size)
 theta_grids = (
-    np.arange(lower[i]+radius[i], upper[i], step=2*radius[i])
+    np.arange(lower[i] + radius[i], upper[i], step=2 * radius[i])
     for i in range(len(lower))
 )
 
 # make full grid
 coords = np.meshgrid(*theta_grids)
-grid = np.concatenate(
-    [c.flatten().reshape(-1,1) for c in coords],
-    axis=1)
+grid = np.concatenate([c.flatten().reshape(-1, 1) for c in coords], axis=1)
 
 # create initial grid range
 n_init_gridpts = grid.shape[0]
@@ -99,7 +91,6 @@ gr_new = adagrid.fit(
     debug=True,
 )
 
-import matplotlib.pyplot as plt
 
 finals = None
 curr = None
@@ -115,15 +106,14 @@ while 1:
     if do_plot:
         thetas = curr.thetas_const()
 
-        plt.scatter(thetas[0,:], thetas[1,:],
-                    marker='.',
-                    c=curr.sim_sizes(),
-                    cmap='plasma')
+        plt.scatter(
+            thetas[0, :], thetas[1, :], marker=".", c=curr.sim_sizes(), cmap="plasma"
+        )
 
         plt.show()
 
-        #plt.savefig('ada_iter_{i}.png'.format(i=i))
-        #plt.close()
+        # plt.savefig('ada_iter_{i}.png'.format(i=i))
+        # plt.close()
 
     i += 1
 

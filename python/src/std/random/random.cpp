@@ -1,6 +1,6 @@
-#include <std/random/random.hpp>
-#include <std/random/mt19937.hpp>
 #include <random>
+#include <std/random/mt19937.hpp>
+#include <std/random/random.hpp>
 
 namespace kevlar {
 namespace std {

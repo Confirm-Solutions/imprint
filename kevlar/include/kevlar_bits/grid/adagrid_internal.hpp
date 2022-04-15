@@ -1,8 +1,8 @@
 #pragma once
-#include <kevlar_bits/util/macros.hpp>
-#include <kevlar_bits/util/types.hpp>
-#include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/d_ary_int.hpp>
+#include <kevlar_bits/util/macros.hpp>
+#include <kevlar_bits/util/math.hpp>
+#include <kevlar_bits/util/types.hpp>
 #include <vector>
 
 namespace kevlar {
