@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.13.7
+      jupytext_version: 1.13.8
   kernelspec:
     display_name: Python 3.10.2 ('kevlar')
     language: python
@@ -142,7 +142,7 @@ import mcmc
 ```
 
 ```python
-b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e3)) 
+b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e3))
 
 # I got this data by deconstructing the graphs in in Figure 1 of Berry et al 2013.
 n_i = np.array([[i] * 4 for i in [10, 15, 20, 25, 30, 35]])
@@ -166,8 +166,9 @@ inla_stats = inla.calc_posterior_x(post_hyper, report, b.suc_thresh)
 ```
 
 ```python
-
-db_stats = dirty_bayes.calc_dirty_bayes(y_i, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule)
+db_stats = dirty_bayes.calc_dirty_bayes(
+    y_i, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule
+)
 quad_stats = quadrature.quadrature_posterior_theta(b, data, b.suc_thresh)
 mcmc_data, mcmc_stats = mcmc.mcmc_berry(b, data, b.suc_thresh)
 ```
@@ -246,11 +247,10 @@ for arm_idx in range(4):
     plt.plot(ti_rule.pts, inla_p_ti_g_y, "r-o", markersize=3, label="INLA")
     plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
     plt.plot(bin_centers, mcmc_pdf, "ko", label="MCMC")
-    plt.xlabel(f'$\\theta_{arm_idx}$')
-    plt.ylabel(f'p($\\theta_{arm_idx}$|y)')
+    plt.xlabel(f"$\\theta_{arm_idx}$")
+    plt.ylabel(f"p($\\theta_{arm_idx}$|y)")
     plt.legend()
 plt.show()
-
 ```
 
 ```python
@@ -268,12 +268,14 @@ db_pdf = scipy.stats.norm.pdf(
     x_sigma[None, 5, :, arm_idx],
 )
 
-TT, log_sigma_grid = np.meshgrid(ti_rule.pts, np.log10(b.sigma2_rule.pts), indexing='ij')
+TT, log_sigma_grid = np.meshgrid(
+    ti_rule.pts, np.log10(b.sigma2_rule.pts), indexing="ij"
+)
 field = db_pdf
 levels = None
 
 plt.subplot(2, 3, 1)
-plt.title(r'DB $p(\theta_0|\sigma^2,y)$')
+plt.title(r"DB $p(\theta_0|\sigma^2,y)$")
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -288,14 +290,17 @@ plt.contour(
 plt.colorbar(cntf)
 
 plt.subplot(2, 3, 2)
-plt.title('DB weights')
-plt.plot(np.log10(b.sigma2_rule.pts), db_stats["sigma2_given_y"][look_idx] * b.sigma2_rule.wts)
+plt.title("DB weights")
+plt.plot(
+    np.log10(b.sigma2_rule.pts),
+    db_stats["sigma2_given_y"][look_idx] * b.sigma2_rule.wts,
+)
 
 plt.subplot(2, 3, 3)
-plt.title(r'DB $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$')
-field = (db_pdf
-    * db_stats["sigma2_given_y"][None, look_idx, :]
-    * b.sigma2_rule.wts[None, :])
+plt.title(r"DB $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$")
+field = (
+    db_pdf * db_stats["sigma2_given_y"][None, look_idx, :] * b.sigma2_rule.wts[None, :]
+)
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -308,8 +313,8 @@ plt.contour(
     extend="both",
 )
 plt.colorbar(cntf)
-plt.xlabel(r'$\theta_0$')
-plt.ylabel(r'$\sigma^2$')
+plt.xlabel(r"$\theta_0$")
+plt.ylabel(r"$\sigma^2$")
 
 # INLA
 ti_rule = util.simpson_rule(61, -6.0, 2.0)
@@ -327,7 +332,7 @@ inla_pdf = scipy.stats.norm.pdf(
 
 field = inla_pdf
 plt.subplot(2, 3, 4)
-plt.title(r'INLA $p(\theta_0|\sigma^2,y)$')
+plt.title(r"INLA $p(\theta_0|\sigma^2,y)$")
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -342,13 +347,12 @@ plt.contour(
 plt.colorbar(cntf)
 
 plt.subplot(2, 3, 5)
-plt.title('INLA weights')
+plt.title("INLA weights")
 plt.plot(np.log10(b.sigma2_rule.pts), post_hyper[look_idx] * b.sigma2_rule.wts)
 
 plt.subplot(2, 3, 6)
-plt.title(r'INLA $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$')
-field = (inla_pdf
-    * post_hyper[None, look_idx, :] * b.sigma2_rule.wts[None, :])
+plt.title(r"INLA $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$")
+field = inla_pdf * post_hyper[None, look_idx, :] * b.sigma2_rule.wts[None, :]
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -361,8 +365,8 @@ plt.contour(
     extend="both",
 )
 plt.colorbar(cntf)
-plt.xlabel(r'$\theta_0$')
-plt.ylabel(r'$\sigma^2$')
+plt.xlabel(r"$\theta_0$")
+plt.ylabel(r"$\sigma^2$")
 
 plt.show()
 ```
@@ -400,7 +404,9 @@ data_no0 = np.stack((y_i_no0, n_i), axis=2)
 
 post_hyper, report = inla.calc_posterior_hyper(b, data_no0)
 inla_stats = inla.calc_posterior_x(post_hyper, report, b.suc_thresh)
-db_stats = dirty_bayes.calc_dirty_bayes(y_i_no0, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule)
+db_stats = dirty_bayes.calc_dirty_bayes(
+    y_i_no0, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule
+)
 quad_stats = quadrature.quadrature_posterior_theta(b, data, b.suc_thresh)
 mcmc_data, mcmc_stats = mcmc.mcmc_berry(b, data, b.suc_thresh)
 ```
@@ -414,24 +420,18 @@ berry.figure1_plot(b, "MCMC", data, mcmc_stats)
 
 ```python
 fig = plt.figure(figsize=(10, 10))
-plt.suptitle('Final analysis')
+plt.suptitle("Final analysis")
 outergs = fig.add_gridspec(2, 2, hspace=0.3)
-innergs = outergs[0].subgridspec(
-    2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3]
+innergs = outergs[0].subgridspec(2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3])
+berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, inla_stats, title="INLA")
+innergs = outergs[1].subgridspec(2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3])
+berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, db_stats, title="DB")
+innergs = outergs[2].subgridspec(2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3])
+berry.figure1_subplot(
+    innergs[0], innergs[1], 5, b, data, quad_stats, title="Quadrature"
 )
-berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, inla_stats, title='INLA')
-innergs = outergs[1].subgridspec(
-    2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3]
-)
-berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, db_stats, title='DB')
-innergs = outergs[2].subgridspec(
-    2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3]
-)
-berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, quad_stats, title='Quadrature')
-innergs = outergs[3].subgridspec(
-    2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3]
-)
-berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, mcmc_stats, title='MCMC')
+innergs = outergs[3].subgridspec(2, 1, wspace=0, hspace=0, height_ratios=[0.7, 0.3])
+berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, mcmc_stats, title="MCMC")
 ```
 
 ## Looking at $p(\theta_i|y_k)$
@@ -440,7 +440,9 @@ berry.figure1_subplot(innergs[0], innergs[1], 5, b, data, mcmc_stats, title='MCM
 y_i_no0 = y_i.copy()
 y_i_no0[y_i_no0 == 0] = 0.00001
 data_no0 = np.stack((y_i_no0, n_i), axis=2)
-db_stats = dirty_bayes.calc_dirty_bayes(y_i_no0, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule)
+db_stats = dirty_bayes.calc_dirty_bayes(
+    y_i_no0, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule
+)
 ```
 
 ```python
@@ -515,11 +517,10 @@ for arm_idx in range(4):
     plt.plot(ti_rule.pts, inla_p_ti_g_y, "r-o", markersize=3, label="INLA")
     plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
     plt.plot(bin_centers, mcmc_pdf, "ko", label="MCMC")
-    plt.xlabel(f'$\\theta_{arm_idx}$')
-    plt.ylabel(f'p($\\theta_{arm_idx}$|y)')
+    plt.xlabel(f"$\\theta_{arm_idx}$")
+    plt.ylabel(f"p($\\theta_{arm_idx}$|y)")
     plt.legend()
 plt.show()
-
 ```
 
 ```python
@@ -537,12 +538,14 @@ db_pdf = scipy.stats.norm.pdf(
     x_sigma[None, 5, :, arm_idx],
 )
 
-TT, log_sigma_grid = np.meshgrid(ti_rule.pts, np.log10(b.sigma2_rule.pts), indexing='ij')
+TT, log_sigma_grid = np.meshgrid(
+    ti_rule.pts, np.log10(b.sigma2_rule.pts), indexing="ij"
+)
 field = db_pdf
 levels = None
 
 plt.subplot(2, 3, 1)
-plt.title(r'DB $p(\theta_0|\sigma^2,y)$')
+plt.title(r"DB $p(\theta_0|\sigma^2,y)$")
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -557,14 +560,17 @@ plt.contour(
 plt.colorbar(cntf)
 
 plt.subplot(2, 3, 2)
-plt.title('DB weights')
-plt.plot(np.log10(b.sigma2_rule.pts), db_stats["sigma2_given_y"][look_idx] * b.sigma2_rule.wts)
+plt.title("DB weights")
+plt.plot(
+    np.log10(b.sigma2_rule.pts),
+    db_stats["sigma2_given_y"][look_idx] * b.sigma2_rule.wts,
+)
 
 plt.subplot(2, 3, 3)
-plt.title(r'DB $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$')
-field = (db_pdf
-    * db_stats["sigma2_given_y"][None, look_idx, :]
-    * b.sigma2_rule.wts[None, :])
+plt.title(r"DB $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$")
+field = (
+    db_pdf * db_stats["sigma2_given_y"][None, look_idx, :] * b.sigma2_rule.wts[None, :]
+)
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -577,8 +583,8 @@ plt.contour(
     extend="both",
 )
 plt.colorbar(cntf)
-plt.xlabel(r'$\theta_0$')
-plt.ylabel(r'$\sigma^2$')
+plt.xlabel(r"$\theta_0$")
+plt.ylabel(r"$\sigma^2$")
 
 # INLA
 ti_rule = util.simpson_rule(61, -6.0, 2.0)
@@ -596,7 +602,7 @@ inla_pdf = scipy.stats.norm.pdf(
 
 field = inla_pdf
 plt.subplot(2, 3, 4)
-plt.title(r'INLA $p(\theta_0|\sigma^2,y)$')
+plt.title(r"INLA $p(\theta_0|\sigma^2,y)$")
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -611,13 +617,12 @@ plt.contour(
 plt.colorbar(cntf)
 
 plt.subplot(2, 3, 5)
-plt.title('INLA weights')
+plt.title("INLA weights")
 plt.plot(np.log10(b.sigma2_rule.pts), post_hyper[look_idx] * b.sigma2_rule.wts)
 
 plt.subplot(2, 3, 6)
-plt.title(r'INLA $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$')
-field = (inla_pdf
-    * post_hyper[None, look_idx, :] * b.sigma2_rule.wts[None, :])
+plt.title(r"INLA $p(\theta_0|\sigma^2,y) * p(\sigma^2|y) * d\sigma^2$")
+field = inla_pdf * post_hyper[None, look_idx, :] * b.sigma2_rule.wts[None, :]
 cntf = plt.contourf(TT, log_sigma_grid, field, levels=levels, extend="both")
 plt.contour(
     TT,
@@ -630,40 +635,40 @@ plt.contour(
     extend="both",
 )
 plt.colorbar(cntf)
-plt.xlabel(r'$\theta_0$')
-plt.ylabel(r'$\sigma^2$')
+plt.xlabel(r"$\theta_0$")
+plt.ylabel(r"$\sigma^2$")
 
 plt.show()
 ```
 
 ```python
-p_sigma_g_y = quadrature.integrate(b, data[[0,1,5]], integrate_thetas=(0, 1, 2, 3))
+p_sigma_g_y = quadrature.integrate(b, data[[0, 1, 5]], integrate_thetas=(0, 1, 2, 3))
 p_sigma_g_y /= np.sum(p_sigma_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 # TODO: would be cool to do a CDF here using a generated product rule for each subset of points.
-plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[0], 'b', label='interim 1')
-plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[1], 'r', label='interim 2')
-plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[2], 'k', label='look 6 (final)')
+plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[0], "b", label="interim 1")
+plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[1], "r", label="interim 2")
+plt.plot(np.log10(b.sigma2_rule.pts), p_sigma_g_y[2], "k", label="look 6 (final)")
 plt.legend()
 plt.show()
 ```
 
 ```python
-
 t0_rule = util.simpson_rule(61, -6.0, 1.0)
 p_t0_g_y = quadrature.integrate(
-    b, data[[0,1,5]],
+    b,
+    data[[0, 1, 5]],
     integrate_sigma2=True,
     integrate_thetas=(1, 2, 3),
-    fixed_dims={0:t0_rule},
+    fixed_dims={0: t0_rule},
 )
 p_t0_g_y /= np.sum(p_t0_g_y * t0_rule.wts, axis=1)[:, None]
 
-plt.plot(t0_rule.pts, p_t0_g_y[0], 'b-o', markersize=3, label='interim 1')
-plt.plot(t0_rule.pts, p_t0_g_y[1], 'r-o', markersize=3, label='interim 2')
-plt.plot(t0_rule.pts, p_t0_g_y[2], 'k-o', markersize=3, label='look 6 (final)')
+plt.plot(t0_rule.pts, p_t0_g_y[0], "b-o", markersize=3, label="interim 1")
+plt.plot(t0_rule.pts, p_t0_g_y[1], "r-o", markersize=3, label="interim 2")
+plt.plot(t0_rule.pts, p_t0_g_y[2], "k-o", markersize=3, label="look 6 (final)")
 plt.legend()
-plt.ylabel(r'p($\theta_0$ | y)')
-plt.xlabel(r'$\theta_0$')
+plt.ylabel(r"p($\theta_0$ | y)")
+plt.xlabel(r"$\theta_0$")
 plt.show()
 ```
 
@@ -681,9 +686,9 @@ cdf = []
 cdf_pts = []
 for i in range(3, t0_rule.pts.shape[0], 2):
     # Note that t0_rule.wts[:i] will be different from cdf_rule.wts!!
-    cdf_rule = util.simpson_rule(i, t0_rule.pts[0], t0_rule.pts[i-1])
-    cdf.append(np.sum(p_t0_g_y[:,:i] * cdf_rule.wts[:i], axis=1))
-    cdf_pts.append(t0_rule.pts[i-1])
+    cdf_rule = util.simpson_rule(i, t0_rule.pts[0], t0_rule.pts[i - 1])
+    cdf.append(np.sum(p_t0_g_y[:, :i] * cdf_rule.wts[:i], axis=1))
+    cdf_pts.append(t0_rule.pts[i - 1])
 cdf = np.array(cdf)
 cdf_pts = np.array(cdf_pts)
 ```
@@ -699,12 +704,12 @@ b.suc_thresh
 ```
 
 ```python
-plt.plot(cdf_pts, cdf[:, 0], 'b-o', markersize=3, label='interim 1')
-plt.plot(cdf_pts, cdf[:, 1], 'r-o', markersize=3, label='interim 2')
-plt.plot(cdf_pts, cdf[:, 2], 'k-o', markersize=3, label='look 6 (final)')
+plt.plot(cdf_pts, cdf[:, 0], "b-o", markersize=3, label="interim 1")
+plt.plot(cdf_pts, cdf[:, 1], "r-o", markersize=3, label="interim 2")
+plt.plot(cdf_pts, cdf[:, 2], "k-o", markersize=3, label="look 6 (final)")
 plt.legend()
-plt.ylabel(r'F($\theta_0$ | y)')
-plt.xlabel(r'$\theta_0$')
+plt.ylabel(r"F($\theta_0$ | y)")
+plt.xlabel(r"$\theta_0$")
 plt.show()
 ```
 
@@ -713,7 +718,7 @@ plt.figure(figsize=(8, 8), constrained_layout=True)
 for i in range(4):
     plt.subplot(2, 2, i + 1)
     plt.title(f"Arm {i+1}")
-    inla_graph = report['x0'][5, :, i]
+    inla_graph = report["x0"][5, :, i]
     db_graph = db_stats["mu_posterior"][5, :, i]
     plt.plot(np.log10(b.sigma2_rule.pts), db_graph, label="DB")
     plt.plot(np.log10(b.sigma2_rule.pts), inla_graph, label="INLA")
