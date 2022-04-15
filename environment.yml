@@ -20,6 +20,7 @@ dependencies:
   - jupytext
   - cython
   - cxx-compiler
+  - clang-tools
   - line_profiler
   - pip
   - seaborn

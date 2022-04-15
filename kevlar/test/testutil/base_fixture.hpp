@@ -11,7 +11,7 @@ struct base_fixture : ::testing::Test {
     using index_t = Eigen::Index;
 };
 
-    // Useful tools to test vector equality
+// Useful tools to test vector equality
 #define expect_double_eq_vec(v1, v2)              \
     {                                             \
         EXPECT_EQ(v1.size(), v2.size());          \
