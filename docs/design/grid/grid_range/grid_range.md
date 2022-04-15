@@ -19,13 +19,15 @@ flowchart TB
         get_gridpts[Create a list of grid-points]
         get_radii[Create a list of radii]
         get_ss[Create a list of simulation sizes]
+        get_gr[Create a GridRange]
         get_null_hypos[Create a list of null hypothesis surface objects]
         get_tiles[Create tiles]
         prune[Prune the grid range]
         
-        get_gridpts --> get_tiles
-        get_radii --> get_tiles
-        get_ss --> get_tiles
+        get_gridpts --> get_gr
+        get_radii --> get_gr
+        get_ss --> get_gr
+        get_gr --> get_tiles
         get_null_hypos --> get_tiles
         get_tiles --> prune
     end
@@ -53,7 +55,7 @@ An example is shown below with blue dots representing the grid-points
 and the gray-space representing the grid-space of interest:
 
 <p align="center">
-    <img src="img_002.png" width="600" />
+    <img src="img_000.png" width="600" />
 </p>
 
 Note that the context, or meaning, of these points is defined by the model of interest.
@@ -66,11 +68,11 @@ a range of grid-points is still a meaningful quantity
 for the rest of the framework.
 The framework only ever assumes that the grid-points lie in the space in which
 we apply the Taylor expansion of the function of interest (e.g. Type I error function)
-(see [UpperBound](../../math/stats/upper_bound/doc.pdf)).
+(see [KevlarBound](../../../math/bound/doc.pdf)).
 
 ### Radii
 
-In [UpperBound](../../math/stats/upper_bound/doc.pdf),
+In [KevlarBound](../../../math/bound/doc.pdf),
 the Type I error guarantees originate from having control of a Taylor expansion
 around a small region `R` associated with each grid-point.
 While it is true that `R` need not contain the corresponding grid-point,

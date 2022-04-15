@@ -119,7 +119,7 @@ struct TypeIErrorAccum {
      * The first three parameters must be positive.
      *
      * @param   n_models        number of models.
-     * @param   n_tiles       number of tiles.
+     * @param   n_tiles         number of tiles.
      * @param   n_params        number of parameters.
      */
     void reset(size_t n_models, size_t n_tiles, size_t n_params) {
@@ -129,14 +129,16 @@ struct TypeIErrorAccum {
         n_params_ = n_params;
     }
 
-    mat_type<uint_t>& typeI_sum() { return typeI_sum_; }
     const mat_type<uint_t>& typeI_sum() const { return typeI_sum_; }
-    colvec_type<value_t>& score_sum() { return score_sum_; }
     const colvec_type<value_t>& score_sum() const { return score_sum_; }
 
     constexpr size_t n_tiles() const { return typeI_sum_.cols(); }
     constexpr size_t n_params() const { return n_params_; }
     constexpr size_t n_models() const { return typeI_sum_.rows(); }
+
+    // helper debug functions that should not be used by average users.
+    mat_type<uint_t>& typeI_sum__() { return typeI_sum_; }
+    colvec_type<value_t>& score_sum__() { return score_sum_; }
 };
 
 }  // namespace bound

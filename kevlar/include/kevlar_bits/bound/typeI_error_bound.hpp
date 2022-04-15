@@ -89,12 +89,9 @@ struct TypeIErrorBound {
                 // update 0th order upper
                 auto delta_0_u_j = delta_0_u_.col(pos);
                 for (int m = 0; m < delta_0_u_j.size(); ++m) {
-                    delta_0_u_j[m] =
-                        ibeta_inv(typeIsum_j[m] + 1, ss - typeIsum_j[m],
-                                  d0u_factor) -
-                        //::stats::qbeta(d0u_factor, typeIsum_j[m] + 1,
-                        //               ss - typeIsum_j[m]) -
-                        delta_0_j[m];
+                    delta_0_u_j[m] = ibeta_inv(typeIsum_j[m] + 1,
+                                               ss - typeIsum_j[m], d0u_factor) -
+                                     delta_0_j[m];
                 }
 
                 // update 1st/1st upper/2nd upper

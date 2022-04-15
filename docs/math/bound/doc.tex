@@ -1,7 +1,7 @@
 \documentclass[10pt]{article}
 \usepackage{cite}
 \usepackage{fullpage}
-\input{../../../latex/mathtools}
+\input{../../latex/mathtools}
 
 \newcommand{\new}{\operatorname{new}}
 
@@ -213,17 +213,21 @@ that the true Type I error at $\eta$ is no larger than the upper bound estimate
 with probability at least $ 1-\delta$
 where $\delta := \delta_1 + \delta_2$.
 
-We define a few notations before we conclude this section:
+We define a few notations before we conclude this section.
+For any given $\eta \in H$, if $R_0$ is a partition where $\eta \in R_0$,
+and $\eta_0$ is a simulation grid-point associated with $R_0$
+(note that $\eta_0$ need not be inside $R_0$),
+then the upper bound quantity is the sum of the following five quantities:
 \begin{align*}
-    \hat{\delta}_0 &:= \hat{f}(\eta) \\
+    \hat{\delta}_0 &:= \hat{f}(\eta_0) \\
     \hat{\delta}_0^u &:= \text{(Clopper-Pearson upper bound with level $\delta_1$)} - \hat{\delta}_0 \\
     \hat{\delta}_1 &:= \widehat{\nabla f}(\eta_0)^\top v_{m^*} \\
     \hat{\delta}_1^u &:= \sqrt{%
-        \frac{v_{m^*}^\top \var{T_{\tau_{\max}}} v_{m^*}}{N} 
+        \frac{v_{m^*}^\top \var{T_{\tau_{\max}}}_{\eta_0} v_{m^*}}{N} 
         \paren{\frac{1}{\delta_2}-1}
     } \\
     \hat{\delta}_2^u &:= \frac{1}{2} 
-    v_{m^*}^\top \var{T_{\tau_{\max}}} v_{m^*}
+    v_{m^*}^\top \sup\limits_{\eta \in R_0} \var{T_{\tau_{\max}}}_{\eta} v_{m^*}
 \end{align*}
 where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
 
@@ -255,21 +259,21 @@ Then, for any $\theta, \theta_0$,
 \end{align*}
 Note that all derivatives are with respect to $\theta$.
 
-For now, assume we have a function $U(v)$ such that
+For now, assume we have a function $U_R(v)$ such that
 \begin{align*}
     \sup\limits_{\theta \in R}
     v^\top \nabla^2 f(\theta) v
     \leq
-    U(v)
+    U_R(v)
 \end{align*}
 for any $v$.
 In Section~\ref{ssec:hess-quadform-bound},
-we will propose ways of finding such a $U$.
+we will propose ways of finding such a $U_R$.
 Then,
 \begin{align*}
     \int_0^1 (1-\alpha) v^\top \nabla^2 f(\theta_0 + \alpha v) v d\alpha
     \leq
-    \frac{1}{2} U(v)
+    \frac{1}{2} U_R(v)
 \end{align*}
 where $v = \theta-\theta_0$.
 
@@ -295,7 +299,7 @@ In summary, we have the bound:
     \bracket{%
         \nabla f(\theta_0)^\top v
         +
-        \frac{1}{2} U(v)
+        \frac{1}{2} U_R(v)
     }
 \end{align*}
 
@@ -357,7 +361,7 @@ there exists a corresponding random $\hat{c}_m$ such that
     \PPP_{\theta_0}\paren{%
         \nabla f(\theta_0)^\top v_m
         +
-        \frac{1}{2}U(v_m)
+        \frac{1}{2}U_R(v_m)
         \leq 
         \hat{c}_m
     } 
@@ -370,7 +374,7 @@ then we have
         \bracket{%
             \nabla f(\theta_0)^\top v
             + 
-            \frac{1}{2}U(v)
+            \frac{1}{2}U_R(v)
         }
         \leq 
         \max\limits_{m=1,\ldots, M} \hat{c}_m
@@ -378,7 +382,7 @@ then we have
     \geq 
     1-\delta_2
 \]
-as soon as we further assume that $U$ is convex.
+as soon as we further assume that $U_R$ is convex.
 
 Using Cantelli's inequality
 with $Y = \widehat{\nabla f}(\theta_0)^\top v_m = \frac{1}{N} \sum\limits_{i=1}^N \widehat{\nabla f}(\theta_0)_i^\top v_m$,
@@ -405,7 +409,7 @@ Hence,
         \paren{\frac{1}{\delta_2} - 1}
     }
     +
-    \frac{1}{2} U(v_m)
+    \frac{1}{2} U_R(v_m)
 \end{align*}
 
 This gives us our new upper bound estimates:
@@ -418,7 +422,7 @@ This gives us our new upper bound estimates:
         \paren{\frac{1}{\delta_2}-1}
     } \\
     \hat{\delta}_{2, \new}^u &:= 
-    \frac{1}{2} U(v_{m^*})
+    \frac{1}{2} U_R(v_{m^*})
 \end{align*}
 where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
 
@@ -426,10 +430,10 @@ where $m^* = \argmax\limits_{m=1,\ldots, M} \hat{c}_m$.
 \subsection{Hessian Quadratic Form Bound}\label{ssec:hess-quadform-bound}
 
 As mentioned in Section~\ref{sec:gen-ub}, 
-we will now discuss a way to find the upper bound $U(v)$ to
+we will now discuss a way to find the upper bound $U_R(v)$ to
 $\sup\limits_{\theta \in R} v^\top \nabla^2 f(\theta) v$.
 In Section~\ref{ssec:higher-order-ub-terms},
-we made the additional assumption that $U$ is convex,
+we made the additional assumption that $U_R$ is convex,
 so it is crucial this assumption is met.
 
 We will first bound $\nabla^2 f(\theta)$.
@@ -539,21 +543,21 @@ Combining with Eq.~\ref{eq:hess-second-term},
     \\&=: 
     U_1(v) + U_2(v)
     =:
-    U(v)
+    U_R(v)
 \end{align*}
 where $U_i$ are defined to be the respective terms.
-Note that $U$ is convex.
+Note that $U_R$ is convex.
 Also note that $U_2(v) = 0$ for any linear transformation $\eta$.
 In particular, for the identity transformation, it simplifies to 
 \begin{align*}
-    U(v) = U_1(v) = \sup\limits_{\theta \in R} v^\top \var{T_{\tau_{\max}}}_{\eta(\theta)} v
+    U_R(v) = U_1(v) = \sup\limits_{\theta \in R} v^\top \var{T_{\tau_{\max}}}_{\eta(\theta)} v
 \end{align*}
 which can be further bounded above by the usual formula
 \begin{align*}
-    v^\top \sup\limits_{\theta \in \R} \var{T_{\tau_{\max}}}_{\eta(\theta)} v
+    v^\top \sup\limits_{\theta \in R} \var{T_{\tau_{\max}}}_{\eta(\theta)} v
 \end{align*}
-
-Note that in general, we can make $U(v)$ even more conservative
+where the sup is element-wise.
+Note that in general, we can make $U_R(v)$ even more conservative
 by taking further upper bounds to make the computations more tractable.
 The only constraint is that the resulting bound must be convex.
 

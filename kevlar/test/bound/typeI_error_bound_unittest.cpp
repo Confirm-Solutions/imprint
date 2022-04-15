@@ -67,18 +67,23 @@ struct typeI_error_bound_fixture : base_fixture {
         std::vector<grid::HyperPlane<value_t>> vhp;
         gr.create_tiles(vhp);
 
+        // mock-update of acc_o
+        // set Type I sum, score sum, and n_updates
         acc_o.reset(n_models, gr.n_tiles(), n_params);
-        acc_o.typeI_sum().setRandom();
+        acc_o.typeI_sum__().setRandom();
         auto scale = std::max(acc_o.typeI_sum().maxCoeff() / sim_size, 1uL);
-        acc_o.typeI_sum() /= scale;
-        acc_o.typeI_sum().array() =
+        acc_o.typeI_sum__() /= scale;
+        acc_o.typeI_sum__().array() =
             acc_o.typeI_sum().array().max(0.0).min(sim_size);
-        acc_o.score_sum().setRandom();
+        acc_o.score_sum__().setRandom();
 
+        // create upper bound
         ub.create(kbs, acc_o, gr, delta);
     }
 
    protected:
+    struct MockAccum;
+
     using value_t = value_t;
     using uint_t = uint32_t;
     using tile_t = grid::Tile<value_t>;
@@ -126,7 +131,7 @@ TEST_F(typeI_error_bound_fixture, delta_1) {
     Eigen::MatrixXd expected(n_models, n_gridpts);
     for (size_t i = 0; i < n_gridpts; ++i) {
         Eigen::Map<mat_type<value_t>> score_sum_i(
-            acc_o.score_sum().data() + n_models * n_params * i, n_models,
+            acc_o.score_sum__().data() + n_models * n_params * i, n_models,
             n_params);
         expected.col(i) =
             score_sum_i.array().abs().rowwise().sum() * radius / sim_size;

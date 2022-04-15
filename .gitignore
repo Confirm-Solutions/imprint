@@ -10,7 +10,6 @@ kevlarConfig.cmake
 kevlarConfigVersion.cmake
 DartConfiguration.tcl
 
-*.png
 /python/dist/
 .spyproject/
 

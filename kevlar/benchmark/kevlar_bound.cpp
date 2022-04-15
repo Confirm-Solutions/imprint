@@ -36,10 +36,10 @@ static void BM_kevlar_bound(benchmark::State& state) {
 
     acc_t acc_o(n_models, n_tiles, n_params);
 
-    auto& typeI_sum = acc_o.typeI_sum();
+    auto& typeI_sum = acc_o.typeI_sum__();
     typeI_sum.setRandom();
     typeI_sum /= typeI_sum.maxCoeff() / alpha;
-    auto& score_sum = acc_o.score_sum();
+    auto& score_sum = acc_o.score_sum__();
     score_sum.setRandom();
 
     kbs_t kbs(n_arm_samples, gr);

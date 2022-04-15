@@ -2,7 +2,7 @@
 
 Model classes are at the heart of `kevlar`
 as they define all simulation-specific routines,
-model-specific upper bound quantities,
+model-specific kevlar bound quantities,
 and any global configurations for the model.
 This document will explain in detail the design of our model classes.
 
@@ -12,14 +12,14 @@ This document will explain in detail the design of our model classes.
 - [Model Specification](#model-specification)
     - [Attaching `GridRange`](#attaching-gridrange)
     - [Simulating](#simulating)
-    - [`InterSum` Update](#intersum-update)
-    - [`UpperBound` Update](#upperbound-update)
+    - [`Accumulator` Update](#accumulator-update)
+    - [`KevlarBound` Update](#kevlarbound-update)
 - [Model API](#model-api)
     - [`Distribution`](#distribution)
     - [`Model` and `ModelBase`](#model-and-modelbase)
     - [`SimGlobalState` and `SimGlobalStateBase`](#simglobalstate-and-simglobalstatebase)
     - [`SimState` and `SimStateBase`](#simstate-and-simstatebase)
-    - [`UpperBoundState` and `UpperBoundStateBase`](#upperboundstate-and-upperboundstatebase)
+    - [`KevlarBoundState` and `KevlarBoundStateBase`](#kevlarboundstate-and-kevlarboundstatebase)
     - [Virtual Members](#virtual-members)
 
 ## Overview
@@ -58,25 +58,23 @@ flowchart TB
     subgraph ft_subg [Core]
         set_rng([Initialize RNG]) 
         set_rng --> simulate[Simulate once for model]
-        simulate --> is_update[Update InterSum]
+        simulate --> is_update[Accumulate result]
         is_update -->|repeat n_sim times| simulate
     end
     n -->|pass attached model| ft_subg
 ```
-We refer to [TODO: link a page about `InterSum`]()
-for more information about the `InterSum` class
-and terminologies.
 
 Aside from the simulation mechanism,
-we also have the upper-bound mechanism where the framework
-interacts with a `model` and its corresponding `InterSum` object
-to compute the corresponding `UpperBound` object.
+we also have the kevlar-bound mechanism where the framework
+interacts with a `model` and an accumulator object
+that has accrued information from simulations with that `model`
+to compute the corresponding `KevlarBound` object.
 The following diagram describes this interaction:
 ```mermaid
 flowchart LR
     model([Model])
-    is_o([InterSum])
-    model --> ub[Compute UpperBound]
+    is_o([Accumulator])
+    model --> ub[Compute KevlarBound]
     is_o --> ub
 ```
 
@@ -108,13 +106,13 @@ a `model` defines the context of the grid-points.
 It is the user's responsibility to construct a `GridRange` object
 that adheres to the convention of the `model` they wish to simulate.
 For example, a `model` assuming exponentially distributed data
-may expect the grid-points to lie in the log-hazard space
-rather than the natural parametere space (negative hazard).
+may define the grid-points to lie in the log-hazard space
+rather than the natural parameter space (negative hazard).
 The user is then responsible for constructing grid-points
 in the log-hazard space.
 This promise is solely between the user and the `model` of interest;
 the rest of the `kevlar` framework does not use the context of a `GridRange` object
-for a given `model`, since they must be agnostic to the specific `model` types.
+for a given `model`, since they must be agnostic to the `model` types.
 
 __In summary__:
 - The framework guarantees that a `model` will be attached
@@ -175,19 +173,16 @@ __In summary__:
     - Saves any necessary information (usually sufficient statistic).
     - Computes "false rejection" (defined model-specifically) for each tile.
 
-### `InterSum` Update
+### `Accumulator` Update
 
-An `InterSum` object essentially stores the sum of false rejections
-and the gradient estimates for each tile in the attached `GridRange` object of the `model`
-(see [TODO: link `InterSum` page]() for more information).
-Recall that an `InterSum` object contains the minimal simulation-dependent information
-needed to create an `UpperBound` object.
-The simulation-dependent information is precisely:
-
-- False rejections for each tile.
-- Score estimates for each grid-point.
-
-See [TODO: UpperBound page instead?](../math/stats/upper_bound/doc.pdf) 
+An `Accumulator` object essentially stores the necessary simulation-specific information
+needed to compute its corresponding kevlar-bound.
+Depending on the function of interest (e.g. Type I Error, bias, MSE),
+we may have different quantities in general that are needed to compute their respective kevlar bound.
+As an example, Type I Error accumulator will save the sum of false rejections
+and the score estimates for each tile in the attached `GridRange` object of the `model`
+(see [TODO: link `Accumulator` page]() for more information).
+See [TODO: KevlarBound page instead?](../math/stats/kevlar_bound/doc.pdf) 
 for the mathematical details for why this the case.
 
 The false rejections per tile has already been discussed in [Simulating](#simulating).
@@ -195,34 +190,32 @@ The only extra information needed from `model` is then the score estimates.
 
 __In summary__:
 - After a simulation of a `model`, 
-the `InterSum` object is updated to accrue simulation information.
-- For this update, it only requires:
+the `Accumulator` object is updated to accrue simulation information.
+- As an example, Type I Error accumulator only requires:
     - False rejections for each tile.
     - Score estimates for each grid-point.
 
-### `UpperBound` Update
+### `KevlarBound` Update
 
-An `UpperBound` object stores the components that comprise the upper bound estimate.
+An `KevlarBound` object stores the components that comprise the kevlar bound estimate.
 It is computed from a `model`, its attached `GridRange` object, 
-and its corresponding `InterSum` object that accrued information across all the simulations.
+and its corresponding `Accumulator` object that accrued information across all the simulations.
 The only model-specific quantities are:
 
 - Jacobian operator of the transformation that maps grid-points to natural parameters.
 - Quadratic form of the covariance of the sufficient statistic.
-- Upper bound on the quadratic form of the hessian.
+- Kevlar bound on the quadratic form of the hessian.
 
 We explain the reasoning at a high-level.
 The first quantity is required since a `model` defines 
 the space in which the grid-points lie,
-and `UpperBound` requires the Jacobian of the transform
+and `KevlarBound` requires the Jacobian of the transform
 that maps grid-points to the natural parameters.
 Hence, this Jacobian is a model-specific quantity.
-The second quantity is obviously model-specific
-since a model defines the data distribution.
-The third quantity will, in general, be model-specific
-since the hessian also depends on the underlying data distribution.
-
-See [UpperBound](../math/stats/upper_bound/doc.pdf) 
+The second and third quantities are obviously model-specific
+since a model assumes a particular data distribution
+and both quantities are dependent on that distribution.
+See [KevlarBound](../math/stats/kevlar_bound/doc.pdf) 
 for further mathematical details.
 See [Exponential Model](../math/model/exp_control_k_treatment/doc.pdf)
 for a concrete example of these specifications.
@@ -245,12 +238,13 @@ class GridRange
 class ModelBase {
     -vec_t critical_values_
     +n_models() size_t
-    +set_critical_values(crit_vals) void
+    +critical_values(crit_vals) void
+    +critical_values() vec_t
 }
 
 class Model {
     +make_sim_global_state(grid_range) SimGlobalState
-    +make_upper_bound_state(grid_range) UpperBoundState
+    +make_kevlar_bound_state(grid_range) KevlarBoundState
 }
 
 class SimGlobalStateBase {
@@ -261,26 +255,26 @@ class SimGlobalState
 
 class SimStateBase {
     +simulate(gen, rej_len)* void
-    +score(gridpt_idx, arm_idx)* double
+    +score(gridpt_idx, out)* void
 }
 
 class SimState
 
-class UpperBoundStateBase {
+class KevlarBoundStateBase {
     +apply_eta_jacobian(gridpt_idx, v, out)* void
     +covar_quadform(gridpt_idx, v)* double
-    +hessian_quadform_bound(tile_idx, v)* double
+    +hessian_quadform_bound(gridpt_idx, tile_idx, v)* double
 }
 
-class UpperBoundState
+class KevlarBoundState
 
 %% Inheritance
-Distribution --|> UpperBoundState
+Distribution --|> KevlarBoundState
 Distribution --|> SimGlobalState
 Distribution --|> SimState
 ModelBase --|> Model : Inheritance
 SimStateBase --|> SimState
-UpperBoundStateBase --|> UpperBoundState
+KevlarBoundStateBase --|> KevlarBoundState
 SimGlobalStateBase --|> SimGlobalState
 
 %% Composition (up to reference)
@@ -289,12 +283,12 @@ GridRange --* SimGlobalState : Composition by Reference
 
 SimGlobalState --* SimState
 
-Model --* UpperBoundState
-GridRange --* UpperBoundState
+Model --* KevlarBoundState
+GridRange --* KevlarBoundState
 
 %% Type Dependency
 SimGlobalState ..> Model
-UpperBoundState ..> Model: Type Dependency
+KevlarBoundState ..> Model: Type Dependency
 ```
 
 We list the diagram notation definitions:
@@ -311,7 +305,7 @@ specific to a particular distribution (e.g. binomial).
 - `Model`: concrete model class.
 - `SimState`: concrete simulation state class associated with `Model`.
 - `SimGlobalState`: concrete simulation global state class associated with `Model`.
-- `UpperBoundState`: concrete upper bound state class associated with `Model`.
+- `KevlarBoundState`: concrete kevlar bound state class associated with `Model`.
 - All class names of the form `FooBase` are base classes for
 their corresponding derived classes `Foo`. 
 
@@ -332,7 +326,7 @@ such as the score function.
 In general, distribution-specific quantities are present in
 - `SimState` (e.g. score function)
 - `SimGlobalState` (e.g. natural parameter to mean parameter transformation)
-- `UpperBoundState` (e.g. covariance quadratic form)
+- `KevlarBoundState` (e.g. covariance quadratic form)
 
 ### `Model` and `ModelBase`
 
@@ -340,10 +334,10 @@ The `Model` class should be interpreted as a collection of policies.
 It is simply a dispatcher to create sibling classes for a particular routine
 and store any model-specific configuration data.
 Note that `Model` contains two member functions which create
-an instance of `SimGlobalState` and `UpperBoundState`.
+an instance of `SimGlobalState` and `KevlarBoundState`.
 These sibling classes will be discussed in further detail in the later sections,
 but at a high level, `SimGlobalState` is a class used in simulation
-and `UpperBoundState` is a class used to construct an upper bound estimate.
+and `KevlarBoundState` is a class used to construct an kevlar bound estimate.
 `Model` itself does not interact with the framework otherwise.
 The sibling classes are constructed with an instance of a `GridRange` object,
 `grid_range`.
@@ -368,8 +362,8 @@ Every concrete `Model` class decides its own meaning of these critical values
 scaling of the critical values, e.g. z-score values, chi-squared values, etc.).
 These critical values are only ever used within `Model`-related classes,
 so the user is free to decide the context;
-`InterSum` and `UpperBound` objects never work with these critical values directly.
-They solely exist to define the sequence of models
+`Accumulator` and `KevlarBound` objects never work with these critical values directly.
+The critical values solely exist to define the sequence of models
 and to compute the false rejections during simulations.
 
 ### `SimGlobalState` and `SimGlobalStateBase`
@@ -409,17 +403,17 @@ for each tile in the current `GridRange` object
 (see [Simulating](#simulating)).
 - `score`: computes the score function evaluated at a grid-point
 and one of the parameters
-(see [`InterSum` Update](#intersum-update)).
+(see [`Accumulator` Update](#accumulator-update)).
 
-### `UpperBoundState` and `UpperBoundStateBase`
+### `KevlarBoundState` and `KevlarBoundStateBase`
 
-`UpperBoundState` is a class associated with `Model`
-that is used to create an `UpperBound` object.
-It implements the members of `UpperBoundStateBase`,
-which are the only members needed to create an upper bound estimate
-(see [`UpperBound` Update](#upperbound-update)).
+`KevlarBoundState` is a class associated with `Model`
+that is used to create an `KevlarBound` object.
+It implements the members of `KevlarBoundStateBase`,
+which are the only members needed to create an kevlar bound estimate
+(see [`KevlarBound` Update](#kevlarbound-update)).
 __The user is otherwise free to choose the internal representation
-of these concrete `UpperBoundState` types.__
+of these concrete `KevlarBoundState` types.__
 
 ### Virtual Members 
 
