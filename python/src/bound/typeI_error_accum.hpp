@@ -57,8 +57,8 @@ void add_typeI_error_accum(pybind11::module_& m) {
 
                 /* Create a new C++ instance */
                 acc_t p(typeI_sum.rows(), typeI_sum.cols(), n_params);
-                p.typeI_sum() = typeI_sum;
-                p.score_sum() = score_sum;
+                p.typeI_sum__() = typeI_sum;
+                p.score_sum__() = score_sum;
 
                 return p;
             }));
