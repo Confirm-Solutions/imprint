@@ -1,16 +1,14 @@
-import numpy as np
-from scipy.special import logit
-import scipy.stats
-import scipy.linalg
-
 import jax
 import jax.numpy as jnp
+import numpy as np
+import scipy.linalg
+import scipy.stats
+import util
 from jax.config import config
+from scipy.special import logit
 
 # This line is critical for enabling 64-bit floats.
 config.update("jax_enable_x64", True)
-
-import util
 
 
 def fast_invert(S_in, d):
@@ -118,7 +116,8 @@ class FastINLA:
         # shouldn't need to update the hessian that was calculated during the
         # optimization.
         # hess = np.tile(-precQ, (N, 1, 1, 1))
-        # hess[:, :, arms, arms] -= n[:, None] * np.exp(theta_adj) / ((np.exp(theta_adj) + 1) ** 2)
+        # hess[:, :, arms, arms] -= (n[:, None] * np.exp(theta_adj) /
+        # ((np.exp(theta_adj) + 1) ** 2))
         log_sigma2_post = logjoint + 0.5 * np.log(np.linalg.det(-hess_inv))
         # This can be helpful for avoiding overflow.
         # log_sigma2_post -= np.max(log_sigma2_post, axis=-1)[:, None] - 600
@@ -146,7 +145,6 @@ class FastINLA:
         return sigma2_post, np.stack(exceedances, axis=-1), theta_max
 
     def jax_inference(self, y, n):
-        N = y.shape[0]
         y = jnp.asarray(y)
         n = jnp.asarray(n)
         theta_max, hess_inv = self.jax_opt_vec(
@@ -198,7 +196,7 @@ class FastINLA:
             self.mu_0,
             self.logit_p1,
             self.tol,
-            self.thresh_theta
+            self.thresh_theta,
         )
         return sigma2_post, exceedances, theta_max
 
@@ -236,10 +234,11 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
     theta_max, hess_inv, stop = out
     return theta_max, hess_inv
 
+
 def jax_fast_invert(S, d):
     """
     Invert a matrix plus a diagonal by iteratively applying the Sherman-Morrison
-    formula. If we are computing Binv = (A + d)^-1, 
+    formula. If we are computing Binv = (A + d)^-1,
     then the arguments are:
     - S: A^-1
     - d: d

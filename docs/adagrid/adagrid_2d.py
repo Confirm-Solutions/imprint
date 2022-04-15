@@ -1,12 +1,15 @@
-from gridpt import GridPt
-from binomial import Binomial2Arm
-import numpy as np
-from scipy.stats import norm
-from copy import copy
+# flake8: noqa
+# The above line should be removed, but currently the code in this file is
+# incorrect in several ways and it is unclear to me whether this is dead code or
+# simply temporarily broken.
 import queue
-from matplotlib import cm
+
 import matplotlib.pyplot as plt
-from scipy.interpolate import griddata
+import numpy as np
+from binomial import Binomial2Arm
+from gridpt import GridPt
+from scipy.stats import norm
+
 
 def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
     # store upper bound at current grid point
@@ -29,7 +32,9 @@ def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
         ub = gridpt.create_upper()
         # update sigma
 
-    print("{p}:\n\tub={ub}\n\tub_old={ub_old}".format(p=gridpt.pt, ub=ub, ub_old=ub_old))
+    print(
+        "{p}:\n\tub={ub}\n\tub_old={ub_old}".format(p=gridpt.pt, ub=ub, ub_old=ub_old)
+    )
 
     # if we have to shrink grid
     if shrink_grid:
@@ -37,7 +42,7 @@ def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
         bits = np.zeros(d)
         new_rad = gridpt.radius / 2
         for _ in range(2**d):
-            new_pt = gridpt.pt + new_rad * (2*bits-1)
+            new_pt = gridpt.pt + new_rad * (2 * bits - 1)
 
             # only add the new point if it's "viable".
             # The only check right now is if it's in the null
@@ -45,16 +50,18 @@ def adagrid_internal(gridpt, grid_q, grid_final, model, alpha, N_max):
                 grid_q.put(GridPt(new_pt, new_rad, gridpt))
 
             # add 1 to bits
-            for j in range(d-1, -1, -1):
-                carry = (bits[j]+1)//2
+            for j in range(d - 1, -1, -1):
+                carry = (bits[j] + 1) // 2
                 bits[j] = (bits[j] + 1) % 2
                 if carry == 0:
                     break
     else:
         grid_final.append(gridpt)
 
-def adagrid(lower, upper, model, alpha=0.025,
-            init_size=2, N_init=1000, N_max=100000, max_iter=2):
+
+def adagrid(
+    lower, upper, model, alpha=0.025, init_size=2, N_init=1000, N_max=100000, max_iter=2
+):
     # set-up root node for special behavior
     root_pt = GridPt(None, None, None)
     root_pt.N = N_init
@@ -67,18 +74,16 @@ def adagrid(lower, upper, model, alpha=0.025,
     root_pt.delta_0_ci_upper = np.Inf
 
     # make initial 1d grid
-    rnge = upper-lower
-    radius = rnge / (2*init_size)
+    rnge = upper - lower
+    radius = rnge / (2 * init_size)
     theta_grids = (
-        np.arange(lower[i]+radius[i], upper[i], step=2*radius[i])
+        np.arange(lower[i] + radius[i], upper[i], step=2 * radius[i])
         for i in range(len(lower))
     )
 
     # make full grid
     coords = np.meshgrid(*theta_grids)
-    grid = np.concatenate(
-        [c.flatten().reshape(-1,1) for c in coords],
-        axis=1)
+    grid = np.concatenate([c.flatten().reshape(-1, 1) for c in coords], axis=1)
 
     grid_q = queue.Queue()
     for pt in grid:
@@ -109,26 +114,29 @@ def adagrid(lower, upper, model, alpha=0.025,
         pts = np.array([pt.pt for pt in grid_plt])
         z = np.array([gp.create_upper() for gp in grid_plt])
         fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-        ax.plot_trisurf(pts[:,0], pts[:,1], z)
+        ax.plot_trisurf(pts[:, 0], pts[:, 1], z)
         plt.show()
 
     # If max iteration was reached, just output the current leaves
     # with the deepest nodes that we were supposed to prune further.
-    if (itr == max_iter):
+    if itr == max_iter:
         grid_final = list(set().union(grid_final, grid_q.queue))
 
     return np.array(grid_final)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     model = Binomial2Arm()
-    grid = adagrid(lower=np.array([-0.02, -0.02]),
-                   upper=np.array([0.02, 0.02]),
-                   model=model,
-                   alpha=0.025,
-                   init_size=16,
-                   max_iter=6,
-                   N_max=10000)
+    grid = adagrid(
+        lower=np.array([-0.02, -0.02]),
+        upper=np.array([0.02, 0.02]),
+        model=model,
+        alpha=0.025,
+        init_size=16,
+        max_iter=6,
+        N_max=10000,
+    )
     grid_raw = np.array([pt.pt for pt in grid])
     N_raw = np.array([pt.N for pt in grid])
-    plt.scatter(grid_raw[:,0], grid_raw[:,1], s=1, alpha=N_raw/np.max(N_raw))
+    plt.scatter(grid_raw[:, 0], grid_raw[:, 1], s=1, alpha=N_raw / np.max(N_raw))
     plt.show()

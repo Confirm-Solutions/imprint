@@ -1,9 +1,10 @@
 import os
 import pathlib
+
 import numpy as np
 import pykevlar.core as core
 
-data_dir = 'data'   # changeable
+data_dir = "data"  # changeable
 
 basepath = pathlib.Path(__file__).parent.resolve()
 datapath = os.path.join(basepath, data_dir)
@@ -14,8 +15,8 @@ if not os.path.exists(datapath):
 def save_ub(p_name, b_name, P, B):
     p_path = os.path.join(datapath, p_name)
     b_path = os.path.join(datapath, b_name)
-    np.savetxt(p_path, P, fmt='%s', delimiter=',')
-    np.savetxt(b_path, B, fmt='%s', delimiter=',')
+    np.savetxt(p_path, P, fmt="%s", delimiter=",")
+    np.savetxt(b_path, B, fmt="%s", delimiter=",")
 
 
 def create_ub_plot_inputs(model, is_o, gr, delta):
@@ -27,13 +28,15 @@ def create_ub_plot_inputs(model, is_o, gr, delta):
     for i in range(gr.n_gridpts()):
         for j in range(gr.n_tiles(i)):
             P.append(gr.thetas()[:, i])
-            B.append([
-                ub.delta_0()[0, pos],
-                ub.delta_0_u()[0, pos],
-                ub.delta_1()[0, pos],
-                ub.delta_1_u()[0, pos],
-                ub.delta_2_u()[0, pos],
-                ub.get()[0, pos],
-            ])
+            B.append(
+                [
+                    ub.delta_0()[0, pos],
+                    ub.delta_0_u()[0, pos],
+                    ub.delta_1()[0, pos],
+                    ub.delta_1_u()[0, pos],
+                    ub.delta_2_u()[0, pos],
+                    ub.get()[0, pos],
+                ]
+            )
             pos += 1
     return np.array(P).T, np.array(B)

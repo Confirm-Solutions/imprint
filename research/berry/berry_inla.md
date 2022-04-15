@@ -37,7 +37,6 @@ def log_gauss_rule(N, a, b):
     return (pexp, wexp)
 
 
-
 a = 1e-8
 b = 1e3
 pexp, wexp = log_gauss_rule(90, a, b)

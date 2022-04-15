@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.13.7
+      jupytext_version: 1.13.8
   kernelspec:
     display_name: Python 3.10.2 ('kevlar')
     language: python
@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.special import logit
 
 import util
+
 n_i = np.array([20, 20, 35, 35])
 y_i = np.array([0, 1, 9, 10], dtype=np.float64)
 data = np.stack((y_i, n_i), axis=1)
@@ -63,7 +64,8 @@ for i in range(100):
     theta_adj = theta_max + logit_p1
     grad = (
         -np.sum(precQ * theta_m0[:, None, :], axis=-1)
-        + y_i - (n_i * np.exp(theta_adj) / (np.exp(theta_adj) + 1))
+        + y_i
+        - (n_i * np.exp(theta_adj) / (np.exp(theta_adj) + 1))
     )
     hess = -precQ.copy()
     hess[:, arms, arms] -= n_i * np.exp(theta_adj) / ((np.exp(theta_adj) + 1) ** 2)
@@ -121,12 +123,15 @@ ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
 ```python
 import berry
 import quadrature
+
 b = berry.Berry()
 integrate_dims = [0, 1, 2, 3]
 integrate_dims.remove(arm_idx)
 quad_p_ti_g_y = quadrature.integrate(
     b,
-    data[None,],
+    data[
+        None,
+    ],
     integrate_sigma2=True,
     integrate_thetas=integrate_dims,
     fixed_dims={arm_idx: ti_rule},
@@ -157,7 +162,7 @@ gaussian_p_ti_g_y = np.sum(
     gaussian_pdf * sigma2_post * sigma2_rule.wts[None, :], axis=1
 )
 
-plt.plot(ti_rule.pts, gaussian_p_ti_g_y, 'r-o', markersize=3, label='INLA-Gaussian')
+plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
 plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
 plt.legend()
 plt.show()
@@ -171,7 +176,7 @@ Instead of assuming $p(\theta_i|y, \sigma^2)$ is Gaussian, we will compute it us
 
 
 ```python
-subset_arms = [0,1,2,3]
+subset_arms = [0, 1, 2, 3]
 subset_arms.remove(arm_idx)
 # If
 # 1) t_{arm_idx} is chosen without regard to the other theta values
@@ -192,10 +197,13 @@ for i in range(100):
     ti_adj = ti_max + logit_p1
     ti_grad = (
         -np.sum(precQ_tiled * ti_all_m0[..., None, :], axis=-1)[..., subset_arms]
-        + y_i_sub - (n_i_sub * np.exp(ti_adj) / (np.exp(ti_adj) + 1))
+        + y_i_sub
+        - (n_i_sub * np.exp(ti_adj) / (np.exp(ti_adj) + 1))
     )
     ti_hess = -precQ_tiled[..., subset_arms][..., subset_arms, :].copy()
-    ti_hess[..., np.arange(3), np.arange(3)] -= n_i_sub * np.exp(ti_adj) / ((np.exp(ti_adj) + 1) ** 2)
+    ti_hess[..., np.arange(3), np.arange(3)] -= (
+        n_i_sub * np.exp(ti_adj) / ((np.exp(ti_adj) + 1) ** 2)
+    )
     step = -np.linalg.solve(ti_hess, ti_grad)
     ti_max += step
 
@@ -220,7 +228,6 @@ ti_logjoint = (
 ```
 
 ```python
-
 ti_hess = -precQ_tiled[..., subset_arms][..., subset_arms, :].copy()
 ti_hess[..., np.arange(3), np.arange(3)] -= (
     n_i_sub
@@ -248,7 +255,6 @@ plt.plot(np.log10(sigma2_rule.pts), new * sigma2_rule.wts, label="analytical t0 
 plt.plot(np.log10(sigma2_rule.pts), sigma2_post * sigma2_rule.wts, label="simple inla")
 plt.legend()
 plt.show()
-
 ```
 
 ```python
@@ -256,10 +262,12 @@ t0_analytical_p_ti_g_y = np.sum(ti_post * new * sigma2_rule.wts, axis=1)
 ```
 
 ```python
-plt.figure(figsize=(7,4))
-plt.plot(ti_rule.pts, t0_analytical_p_ti_g_y, 'm-o', markersize=3, label='INLA-t0-analytical')
-plt.plot(ti_rule.pts, gaussian_p_ti_g_y, 'r-o', markersize=3, label='INLA-Gaussian')
-plt.plot(ti_rule.pts, laplace_p_ti_g_y, 'k-o', markersize=3, label='INLA-Laplace')
+plt.figure(figsize=(7, 4))
+plt.plot(
+    ti_rule.pts, t0_analytical_p_ti_g_y, "m-o", markersize=3, label="INLA-t0-analytical"
+)
+plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
+plt.plot(ti_rule.pts, laplace_p_ti_g_y, "k-o", markersize=3, label="INLA-Laplace")
 plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
 plt.legend()
 plt.show()

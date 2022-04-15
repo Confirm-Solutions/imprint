@@ -1,13 +1,10 @@
-from pykevlar.core import InterSum, fit
 import os
 
+from pykevlar.core import InterSum, fit
 
-def fit_process(model,
-                grid_range,
-                sim_size,
-                base_seed,
-                n_threads=os.cpu_count()):
-    '''
+
+def fit_process(model, grid_range, sim_size, base_seed, n_threads=os.cpu_count()):
+    """
     Runs simulations for a given range of grid-points and a model.
     Splits the workload evenly across n_threads number of threads
     where each thread fits with sim_size /= n_threads
@@ -33,7 +30,7 @@ def fit_process(model,
     -------
     InterSum object updated with sim_size
     number of simulations under the given model.
-    '''
+    """
 
     # attach grid range to model
     model.set_grid_range(grid_range)
@@ -47,11 +44,8 @@ def fit_process(model,
     return is_o
 
 
-def fit_driver(batcher,
-               model,
-               base_seed,
-               n_threads=os.cpu_count()):
-    '''
+def fit_driver(batcher, model, base_seed, n_threads=os.cpu_count()):
+    """
     Batches grid points using batcher
     and simulates each batch on a node in a cluster.
 
@@ -76,14 +70,16 @@ def fit_driver(batcher,
     -------
 
     Yields each InterSum output for each batch
-    '''
+    """
 
     for batch, sim_size in batcher:
         # TODO: fit_process won't output anything later
-        is_o = fit_process(model=model,
-                           grid_range=batch,
-                           sim_size=sim_size,
-                           base_seed=base_seed,
-                           n_threads=n_threads)
+        is_o = fit_process(
+            model=model,
+            grid_range=batch,
+            sim_size=sim_size,
+            base_seed=base_seed,
+            n_threads=n_threads,
+        )
         # TODO: no need to yield anything later
         yield is_o

@@ -1,7 +1,6 @@
-import scipy.special
-import numpy as np
-from scipy.special import logit
 import berry
+import numpy as np
+import scipy.special
 
 
 def fast_invert(S, d):
@@ -9,7 +8,7 @@ def fast_invert(S, d):
         offset = (d[k] / (1 + d[k] * S[k, k])) * np.outer(
             S[k],
             S[..., k],
-        )  # I wonder how to cheaply represent this outer? but in C++ it should be just a trivial for-loop anyway
+        )
         S = S - offset
     return S
 
@@ -17,8 +16,8 @@ def fast_invert(S, d):
 def calc_posterior_x(sigma_sq: float, mu_sig_sq: float, sample_I, thetahat, mu_0, d):
     assert len(sigma_sq) == 1, sigma_sq
     S_0 = np.diag(np.repeat(sigma_sq, d)) + mu_sig_sq
-    # V_0 = solve(S_0) #but because this is a known case of the form aI + bJ, we can use the explicit
-    # inverse formula, given by: 1/a I - J*(b/(a(a+db)))
+    # V_0 = solve(S_0) #but because this is a known case of the form aI + bJ, we
+    # can use the explicit inverse formula, given by: 1/a I - J*(b/(a(a+db)))
     V_0 = np.diag(np.repeat(1 / sigma_sq, d)) - (mu_sig_sq / sigma_sq) / (
         sigma_sq + d * mu_sig_sq
     )
@@ -69,9 +68,9 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
     weights = sigma2_given_y * sigma2_rule.wts[None, :]
 
     # Step 9: Compute (mu, sigma) for normal p(theta|y): mixture of gaussians
-    mu_db = np.sum(mu_posterior * weights[...,None], axis=1)
+    mu_db = np.sum(mu_posterior * weights[..., None], axis=1)
     T = (mu_posterior - mu_db[:, None, :]) ** 2 + sigma2_posterior
-    sigma2_db = np.sum(T * weights[...,None], axis=1)
+    sigma2_db = np.sum(T * weights[..., None], axis=1)
     sigma_db = np.sqrt(sigma2_db)
 
     # Step 10: compute exceedance probability separately.
@@ -82,7 +81,7 @@ def calc_dirty_bayes(y_i, n_i, mu_0_scalar, logit_p1, thresh, sigma2_rule):
                 thresh[:, None, :], mu_posterior, np.sqrt(sigma2_posterior)
             )
         )
-        * weights[...,None],
+        * weights[..., None],
         axis=1,
     )
 
