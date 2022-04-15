@@ -3,8 +3,8 @@ Implementation of a numerical integration solver for low dimensional models.
 
 This runs on the Berry model.
 """
-import numpy as np
 import inla
+import numpy as np
 import util
 
 
@@ -189,9 +189,9 @@ def quadrature_posterior_theta(model, data, thresh):
         b = cdf_pts[above_idx]
         b_mult = (thresh[:, i] - a) / (b - a)
         a_mult = 1 - b_mult
-        
+
         idxs = np.arange(below_idx.shape[0])
         interp_cdf = a_mult * cdf[idxs, below_idx] + b_mult * cdf[idxs, above_idx]
-        exceedance[:,i] = 1.0 - interp_cdf
+        exceedance[:, i] = 1.0 - interp_cdf
 
     return dict(cilow=cilow, cihi=cihi, theta_map=theta_map, exceedance=exceedance)

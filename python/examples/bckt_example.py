@@ -1,11 +1,9 @@
+import os
+
+import numpy as np
 import pykevlar.core as core
 import pykevlar.driver as driver
-import numpy as np
-import os
-from utils import (
-    save_ub,
-    create_ub_plot_inputs,
-)
+from utils import create_ub_plot_inputs, save_ub
 
 # ========== Toggleable ===============
 n_arms = 2
@@ -36,8 +34,9 @@ for i in range(1, n_arms):
 # Create current batch of grid points.
 # At the process-level, we only need to know theta, radii.
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
-grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
-        .reshape(-1, n_arms)
+grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1).reshape(
+    -1, n_arms
+)
 gr = core.GridRange(n_arms, grid.shape[0])
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
@@ -58,8 +57,8 @@ is_o = driver.fit_process(bckt, gr, sim_size, seed, n_threads)
 # create upper bound plot inputs and save info
 P, B = create_ub_plot_inputs(bckt, is_o, gr, delta)
 save_ub(
-    'P-bckt-bffb4c054ad6dc0bc94bfca80f0cdd7115ea2434.csv',
-    'B-bckt-bffb4c054ad6dc0bc94bfca80f0cdd7115ea2434.csv',
+    "P-bckt-bffb4c054ad6dc0bc94bfca80f0cdd7115ea2434.csv",
+    "B-bckt-bffb4c054ad6dc0bc94bfca80f0cdd7115ea2434.csv",
     P,
     B,
 )

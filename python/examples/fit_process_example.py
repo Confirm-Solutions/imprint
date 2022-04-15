@@ -1,12 +1,13 @@
+import os
+from datetime import timedelta
+from timeit import default_timer as timer
+
+import numpy as np
 import pykevlar.core as core
 import pykevlar.driver as driver
-import numpy as np
-import os
-from timeit import default_timer as timer
-from datetime import timedelta
 
 # ========== Toggleable ===============
-n_arms = 3      # prioritize 3 first, then do 4
+n_arms = 3  # prioritize 3 first, then do 4
 sim_size = 100000
 n_thetas_1d = 64
 n_threads = os.cpu_count()
@@ -33,8 +34,9 @@ for i in range(1, n_arms):
 # Create current batch of grid points.
 # At the process-level, we only need to know theta, radii.
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
-grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
-        .reshape(-1, n_arms)
+grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1).reshape(
+    -1, n_arms
+)
 gr = core.GridRange(n_arms, grid.shape[0])
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)
@@ -46,7 +48,7 @@ gr.create_tiles(null_hypos)
 start = timer()
 gr.prune()
 end = timer()
-print("Prune time: {t}".format(t=timedelta(seconds=end-start)))
+print("Prune time: {t}".format(t=timedelta(seconds=end - start)))
 
 print("Gridpts: {n}".format(n=gr.n_gridpts()))
 print("Tiles: {n}".format(n=gr.n_tiles()))
@@ -58,5 +60,5 @@ bckt = core.BinomialControlkTreatment(n_arms, ph2_size, n_samples, [thresh])
 start = timer()
 is_o = driver.fit_process(bckt, gr, sim_size, seed, n_threads)
 end = timer()
-print("Fit time: {t}".format(t=timedelta(seconds=end-start)))
+print("Fit time: {t}".format(t=timedelta(seconds=end - start)))
 print((is_o.type_I_sum() / sim_size))

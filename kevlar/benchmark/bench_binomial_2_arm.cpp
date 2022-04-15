@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
-#include <kevlar_bits/sampler/thompson.hpp>
+
 #include <kevlar_bits/distribution/beta.hpp>
+#include <kevlar_bits/sampler/thompson.hpp>
 
 namespace kevlar {
 

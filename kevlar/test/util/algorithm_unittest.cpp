@@ -1,6 +1,6 @@
-#include <testutil/base_fixture.hpp>
 #include <Eigen/Core>
 #include <kevlar_bits/util/algorithm.hpp>
+#include <testutil/base_fixture.hpp>
 
 namespace kevlar {
 

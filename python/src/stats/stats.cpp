@@ -1,14 +1,15 @@
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
-#include <stats/stats.hpp>
-#include <stats/inter_sum.hpp>
-#include <stats/upper_bound.hpp>
-#include <kevlar_bits/stats/upper_bound.hpp>
-#include <kevlar_bits/stats/inter_sum.hpp>
+
+#include <export_utils/types.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
-#include <export_utils/types.hpp>
+#include <kevlar_bits/stats/inter_sum.hpp>
+#include <kevlar_bits/stats/upper_bound.hpp>
+#include <stats/inter_sum.hpp>
+#include <stats/stats.hpp>
+#include <stats/upper_bound.hpp>
 
 namespace kevlar {
 namespace stats {

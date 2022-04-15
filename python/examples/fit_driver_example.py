@@ -1,27 +1,32 @@
+import os
+from logging import DEBUG as log_level
+from logging import basicConfig, getLogger
+
+import numpy as np
 import pykevlar.core as core
 import pykevlar.driver as driver
 from pykevlar.batcher import SimpleBatch
-import numpy as np
-import os
-from logging import basicConfig, getLogger
-from logging import DEBUG as log_level
-#from logging import INFO as log_level
-basicConfig(level = log_level,
-            format  = '%(asctime)s %(levelname)-8s %(module)-20s: %(message)s',
-            datefmt ='%Y-%m-%d %H:%M:%S')
+
+# from logging import INFO as log_level
+basicConfig(
+    level=log_level,
+    format="%(asctime)s %(levelname)-8s %(module)-20s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = getLogger(__name__)
 
 # ========== Toggleable ===============
-n_arms = 3      # prioritize 3 first, then do 4
-sim_size = 1E5
+n_arms = 3  # prioritize 3 first, then do 4
+sim_size = 1e5
 n_thetas_1d = 64
 n_threads = os.cpu_count()
 max_batch_size = -1
 
-logger.info("n_arms: %d, sim_size %d, n_thetas_1d: "
-            "%d, n_threads: %d, max_batch_size: %d" %
-            (n_arms, sim_size, n_thetas_1d,
-             n_threads, max_batch_size))
+logger.info(
+    "n_arms: %d, sim_size %d, n_thetas_1d: "
+    "%d, n_threads: %d, max_batch_size: %d"
+    % (n_arms, sim_size, n_thetas_1d, n_threads, max_batch_size)
+)
 # ========== End Toggleable ===============
 
 ph2_size = 50
@@ -45,8 +50,9 @@ for i in range(1, n_arms):
 # Create full grid.
 # At the driver-level, we need to know theta, radii, sim_sizes.
 theta_1d = core.Gridder.make_grid(n_thetas_1d, lower, upper)
-grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1) \
-        .reshape(-1, n_arms)
+grid = np.stack(np.meshgrid(*(theta_1d for _ in range(n_arms))), axis=-1).reshape(
+    -1, n_arms
+)
 gr = core.GridRange(n_arms, grid.shape[0])
 thetas = gr.thetas()
 thetas[...] = np.transpose(grid)

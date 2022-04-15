@@ -1,24 +1,23 @@
-
 import time
 
-import pytest
-import numpy as np
-import scipy.stats
-from scipy.special import logit
-
-import inla
-import fast_inla
-import util
 import berry
 import dirty_bayes
+import fast_inla
+import inla
+import numpy as np
+import pytest
 import quadrature
+import scipy.stats
+import util
+from scipy.special import logit
 
 
 def test_binomial_hierarchical_grad_hess():
     nT = 50
     n_i = np.full((1, 4), nT)
     x_i = np.array([[0.05422, -0.058, 0.5411, 1.1393]])
-    # p_i = np.array([[0.5135521136895386, 0.3305150325484877, 0.6320743881220601, 0.7575673322021476]])
+    # p_i = np.array([[0.5135521136895386, 0.3305150325484877,
+    # 0.6320743881220601, 0.7575673322021476]])
     y_i = np.array([[28, 14, 33, 36]]) * nT / 50
     data = np.stack((y_i, n_i), axis=2)
     qv0 = np.array([1.0])
@@ -243,7 +242,7 @@ def test_exact_integrate2():
     p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
-@pytest.mark.parametrize('method', ['jax', 'numpy', 'cpp'])
+@pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
@@ -256,7 +255,7 @@ def test_fast_inla(method, N=10, iterations=1):
             out = inla_model.numpy_inference(y_i, n_i)
         elif method == "jax":
             out = inla_model.jax_inference(y_i, n_i)
-        elif method == 'cpp':
+        elif method == "cpp":
             out = inla_model.cpp_inference(y_i, n_i)
         end = time.time()
         runtimes.append(end - start)
@@ -303,8 +302,8 @@ if __name__ == "__main__":
     it = 4
     # print('jax')
     # test_fast_inla('jax', N, it)
-    print('cpp')
-    test_fast_inla('cpp', N, it)
+    print("cpp")
+    test_fast_inla("cpp", N, it)
     # print('numpy')
     # test_fast_inla('numpy', N, it)
     # import time

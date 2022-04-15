@@ -1,10 +1,10 @@
 #pragma once
-#include <iostream>
-#include <string>
-#include <stdexcept>
 #include <chrono>
-#include <iomanip>
 #include <ctime>
+#include <iomanip>
+#include <iostream>
+#include <stdexcept>
+#include <string>
 
 namespace kevlar {
 

@@ -128,4 +128,3 @@ savedestination = paste(getwd(),"/tempdir/Binomial.ID=",slurm_arrayid,
                         ".K=",K, ".eps=",epsilon,sep  ="")
 
 save(TypeIest, TypeI_squaredev, Gradest, file = savedestination)
-

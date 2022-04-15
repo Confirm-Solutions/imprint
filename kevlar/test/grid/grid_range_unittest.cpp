@@ -1,8 +1,8 @@
+#include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/grid/hyperplane.hpp>
+#include <kevlar_bits/grid/tile.hpp>
 #include <testutil/base_fixture.hpp>
 #include <testutil/grid/tile.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/grid/hyperplane.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
 
 namespace kevlar {
 

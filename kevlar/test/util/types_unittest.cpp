@@ -1,10 +1,11 @@
 #include <gtest/gtest.h>
-#include <tuple>
-#include <kevlar_bits/util/types.hpp>
+
 #include <iostream>
-#include <vector>
-#include <unordered_set>
+#include <kevlar_bits/util/types.hpp>
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace kevlar {
 

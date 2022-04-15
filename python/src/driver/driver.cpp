@@ -1,12 +1,13 @@
 #include <pybind11/eigen.h>
+#include <pybind11/functional.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-#include <pybind11/functional.h>
+
 #include <driver/driver.hpp>
 #include <driver/fit.hpp>
 #include <export_utils/types.hpp>
-#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
+#include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/stats/inter_sum.hpp>
 #include <random>

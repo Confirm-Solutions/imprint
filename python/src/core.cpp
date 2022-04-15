@@ -1,8 +1,8 @@
 #include <core.hpp>
 #include <driver/driver.hpp>
 #include <grid/grid.hpp>
-#include <stats/stats.hpp>
 #include <model/model.hpp>
+#include <stats/stats.hpp>
 #include <std/std.hpp>
 
 PYBIND11_MODULE(core, m) {

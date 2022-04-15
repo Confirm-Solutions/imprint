@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
 # essentials
-  - python=3.10
+  - python
   - jupyterlab
   - numpy
   - scipy
@@ -15,8 +15,12 @@ dependencies:
   - pytest
   - pre-commit
   - black
+  - flake8
+  - isort
+  - jupytext
   - cython
   - cxx-compiler
+  - clang-tools
   - line_profiler
   - pip
   - seaborn
@@ -29,4 +33,4 @@ dependencies:
     - "pybind11[global]"
     - httpstan
     - pystan
-
+    - cppimport

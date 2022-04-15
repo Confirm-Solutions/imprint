@@ -6,7 +6,7 @@ jupyter:
       extension: .md
       format_name: markdown
       format_version: '1.3'
-      jupytext_version: 1.13.7
+      jupytext_version: 1.13.8
   kernelspec:
     display_name: Python 3.10.2 ('kevlar')
     language: python
@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 from scipy.special import logit
 
 import util
-
 ```
 
 ```python
@@ -61,7 +60,6 @@ correct = np.array(
     ]
 )
 np.testing.assert_allclose(sigma2_post[0], correct, rtol=1e-3)
-
 ```
 
 ```python
@@ -86,7 +84,6 @@ quad_p_ti_g_y = quadrature.integrate(
     n_theta=9,
 )
 quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
-
 ```
 
 ```python
@@ -104,7 +101,6 @@ plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussi
 plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
 plt.legend()
 plt.show()
-
 ```
 
 ```python

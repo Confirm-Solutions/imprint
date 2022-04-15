@@ -1,5 +1,5 @@
-#include <testutil/base_fixture.hpp>
 #include <kevlar_bits/grid/tile.hpp>
+#include <testutil/base_fixture.hpp>
 #include <unordered_set>
 
 namespace kevlar {
