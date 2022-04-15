@@ -1,0 +1,11 @@
+[py_binary(
+    name = name,
+    srcs = ["{}.py".format(name)],
+    data = ["//python:pykevlar/core.so"],
+    deps = [
+        "//python:pykevlar_lib",
+    ],
+) for name in [
+    "simple_selection",
+    "simple_log_rank",
+]]

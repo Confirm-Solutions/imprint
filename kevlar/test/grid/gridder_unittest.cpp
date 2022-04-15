@@ -2,6 +2,7 @@
 #include <testutil/base_fixture.hpp>
 
 namespace kevlar {
+namespace grid {
 
 // TEST grid
 struct grid_fixture : base_fixture,
@@ -61,4 +62,5 @@ INSTANTIATE_TEST_SUITE_P(
                                      std::make_pair(0., 0.001),
                                      std::make_pair(-10., -0.3))));
 
+}  // namespace grid
 }  // namespace kevlar

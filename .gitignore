@@ -10,7 +10,6 @@ kevlarConfig.cmake
 kevlarConfigVersion.cmake
 DartConfiguration.tcl
 
-*.png
 /python/dist/
 .spyproject/
 
@@ -29,13 +28,11 @@ Vagrantfile
 .idea/
 compile_commands.json
 
-# R-studio stuff
-.RData
-.Rhistory
-.Rproj.user
-
 # python stuff
 __pycache__
 
 # c++ extensions built in place within the source tree.
 *.so 
+
+# bazel outputs
+*pid*.log

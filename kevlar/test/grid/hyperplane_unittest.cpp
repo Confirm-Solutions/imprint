@@ -2,6 +2,7 @@
 #include <testutil/base_fixture.hpp>
 
 namespace kevlar {
+namespace grid {
 
 struct hyperplane_fixture : base_fixture {
     void SetUp() override {
@@ -51,4 +52,5 @@ TEST_F(hyperplane_fixture, intersect) {
     EXPECT_DOUBLE_EQ(actual, expected);
 }
 
+}  // namespace grid
 }  // namespace kevlar

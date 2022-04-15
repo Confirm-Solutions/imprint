@@ -1,7 +1,9 @@
 #pragma once
 #define _USE_MATH_DEFINES
+#include <boost/math/special_functions/beta.hpp>
 #include <cmath>
 #include <Eigen/Dense>
+#include <kevlar_bits/util/macros.hpp>
 #include <unsupported/Eigen/SpecialFunctions>
 
 namespace kevlar {
@@ -62,6 +64,21 @@ template <>
 struct Log2<1> {
     static constexpr size_t value = 0;
 };
+
+// ===================================================================
+// Stats Routines
+// ===================================================================
+
+template <class T1, class T2, class T3>
+KEVLAR_STRONG_INLINE auto ibeta_inv(T1 a, T2 b, T3 p) {
+    using out_t = std::common_type_t<T1, T2, T3>;
+    if (a == 0 && b == 0) {
+        throw std::runtime_error("Both a, b cannot be 0.");
+    }
+    if (a == 0) return out_t(0);
+    if (b == 0) return out_t(1);
+    return boost::math::ibeta_inv(a, b, p);
+}
 
 template <class T>
 auto normal_cdf(const T& x) {

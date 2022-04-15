@@ -1,0 +1,12 @@
+[py_test(
+    name = name,
+    srcs = ["{}_main.py".format(name)],
+    data = ["//python:pykevlar/core.so"],
+    deps = [
+        "//python:pykevlar_lib",
+    ],
+    imports = ["."],
+    main = "{}_main.py".format(name),
+) for name in [
+    "core",
+]]

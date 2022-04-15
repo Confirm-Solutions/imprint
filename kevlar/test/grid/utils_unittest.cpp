@@ -4,6 +4,7 @@
 #include <testutil/base_fixture.hpp>
 
 namespace kevlar {
+namespace grid {
 
 struct utils_fixture : base_fixture {
    protected:
@@ -349,4 +350,5 @@ TEST_F(utils_fixture, test_is_oriented_full_issue1) {
     EXPECT_EQ(ori, orient_type::none);
 }
 
+}  // namespace grid
 }  // namespace kevlar

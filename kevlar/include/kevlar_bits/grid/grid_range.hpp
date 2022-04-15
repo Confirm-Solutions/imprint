@@ -7,148 +7,77 @@
 #include <vector>
 
 namespace kevlar {
-
-template <class ValueType, class UIntType>
-struct GridptViewer {
-    using value_t = ValueType;
-    using uint_t = UIntType;
-
-    GridptViewer(size_t dim, value_t* ptheta, value_t* pradius,
-                 uint_t* psim_size)
-        : theta_(ptheta, dim), radius_(pradius, dim), sim_size_(psim_size) {}
-
-    auto& get_theta() { return theta_; }
-    auto& get_radius() { return radius_; }
-    auto& get_sim_size() { return *sim_size_; }
-
-    void reset(value_t* ptheta, value_t* pradius, uint_t* psim_size) {
-        new (&theta_) Eigen::Map<vec_t>(ptheta, theta_.size());
-        new (&radius_) Eigen::Map<vec_t>(pradius, radius_.size());
-        sim_size_ = psim_size;
-    }
-
-   private:
-    using vec_t = std::conditional_t<std::is_const_v<value_t>,
-                                     const colvec_type<std::decay_t<value_t> >,
-                                     colvec_type<value_t> >;
-    Eigen::Map<vec_t> theta_;
-    Eigen::Map<vec_t> radius_;
-    uint_t* sim_size_;
-};
+namespace grid {
 
 template <class ValueType, class UIntType, class TileType>
 struct GridRange {
     using value_t = ValueType;
     using uint_t = UIntType;
     using tile_t = TileType;
-    using bits_t = unsigned char;
+    using bits_t = unsigned char;  // TODO: generalize?
 
-    struct iterator_type {
-        using difference_type = std::ptrdiff_t;
-        using value_type = GridptViewer<value_t, uint_t>;
-        using pointer = GridptViewer<value_t, uint_t>*;
-        using reference = GridptViewer<value_t, uint_t>&;
-        using iterator_category = std::random_access_iterator_tag;
+   private:
+    mat_type<value_t> thetas_;       // matrix of theta vectors
+    mat_type<value_t> radii_;        // matrix of radius vectors
+    colvec_type<uint_t> sim_sizes_;  // vector of simulation sizes
 
-        iterator_type(GridRange& outer, size_t cnt)
-            : outer_ref_{outer},
-              viewer_(outer.dim(), outer.thetas_.data() + cnt * outer.dim(),
-                      outer.radii_.data() + cnt * outer.dim(),
-                      outer.sim_sizes_.data() + cnt),
-              cnt_{cnt} {}
+    // updated via member functions
+    std::vector<uint_t>
+        n_tiles_;  // n_tiles_[i] = number of tiles for ith gridpoint
+    std::vector<bits_t> bits_;  // vector of bits to represent ISH of each tile
+    std::vector<tile_t>
+        tiles_;  // vector of tiles (flattened across all gridpoints)
 
-        iterator_type& operator+=(difference_type n) {
-            cnt_ += n;
-            auto& outer = outer_ref_.get();
-            viewer_.reset(viewer_.get_theta().data() + n * outer.dim(),
-                          viewer_.get_radius().data() + n * outer.dim(),
-                          outer.sim_sizes_.data() + cnt_);
-            return *this;
+    bits_t all_alt_bits_;
+
+    KEVLAR_STRONG_INLINE
+    static constexpr bits_t compute_init_bits(size_t max_bits) { return 0; }
+
+    KEVLAR_STRONG_INLINE
+    static constexpr bits_t compute_all_alt_bits(size_t max_bits) {
+        bits_t out = 0;
+        bits_t pos = 1;
+        for (size_t b = 0; b < max_bits; ++b, pos <<= 1) {
+            out |= pos;
         }
-        iterator_type& operator++() {
-            ++cnt_;
-            auto& outer = outer_ref_.get();
-            viewer_.reset(viewer_.get_theta().data() + outer.dim(),
-                          viewer_.get_radius().data() + outer.dim(),
-                          outer.sim_sizes_.data() + cnt_);
-            return *this;
+        return out;
+    }
+
+    KEVLAR_STRONG_INLINE
+    void set_null(bits_t& bits, size_t hypo, bool is_null = true) {
+        unsigned char t = (static_cast<unsigned char>(1) << hypo);
+        auto true_bit = -is_null;
+        bits = ((~true_bit) & (bits | t)) | (true_bit & (bits & (~t)));
+    }
+
+    KEVLAR_STRONG_INLINE
+    bool is_all_alt(bits_t bits) const {
+        return all_alt_bits_ && (bits == all_alt_bits_);
+    }
+
+    void reset_tiles_viewer() {
+        // if tiles haven't been created yet
+        if (tiles_.size() == 0) return;
+
+        size_t pos = 0;
+        for (size_t i = 0; i < n_gridpts(); ++i) {
+            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
+                tiles_[pos].center(thetas_.col(i));
+                tiles_[pos].radius(radii_.col(i));
+            }
         }
-        reference operator*() { return viewer_; }
-        pointer operator->() { return &viewer_; }
+    }
 
-        difference_type operator-(const iterator_type& it2) {
-            return cnt_ - it2.cnt_;
-        }
-
-        inline constexpr bool operator==(const iterator_type& it2) const {
-            return (this->cnt_ == it2.cnt_) &&
-                   (&this->outer_ref_.get() == &it2.outer_ref_.get());
-        }
-
-        inline constexpr bool operator!=(const iterator_type& it2) const {
-            return (this->cnt_ != it2.cnt_) ||
-                   (&this->outer_ref_.get() != &it2.outer_ref_.get());
-        }
-
-       private:
-        std::reference_wrapper<GridRange> outer_ref_;
-        GridptViewer<value_t, uint_t> viewer_;
-        size_t cnt_;
-    };
-
-    struct const_iterator_type {
-        using difference_type = std::ptrdiff_t;
-        using value_type = GridptViewer<const value_t, const uint_t>;
-        using pointer = const GridptViewer<const value_t, const uint_t>*;
-        using reference = const GridptViewer<const value_t, const uint_t>&;
-        using iterator_category = std::random_access_iterator_tag;
-
-        const_iterator_type(const GridRange& outer, size_t cnt)
-            : outer_ref_{outer},
-              viewer_(outer.dim(), outer.thetas_.data() + cnt * outer.dim(),
-                      outer.radii_.data() + cnt * outer.dim(),
-                      outer.sim_sizes_.data() + cnt),
-              cnt_{cnt} {}
-
-        const_iterator_type& operator+=(difference_type n) {
-            cnt_ += n;
-            auto& outer = outer_ref_.get();
-            viewer_.reset(viewer_.get_theta().data() + n * outer.dim(),
-                          viewer_.get_radius().data() + n * outer.dim(),
-                          outer.sim_sizes_.data() + cnt_);
-            return *this;
-        }
-        const_iterator_type& operator++() {
-            ++cnt_;
-            const auto& outer = outer_ref_.get();
-            viewer_.reset(viewer_.get_theta().data() + outer.dim(),
-                          viewer_.get_radius().data() + outer.dim(),
-                          outer.sim_sizes_.data() + cnt_);
-            return *this;
-        }
-        reference operator*() { return viewer_; }
-        pointer operator->() { return &viewer_; }
-
-        inline constexpr bool operator==(const const_iterator_type& it2) const {
-            return (this->cnt_ == it2.cnt_) &&
-                   (&this->outer_ref_.get() == &it2.outer_ref_.get());
-        }
-
-        inline constexpr bool operator!=(const const_iterator_type& it2) const {
-            return (this->cnt_ != it2.cnt_) ||
-                   (&this->outer_ref_.get() != &it2.outer_ref_.get());
-        }
-
-       private:
-        std::reference_wrapper<const GridRange> outer_ref_;
-        GridptViewer<const value_t, const uint_t> viewer_;
-        size_t cnt_;
-    };
-
+   public:
     GridRange() = default;
 
     GridRange(uint_t dim, uint_t size)
         : thetas_(dim, size), radii_(dim, size), sim_sizes_(size) {}
+
+    GridRange(const Eigen::Ref<const mat_type<value_t>>& thetas,
+              const Eigen::Ref<const mat_type<value_t>>& radii,
+              const Eigen::Ref<const colvec_type<uint_t>>& sim_sizes)
+        : thetas_(thetas), radii_(radii), sim_sizes_(sim_sizes) {}
 
     GridRange(const GridRange& gr)
         : thetas_(gr.thetas_),
@@ -213,13 +142,25 @@ struct GridRange {
             n_gridpts());  // slight optimization
                            // we know we need at least 1 for each gridpoint.
 
+        const size_t max_bits = vec_surf.size();  // max number of bits allowed
+        assert(max_bits <= sizeof(bits_t) * 8);
+
+        // this represents all alternative hypothesis being true
+        // note that there may be some padded bits which are
+        // set to null hypothesis being true,
+        // so if max_bits < sizeof(bits_t) * 8, this value is non-trivial.
+        all_alt_bits_ = compute_all_alt_bits(max_bits);
+
+        // this represents all null-hypothesis being true.
+        const bits_t init_bits = compute_init_bits(max_bits);
+
         size_t tiles_begin = 0;  // begin position of tiles_ for gridpt j
         for (int j = 0; j < thetas_.cols(); ++j) {
             auto theta_j = thetas_.col(j);
             auto radius_j = radii_.col(j);
 
             // start the queue of tiles with one (regular) tile
-            bits_.emplace_back(0);
+            bits_.emplace_back(init_bits);  // sets current bit to init_bits
             tiles_.emplace_back(theta_j, radius_j);
 
             for (size_t s = 0; s < vec_surf.size(); ++s) {
@@ -237,7 +178,7 @@ struct GridRange {
                     }
 
                     // add new (regular) tile
-                    bits_.emplace_back(0);
+                    bits_.emplace_back();
                     tiles_.emplace_back(theta_j, radius_j);
 
                     auto& c_bits = bits_[tiles_begin + i];
@@ -268,6 +209,8 @@ struct GridRange {
             n_tiles_[j] = tiles_.size() - tiles_begin;
             tiles_begin += n_tiles_[j];
         }
+
+        assert(tiles_begin == n_tiles());
     }
 
     /*
@@ -276,6 +219,8 @@ struct GridRange {
      * where we should not even compute Type I error since no null is ever true.
      */
     void prune() {
+        if (n_tiles() == 0) return;
+
         std::vector<uint_t> grid_idx;
         std::vector<uint_t> new_n_tiles;
         std::vector<bits_t> new_bits;
@@ -291,7 +236,7 @@ struct GridRange {
             for (size_t j = 0; j < n_tiles(g); ++j) {
                 const auto& tile = tiles_[pos + j];
                 auto bi = bits_[pos + j];
-                if (none(bi)) continue;
+                if (is_all_alt(bi)) continue;
                 ++n_append;
                 new_bits.emplace_back(bi);
                 new_tiles.emplace_back(std::move(tile));
@@ -331,41 +276,47 @@ struct GridRange {
         sim_sizes_.swap(new_sim_sizes);
 
         // make sure to reset the viewers for the tile objects!
-        pos = 0;
-        for (size_t i = 0; i < n_gridpts(); ++i) {
-            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
-                tiles_[pos].center(thetas_.col(i));
-                tiles_[pos].radius(radii_.col(i));
-            }
-        }
+        reset_tiles_viewer();
     }
 
     /*
      * If these internal members' shapes are changed,
      * user MUST call create_tiles() before using any tile information again.
      */
-    mat_type<value_t>& thetas() { return thetas_; }
-    const mat_type<value_t>& thetas() const { return thetas_; }
-    mat_type<value_t>& radii() { return radii_; }
-    const mat_type<value_t>& radii() const { return radii_; }
-    colvec_type<uint_t>& sim_sizes() { return sim_sizes_; }
-    const colvec_type<uint_t>& sim_sizes() const { return sim_sizes_; }
+    KEVLAR_STRONG_INLINE mat_type<value_t>& thetas() { return thetas_; }
+    KEVLAR_STRONG_INLINE const mat_type<value_t>& thetas() const {
+        return thetas_;
+    }
+    KEVLAR_STRONG_INLINE mat_type<value_t>& radii() { return radii_; }
+    KEVLAR_STRONG_INLINE const mat_type<value_t>& radii() const {
+        return radii_;
+    }
+    KEVLAR_STRONG_INLINE colvec_type<uint_t>& sim_sizes() { return sim_sizes_; }
+    KEVLAR_STRONG_INLINE const colvec_type<uint_t>& sim_sizes() const {
+        return sim_sizes_;
+    }
 
     // This function is only valid once create_tiles() has been called.
-    uint_t n_tiles(size_t gridpt_idx) const { return n_tiles_[gridpt_idx]; }
-    uint_t n_tiles() const { return tiles_.size(); }
-    uint_t n_gridpts() const { return thetas_.cols(); }
-    uint_t n_params() const { return thetas_.rows(); }
+    KEVLAR_STRONG_INLINE uint_t n_tiles(size_t gridpt_idx) const {
+        return n_tiles_[gridpt_idx];
+    }
+    KEVLAR_STRONG_INLINE uint_t n_tiles() const { return tiles_.size(); }
+    KEVLAR_STRONG_INLINE uint_t n_gridpts() const { return thetas_.cols(); }
+    KEVLAR_STRONG_INLINE uint_t n_params() const { return thetas_.rows(); }
 
     /*
      * Returns true if the tile specified by tile_idx
      * has ISH configuration such that null hypothesis for hypo_idx is true.
-     * Note that this function is for non-regular tiles.
      * This function is only valid once create_tiles() has been called.
+     * It is well-defined for hypo_idx in the range [0, max_bits()).
+     * If create_tiles() were called with a vector of surfaces of size k,
+     * then, hypo_idx in the range [k, max_bits()) will return true,
+     * i.e. by default, an "empty" hypothesis is assumed to be null.
      */
+    KEVLAR_STRONG_INLINE
     bool check_null(size_t tile_idx, size_t hypo_idx) const {
         return (bits_[tile_idx] &
-                (static_cast<unsigned char>(1) << hypo_idx)) != 0;
+                (static_cast<unsigned char>(1) << hypo_idx)) == 0;
     }
 
     /*
@@ -384,55 +335,24 @@ struct GridRange {
      * implementation pre-fetch more values at a time,
      * but also pre-fetches less in total.
      */
+    KEVLAR_STRONG_INLINE
     bool is_regular(size_t idx) const { return n_tiles_[idx] == 1; }
+
+    KEVLAR_STRONG_INLINE
+    static constexpr size_t max_bits() { return sizeof(bits_t) * 8; }
 
     /*
      * Returns the vector of tiles.
      */
-    const auto& tiles() const { return tiles_; }
+    KEVLAR_STRONG_INLINE const auto& tiles() const { return tiles_; }
 
     // Helper functions for pickling stuff
-    auto& tiles__() { return tiles_; }
-    auto& n_tiles__() { return n_tiles_; }
-    auto& bits__() { return bits_; }
-    const auto& n_tiles__() const { return n_tiles_; }
-    const auto& bits__() const { return bits_; }
-
-   private:
-    void set_null(bits_t& bits, size_t hypo, bool b = true) {
-        unsigned char t = (static_cast<unsigned char>(1) << hypo);
-        if (b) {
-            bits |= t;
-        } else {
-            bits = ~((~bits) | t);
-        }
-    }
-
-    bool none(bits_t bits) const { return bits == 0; }
-
-    void reset_tiles_viewer() {
-        // if tiles haven't been created yet
-        if (tiles_.size() == 0) return;
-
-        size_t pos = 0;
-        for (size_t i = 0; i < n_gridpts(); ++i) {
-            for (size_t j = 0; j < n_tiles(i); ++j, ++pos) {
-                tiles_[pos].center(thetas_.col(i));
-                tiles_[pos].radius(radii_.col(i));
-            }
-        }
-    }
-
-    mat_type<value_t> thetas_;       // matrix of theta vectors
-    mat_type<value_t> radii_;        // matrix of radius vectors
-    colvec_type<uint_t> sim_sizes_;  // vector of simulation sizes
-
-    // updated via member functions
-    std::vector<uint_t>
-        n_tiles_;  // n_tiles_[i] = number of tiles for ith gridpoint
-    std::vector<bits_t> bits_;  // vector of bits to represent ISH of each tile
-    std::vector<tile_t>
-        tiles_;  // vector of tiles (flattened across all gridpoints)
+    KEVLAR_STRONG_INLINE auto& tiles__() { return tiles_; }
+    KEVLAR_STRONG_INLINE auto& n_tiles__() { return n_tiles_; }
+    KEVLAR_STRONG_INLINE auto& bits__() { return bits_; }
+    KEVLAR_STRONG_INLINE const auto& n_tiles__() const { return n_tiles_; }
+    KEVLAR_STRONG_INLINE const auto& bits__() const { return bits_; }
 };
 
+}  // namespace grid
 }  // namespace kevlar

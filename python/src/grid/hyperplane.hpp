@@ -14,7 +14,9 @@ void add_hyperplane(py::module_& m) {
     using value_t = typename hp_t::value_t;
     py::class_<hp_t>(m, "HyperPlane")
         .def(py::init<const Eigen::Ref<const colvec_type<value_t>>,
-                      const value_t&>())
+                      const value_t&>(),
+             py::arg("normal"),
+             py::arg("shift"))
         .def(py::pickle(
             [](const hp_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
