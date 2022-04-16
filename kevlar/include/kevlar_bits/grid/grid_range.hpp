@@ -16,7 +16,6 @@ struct GridRange {
     using tile_t = TileType;
     using bits_t = unsigned char;  // TODO: generalize?
 
-   private:
     mat_type<value_t> thetas_;       // matrix of theta vectors
     mat_type<value_t> radii_;        // matrix of radius vectors
     colvec_type<uint_t> sim_sizes_;  // vector of simulation sizes
@@ -28,6 +27,7 @@ struct GridRange {
     std::vector<tile_t>
         tiles_;  // vector of tiles (flattened across all gridpoints)
 
+   private:
     bits_t all_alt_bits_;
 
     KEVLAR_STRONG_INLINE

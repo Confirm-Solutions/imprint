@@ -58,6 +58,8 @@ struct SimGlobalStateFixedNDefault
 
     /*
      * Populates the private members.
+     * TBT QUESTION: why does this exist? why not put this code directly in the
+     * constructor.
      */
     void construct() {
         const auto n_params = grid_range_.n_params();

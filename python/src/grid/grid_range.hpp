@@ -28,6 +28,7 @@ void add_grid_range(py::module_& m) {
         .def("n_tiles", py::overload_cast<size_t>(&gr_t::n_tiles, py::const_),
              py::arg("gridpt_idx"))
         .def("n_tiles", py::overload_cast<>(&gr_t::n_tiles, py::const_))
+        .def_readonly("n_tiles_per_pt", &gr_t::n_tiles_)
         .def("n_gridpts", &gr_t::n_gridpts)
         .def("n_params", &gr_t::n_params)
         .def("thetas", py::overload_cast<>(&gr_t::thetas),

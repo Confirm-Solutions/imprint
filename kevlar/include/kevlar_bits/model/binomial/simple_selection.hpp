@@ -215,6 +215,7 @@ struct SimpleSelection<ValueType>::SimGlobalState<
 
     void simulate(gen_t& gen,
                   Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        std::cout << "OOPS" << std::endl;
         // sample binomial data for the whole grid-range
         base_t::generate_data(gen);
         generate_sufficient_stats();
@@ -268,7 +269,6 @@ struct SimpleSelection<ValueType>::SimGlobalState<
                 rej_len[pos] = is_null ? rej : 0;
             }
         }
-
         assert(rej_len.size() == pos);
     }
 

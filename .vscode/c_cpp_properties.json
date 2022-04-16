@@ -4,7 +4,11 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/kevlar/include"
+                "${workspaceFolder}/kevlar/include",
+                "${workspaceFolder}/bazel-kevlar/external/eigen",
+                "${workspaceFolder}/bazel-kevlar/external/fmtlib/include",
+                "${workspaceFolder}/bazel-kevlar/external/boost",
+                "${workspaceFolder}/bazel-kevlar/external/pybind11/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

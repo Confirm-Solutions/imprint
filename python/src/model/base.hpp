@@ -30,12 +30,22 @@ void add_model_base(py::module_& m) {
 template <class SGSB>
 void add_sim_global_state_base(pybind11::module_& m) {
     using sbs_t = SGSB;
+    using ss_t = typename sbs_t::sim_state_t;
+
+    // class PySGSB : public sbs_t {
+    //     using sbs_t::sbs_t;
+
+    //     std::unique_ptr<ss_t> make_sim_state() override {
+    //         PYBIND11_OVERRIDE_PURE(std::unique_ptr<ss_t>, sbs_t,
+    //         make_sim_state);
+    //     }
+    // };
+
     py::class_<sbs_t>(m, "SimGlobalStateBase")
         .def("make_sim_state", &sbs_t::make_sim_state);
-    ;
 
-    using ss_t = typename sbs_t::sim_state_t;
     py::class_<ss_t>(m, "SimStateBase")
+        // .def(py::init<>())
         .def("simulate", &ss_t::simulate, py::arg("gen"),
              py::arg("rejection_length"))
         .def("score", &ss_t::score, py::arg("gridpt_idx"), py::arg("output"));

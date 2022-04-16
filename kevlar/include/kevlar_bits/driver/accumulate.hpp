@@ -40,6 +40,8 @@ inline void accumulate(const SGSType& sgs, const GridRangeType& grid_range,
     }
 
     if (n_threads > max_threads) {
+        // TODO: we should probably just set n_threads = max_threads here.
+        // modulo behavior seems unexpected
         n_threads %= max_threads;
     }
 
@@ -48,9 +50,11 @@ inline void accumulate(const SGSType& sgs, const GridRangeType& grid_range,
 
     std::vector<acc_t> acc_os(n_threads, acc_o);
 
+    // TODO: num_threads(n_threads) in the parallel for call instead of
+    // omp_set_num_threads. more precise, fewer unexpected side effects.
     omp_set_num_threads(n_threads);
 
-#pragma omp parallel for schedule(static)  // TODO: add some args
+    // #pragma omp parallel for schedule(static)  // TODO: add some args
     for (size_t t = 0; t < n_threads; ++t) {
         auto sim_state = sgs.make_sim_state();
         gen_t gen(seed + t);

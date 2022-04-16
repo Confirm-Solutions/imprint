@@ -44,7 +44,9 @@ struct SimGlobalStateBase {
     using sim_state_t = SimState;
 
     virtual ~SimGlobalStateBase(){};
-    virtual std::unique_ptr<sim_state_t> make_sim_state() const = 0;
+    virtual std::unique_ptr<sim_state_t> make_sim_state() const {
+        return nullptr;
+    };
 };
 
 /*
