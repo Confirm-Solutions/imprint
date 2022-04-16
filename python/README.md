@@ -40,10 +40,8 @@ bazel build --config clang //python:pykevlar_wheel
 pip install --force-reinstall bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
 ```
 
-TODO: we should probably make a shell script wrapping that.
-
 ## Smoke test
 
 ```
-bazel run --config clang -c opt //python:fit_driver_example
+bazel run --config clang -c opt //python/example:simple_selection -- main
 ```
