@@ -1,18 +1,18 @@
 import sys
-sys.path.append('../../research/berry/')
+sys.path.append('./research/berry/')
 import util
 import fast_inla
 import numpy as np
-
-fi = fast_inla.FastINLA()
-
 from pykevlar.core.model.binomial import BerryINLA
 from pykevlar.core.model import mt19937
+from pykevlar.grid import HyperPlane
 
+from utils import make_cartesian_grid_range
+
+# fi = fast_inla.FastINLA()
 
 n_arms = 2
 seed = 10
-from pykevlar.grid import HyperPlane
 
 # define null hypos
 null_hypos = []
@@ -22,7 +22,6 @@ for i in range(1, n_arms):
     n[i] = -1
     null_hypos.append(HyperPlane(n, 0))
 
-from utils import make_cartesian_grid_range
 
 gr = make_cartesian_grid_range(3, np.full(n_arms, -0.5), np.full(n_arms, 0.5), 1000)
 gr.create_tiles(null_hypos)

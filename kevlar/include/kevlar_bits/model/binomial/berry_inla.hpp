@@ -40,7 +40,7 @@ struct BerryINLA : SimpleSelection<double> {
    public:
     const vec_t efficacy_thresholds;
     const int n_arms;
-    const int arm_size;
+    const int n_arm_samples;
 
     template <class _GenType, class _UIntType, class _GridRangeType>
     struct SimGlobalState;
@@ -52,7 +52,7 @@ struct BerryINLA : SimpleSelection<double> {
     template <class _GridRangeType>
     using kevlar_bound_state_t = KevlarBoundStateFixedNDefault<_GridRangeType>;
 
-    BerryINLA(int n_arms, int n_arm_size, const Eigen::Ref<const vec_t>& cv,
+    BerryINLA(int n_arms, int n_arm_samples, const Eigen::Ref<const vec_t>& cv,
               const Eigen::Ref<const vec_t>& efficacy_thresholds,
               const Eigen::Ref<const vec_t>& quad_pts,
               const Eigen::Ref<const vec_t>& quad_wts,
@@ -60,9 +60,9 @@ struct BerryINLA : SimpleSelection<double> {
               const Eigen::Ref<const mat_t>& neg_precQ,
               const Eigen::Ref<const vec_t>& logprecQdet,
               const Eigen::Ref<const vec_t>& logprior, value_t opt_tol)
-        : SimpleSelection<double>(n_arms, arm_size, 0, cv),
+        : SimpleSelection<double>(n_arms, n_arm_samples, 0, cv),
           n_arms(n_arms),
-          arm_size(arm_size),
+          n_arm_samples(n_arm_samples),
           efficacy_thresholds(efficacy_thresholds),
           quad_pts(quad_pts),
           quad_wts(quad_wts),
@@ -91,7 +91,7 @@ struct BerryINLA : SimpleSelection<double> {
 
     template <class _GridRangeType>
     auto make_kevlar_bound_state(const _GridRangeType& gr) const {
-        return kevlar_bound_state_t<_GridRangeType>(arm_size, gr);
+        return kevlar_bound_state_t<_GridRangeType>(n_arm_samples, gr);
     }
 
     vec_t get_posterior_exceedance_probs(const vec_t& phat) const {
@@ -104,13 +104,11 @@ struct BerryINLA : SimpleSelection<double> {
 
 template <class _GenType, class _UIntType, class _GridRangeType>
 struct BerryINLA::SimGlobalState
-    : SimpleSelection<double>::SimGlobalState<_GenType, double, _UIntType,
-                                              _GridRangeType> {
+    : SimGlobalStateFixedNDefault<_GenType, double, _UIntType, _GridRangeType> {
     struct SimState;
 
-    using base_t =
-        SimpleSelection<double>::SimGlobalState<_GenType, double, _UIntType,
-                                                _GridRangeType>;
+    using base_t = SimGlobalStateFixedNDefault<_GenType, double, _UIntType,
+                                               _GridRangeType>;
     using typename base_t::gen_t;
     using typename base_t::grid_range_t;
     using typename base_t::interface_t;
@@ -125,7 +123,7 @@ struct BerryINLA::SimGlobalState
 
    public:
     SimGlobalState(const BerryINLA& model, const grid_range_t& grid_range)
-        : model(model), {}
+        : base_t(model.n_arm_samples, grid_range), model(model) {}
 
     std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
         const override {
@@ -151,15 +149,16 @@ struct BerryINLA::SimGlobalState<_GenType, _UIntType, _GridRangeType>::SimState
 
     void simulate(gen_t& gen,
                   Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        std::cout << "HELLOL" << std::endl;
+        std::cout << "lol" << std::endl;
         base_t::generate_data(gen);
         base_t::generate_sufficient_stats();
-
+        std::cout << "gen" << std::endl;
+        return;
         const auto& bits = outer_.bits();
         const auto& gr_view = outer_.grid_range();
         const auto n_params = gr_view.n_params();  // same as n_arms
         const auto& model = outer_.model;
-        const auto n_arm_size = model.arm_size;
+        const auto n_arm_samples = model.n_arm_samples;
         const auto& critical_values = model.critical_values();
         std::cout << model.cov.rows() << " " << model.cov.cols() << std::endl;
 
@@ -170,8 +169,9 @@ struct BerryINLA::SimGlobalState<_GenType, _UIntType, _GridRangeType>::SimState
             vec_t phat(n_params);
             for (int i = 0; i < phat.size(); ++i) {
                 const auto& ss_i = base_t::sufficient_stats_arm(i);
-                phat(i) = static_cast<value_t>(ss_i(bits_i[i])) / n_arm_size;
+                phat(i) = static_cast<value_t>(ss_i(bits_i[i])) / n_arm_samples;
             }
+            return;
 
             vec_t posterior_exceedance_probs =
                 outer_.model.get_posterior_exceedance_probs(phat);

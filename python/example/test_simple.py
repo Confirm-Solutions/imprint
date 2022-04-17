@@ -40,11 +40,23 @@ class CombinedModel:
 
 from pykevlar.core.bound import TypeIErrorAccum
 
+def test_score():
+    model, gr = model_gr()
+    sgs = model.make_sim_global_state(gr)
+    ss = sgs.make_sim_state()
+    gen = mt19937(seed)
+    rej_len = np.empty(gr.n_tiles(), dtype=np.uint32)
+    ss.simulate(gen, rej_len)
+    score_buf = np.empty(n_arms)
+    ss.score(0, score_buf)
+    ss.
+    print(score_buf)
+
 def test_compare2():
     model, gr = model_gr()
     sgs = model.make_sim_global_state(gr)
     ss = sgs.make_sim_state()
-    gen = mt19937()
+    gen = mt19937(seed)
     rej_len = np.empty(gr.n_tiles(), dtype=np.uint32)
     ss.simulate(gen, rej_len)
     typeI_sum = np.empty(gr.n_tiles())
@@ -58,6 +70,6 @@ def test_compare2():
     print(score)
     pos_start = np.cumsum(gr.n_tiles_per_pt, dtype=np.int64) - gr.n_tiles_per_pt[0]
     print(pos_start.dtype, pos_start.shape)
-    print(rej_len[(pos_start[:-1]):(pos_start[1:])])
+    # print(rej_len[(pos_start[:-1]):(pos_start[1:])])
     print(pos_start)
     # np.where(gr.n_tiles_per_pt)
