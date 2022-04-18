@@ -110,6 +110,7 @@ http_archive(
 
 http_archive(
     name = "com_google_tcmalloc",
+    sha256 = "2e5e6755e02b0275b1333199c2a128a57c0d48ec8838fdca9baccf3b0e939ad6",
     strip_prefix = "tcmalloc-a3717bc4fcade63c642f9b991fbdd64299896762",
     urls = ["https://github.com/google/tcmalloc/archive/a3717bc4fcade63c642f9b991fbdd64299896762.zip"],
 )
