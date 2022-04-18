@@ -139,21 +139,23 @@ cc_library(
     urls = ["https://gitlab.com/libeigen/eigen/-/archive/{0}/eigen-{0}.tar.gz".format(EIGEN_VERSION)],
 )
 
-# ====================================
-# Boost Math library
-# ====================================
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-_RULES_BOOST_COMMIT = "652b21e35e4eeed5579e696da0facbe8dba52b1f"
+_BOOST_COMMIT = "d8626c9d2d937abf6a38a844522714ad72e63281"
 
 http_archive(
-    name = "com_github_nelhage_rules_boost",
-    sha256 = "c1b8b2adc3b4201683cf94dda7eef3fc0f4f4c0ea5caa3ed3feffe07e1fb5b15",
-    strip_prefix = "rules_boost-%s" % _RULES_BOOST_COMMIT,
+    name = "com_github_scipy_boost",
+    build_file_content =
+        """
+cc_library(
+    name = 'boost',
+    srcs = [],
+    includes = ['.'],
+    hdrs = glob(['boost/**']),
+    visibility = ['//visibility:public'],
+)
+""",
+    sha256 = "496064bba545eb218179c0fa479304ac396ecca9f02ba6e0d3d4cc872f3569fa",
+    strip_prefix = "boost-headers-only-%s" % _BOOST_COMMIT,
     urls = [
-        "https://github.com/nelhage/rules_boost/archive/%s.tar.gz" % _RULES_BOOST_COMMIT,
+        "https://github.com/scipy/boost-headers-only/archive/%s.zip" % _BOOST_COMMIT,
     ],
 )
-
-load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
-boost_deps()
