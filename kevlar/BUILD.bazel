@@ -10,8 +10,7 @@ cc_library(
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
+        "@com_github_scipy_boost//:boost",
         "@eigen",
-        "@boost//:math",
-        "@boost//:lexical_cast",
     ],
 )
