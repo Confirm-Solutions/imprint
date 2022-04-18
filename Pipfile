@@ -21,6 +21,7 @@ isort = "*"
 flake8 = "*"
 jupytext = "*"
 pytest = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.8"

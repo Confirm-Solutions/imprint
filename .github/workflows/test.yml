@@ -15,17 +15,17 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-    - uses: actions/checkout@v2
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: actions/checkout@v3
+    - name: Install pipenv
+      run: pipx install pipenv
+    - uses: actions/setup-python@v3
       with:
-        mamba-version: "*"
-        channels: conda-forge
-        activate-environment: kevlar
-        environment-file: environment.yml
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.9'
+        cache: 'pipenv'
+    - run: pipenv install --dev
     - name: Run all pre-commit checks on the full repo!
       run: |
-        pre-commit run --all-files
+        pipenv run pre-commit run --all-files
     - name: Test
       run: |
-        pytest .
+        pipenv run pytest .
