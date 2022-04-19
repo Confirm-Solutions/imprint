@@ -170,7 +170,7 @@ db_stats = dirty_bayes.calc_dirty_bayes(
     y_i, n_i, b.mu_0, b.logit_p1, b.suc_thresh, b.sigma2_rule
 )
 quad_stats = quadrature.quadrature_posterior_theta(b, data, b.suc_thresh)
-mcmc_data, mcmc_stats = mcmc.mcmc_berry(b, data, b.suc_thresh)
+mcmc_stats = mcmc.mcmc_berry(b, data, b.suc_thresh)
 ```
 
 ```python
