@@ -34,7 +34,7 @@ void add_simple_selection(py::module_& m) {
         // somehow hides export of base class version.
         // This is actually what we want!
         .def("critical_values",
-             (void(model_t::*)(
+             (void (model_t::*)(
                  const Eigen::Ref<const colvec_type<model_value_t>>&)) &
                  model_t::critical_values,
              py::arg("critical_values"))
@@ -63,8 +63,8 @@ void add_simple_selection(py::module_& m) {
                 }
 
                 /* Create a new C++ instance */
-                auto&& thresh = t[0].cast<std::decay_t<
-                    decltype(std::declval<model_t>().critical_values())>>();
+                auto&& thresh = t[0].cast<std::decay_t<decltype(
+                    std::declval<model_t>().critical_values())>>();
                 model_t p(t[1].cast<size_t>(), t[3].cast<size_t>(),
                           t[2].cast<size_t>(), thresh);
                 return p;

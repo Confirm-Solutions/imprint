@@ -33,7 +33,7 @@ void add_simple_log_rank(py::module_& m) {
              py::arg("critical_values"))
         .def("censor_time", &model_t::censor_time)
         .def("critical_values",
-             (void(model_t::*)(
+             (void (model_t::*)(
                  const Eigen::Ref<const colvec_type<model_value_t>>&)) &
                  model_t::critical_values,
              py::arg("critical_values"))

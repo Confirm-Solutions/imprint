@@ -1,6 +1,6 @@
 #pragma once
-#include <cstddef>
 #include <Eigen/Dense>
+#include <cstddef>
 #include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {

@@ -1,8 +1,8 @@
 #pragma once
 #define _USE_MATH_DEFINES
+#include <Eigen/Dense>
 #include <boost/math/special_functions/beta.hpp>
 #include <cmath>
-#include <Eigen/Dense>
 #include <kevlar_bits/util/macros.hpp>
 #include <unsupported/Eigen/SpecialFunctions>
 
