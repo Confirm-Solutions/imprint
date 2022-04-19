@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-from string import Template
 from sys import platform
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,25 +21,28 @@ def run_cmd(cmd):
 
 def main():
     with open(OUT_PATH, "w") as f:
+        # TODO: add ubsan + msan builds also
         f.write(
             """
 build --cxxopt="-std=c++17"
 build --cxxopt="-Wall"
 build --cxxopt="-fopenmp"
 
-# Linux GCC
-build:gcc --action_env=CC=gcc
-build:gcc --action_env=CXX=g++
-build:gcc --linkopt -fopenmp
+# ASAN build
+# TODO: add ubsan + msan builds also
+build:asan --strip=never
+build:asan --copt -fsanitize=address
+build:asan --copt -DADDRESS_SANITIZER
+build:asan --copt -O1
+build:asan --copt -g
+build:asan --copt -fno-omit-frame-pointer
+build:asan --linkopt -fsanitize=address
 
-# Linux Clang
-build:clang --action_env=CC=clang
-build:clang --action_env=CXX=clang++
-build:clang --linkopt -fopenmp
+
 """
         )
 
-        # Only run these on MacOS
+        # MacOS
         if platform == "darwin":
             # get canonical brew path
             clang_prefix = run_cmd("brew --prefix llvm")
@@ -50,38 +52,32 @@ build:clang --linkopt -fopenmp
             omp_prefix = run_cmd("brew --prefix libomp")
             omp_path = os.path.join(omp_prefix, "lib")
 
-            mac_build = Template(
-                """
-# Mac Homebrew Clang
-build:mac --action_env=CC=${clang_path}/clang
-build:mac --action_env=CXX=${clang_path}/clang++
-build:mac --linkopt -L${omp_path}
-build:mac --linkopt -lomp
-# Tell Bazel not to use the full Xcode toolchain on Mac OS
-build:mac --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
-"""
-            )
             f.write(
-                mac_build.substitute(
-                    clang_path=clang_path,
-                    omp_path=omp_path,
-                )
-            )
-
-        # Add asan build
-        f.write(
-            """
-build:asan --strip=never
-build:asan --copt -fsanitize=address
-build:asan --copt -DADDRESS_SANITIZER
-build:asan --copt -O1
-build:asan --copt -g
-build:asan --copt -fno-omit-frame-pointer
-build:asan --linkopt -fsanitize=address
+                f"""
+# Mac Homebrew Clang
+build --action_env=CC={clang_path}/clang
+build --action_env=CXX={clang_path}/clang++
+build --linkopt -L{omp_path}
+build --linkopt -lomp
+# Tell Bazel not to use the full Xcode toolchain on Mac OS
+build --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 """
-        )
+            )
+        else:
+            # Linux
+            f.write(
+                """
+# Linux GCC
+build:gcc --action_env=CC=gcc
+build:gcc --action_env=CXX=g++
+build:gcc --linkopt -fopenmp
 
-        # TODO: add ubsan + msan builds also
+# Linux Clang (default)
+build --action_env=CC=clang
+build --action_env=CXX=clang++
+build --linkopt -fopenmp
+"""
+            )
 
 
 if __name__ == "__main__":
