@@ -74,4 +74,3 @@ np.testing.assert_allclose(score_sum, out.score_sum().reshape((-1, 2)))
 
 gen = mt19937(seed)
 sample = np.array(gen.uniform_sample(n_arm_samples * n_arms)).reshape((n_arm_samples, n_arms));
-

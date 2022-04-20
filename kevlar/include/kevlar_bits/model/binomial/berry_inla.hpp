@@ -14,64 +14,64 @@ namespace kevlar {
 namespace model {
 namespace binomial {
 
-struct BerryINLA : SimpleSelection<double> {
-    using base_t = SimpleSelection<double>;
+template <class ValueType, int ARMS>
+struct BerryINLA : FixedSingleArmSize, ModelBase<ValueType> {
+    using arm_base_t = FixedSingleArmSize;
+    using base_t = ModelBase<ValueType>;
     using typename base_t::value_t;
 
    private:
     using vec_t = colvec_type<value_t>;
     using mat_t = mat_type<value_t>;
 
-    static constexpr value_t alpha_prior = 0.0005;
-    static constexpr value_t beta_prior = 0.000005;
-    static constexpr double mu_sig_sq = 100;
+    static constexpr double mu_0 = -1.34;
+
+    const size_t n_arm_samples;
+    const vec_t efficacy_thresholds;
 
     // variables dependent solely on the quadrature points (independent of the
     // data).
-    vec_t quad_pts;
-    vec_t quad_wts;
-    vec_t log_prior;
-    mat_t cov;
-    mat_t neg_precQ;
-    vec_t logprecQdet;
-    vec_t logprior;
-    value_t opt_tol;
+    const vec_t quad_wts;
+    const mat_t cov;
+    const mat_t neg_precQ;
+    const vec_t logprecQdet;
+    const vec_t logprior;
+    const value_t opt_tol2;
+    const value_t logit_p1;
 
    public:
-    const vec_t efficacy_thresholds;
-    const int n_arms;
-    const int n_arm_samples;
-
-    template <class _GenType, class _UIntType, class _GridRangeType>
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
     struct SimGlobalState;
 
-    template <class _GenType, class _UIntType, class _GridRangeType>
+    template <class _GenType, class _ValueType, class _UIntType,
+              class _GridRangeType>
     using sim_global_state_t =
-        SimGlobalState<_GenType, _UIntType, _GridRangeType>;
+        SimGlobalState<_GenType, _ValueType, _UIntType, _GridRangeType>;
 
     template <class _GridRangeType>
     using kevlar_bound_state_t = KevlarBoundStateFixedNDefault<_GridRangeType>;
 
-    BerryINLA(int n_arms, int n_arm_samples, const Eigen::Ref<const vec_t>& cv,
+    BerryINLA(size_t n_arm_samples, const Eigen::Ref<const vec_t>& cv,
               const Eigen::Ref<const vec_t>& efficacy_thresholds,
-              const Eigen::Ref<const vec_t>& quad_pts,
               const Eigen::Ref<const vec_t>& quad_wts,
               const Eigen::Ref<const mat_t>& cov,
               const Eigen::Ref<const mat_t>& neg_precQ,
               const Eigen::Ref<const vec_t>& logprecQdet,
-              const Eigen::Ref<const vec_t>& logprior, value_t opt_tol)
-        : SimpleSelection<double>(n_arms, n_arm_samples, 0, cv),
-          n_arms(n_arms),
+              const Eigen::Ref<const vec_t>& logprior, value_t opt_tol,
+              value_t logit_p1)
+        : arm_base_t(ARMS, n_arm_samples),
+          base_t(),
           n_arm_samples(n_arm_samples),
           efficacy_thresholds(efficacy_thresholds),
-          quad_pts(quad_pts),
           quad_wts(quad_wts),
           cov(cov),
           neg_precQ(neg_precQ),
           logprecQdet(logprecQdet),
           logprior(logprior),
-          opt_tol(opt_tol) {
-        assert(efficacy_thresholds.size() == n_arms);
+          opt_tol2(opt_tol * opt_tol),
+          logit_p1(logit_p1) {
+        assert(efficacy_thresholds.size() == ARMS);
         set_critical_values(cv);
     }
 
@@ -85,8 +85,8 @@ struct BerryINLA : SimpleSelection<double> {
     template <class _GenType, class _ValueType, class _UIntType,
               class _GridRangeType>
     auto make_sim_global_state(const _GridRangeType& grid_range) const {
-        return sim_global_state_t<_GenType, _UIntType, _GridRangeType>(
-            *this, grid_range);
+        return sim_global_state_t<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType>(*this, grid_range);
     }
 
     template <class _GridRangeType>
@@ -94,20 +94,183 @@ struct BerryINLA : SimpleSelection<double> {
         return kevlar_bound_state_t<_GridRangeType>(n_arm_samples, gr);
     }
 
-    vec_t get_posterior_exceedance_probs(const vec_t& phat) const {
-        assert((phat.array() >= 0).all());
-        assert((phat.array() <= 1).all());
-        const vec_t thetahat = logit(phat.array());
-        ASSERT_GOOD(thetahat);
+    vec_t get_posterior_exceedance_probs(const vec_t& y) const {
+        assert((y.array() >= 0).all());
+        assert((y.array() <= n_arm_samples).all());
+        size_t nsig2 = quad_wts.size();
+
+        vec_t exceedances(ARMS);
+        exceedances.setZero();
+
+        double sigma2_integral = 0.0;
+        for (int s = 0; s < nsig2; s++) {
+            std::array<double, ARMS> t{};
+            std::array<double, ARMS> grad;
+            std::array<double, ARMS> hess_diag;
+            std::array<double, ARMS> step;
+            std::array<double, ARMS> theta_sigma;
+
+            std::array<std::array<double, ARMS>, ARMS> tmp;
+            std::array<std::array<double, ARMS>, ARMS> hess_inv;
+            bool converged = false;
+            int opt_iter = 0;
+
+            // Newton's method for finding the mode of the joint distribution.
+            for (; opt_iter < 20; opt_iter++) {
+                // construct gradient and hessian.
+                // grad = y - n * (e^{t + L}) / (e^{t + L} + 1)
+                //        -Q(t - mu_0)
+                //   where L = logit_p1
+                //
+                // The hessian we have can be written as the sum of a full rank
+                // matrix and a diagonal term. Importantly, we already know the
+                // inverse of the full rank matrix.
+                //
+                // To invert this type of matrix, we  will use an iterative
+                // application of the Sherman-Morrison formula to compute the
+                // inverse:
+                // (A + uv)^{-1} = A^{-1} - \frac{A^{-1} u v^T A^{-1}}{1 + v^T
+                // A^{-1} u}
+                //
+                // A^{-1} = cov
+                // u = (n e^{t + L} / (e^{t + L} + 1)^2) e_i
+                // v = e_i
+                //   where
+                //     e_i = vector of all zeros except entry i = 1
+                //     L = logit_p1
+                for (int i = 0; i < ARMS; i++) {
+                    auto theta_adj = t[i] + logit_p1;
+                    auto exp_theta_adj = std::exp(theta_adj);
+                    auto C = 1.0 / (exp_theta_adj + 1);
+                    // TODO: n_arm_samples is going to need to change through
+                    // the multiple interim analyses?
+                    auto nCeta = n_arm_samples * C * exp_theta_adj;
+                    grad[i] = y[i] - nCeta;
+                    for (int j = 0; j < ARMS; j++) {
+                        // int idx = s * ARMS * ARMS + i * ARMS + j;
+                        int idx = (s * ARMS + i) * ARMS + j;
+                        grad[i] += neg_precQ.data()[(s * ARMS + i) * ARMS + j] *
+                                   (t[j] - mu_0);
+                    }
+
+                    for (int j = 0; j < ARMS; j++) {
+                        hess_inv[i][j] = cov.data()[(s * ARMS + i) * ARMS + j];
+                    }
+                    hess_diag[i] = nCeta * C;
+                }
+
+                // invert hessian by repeatedly using the Sherman-Morrison
+                // formula:
+                for (int k = 0; k < ARMS; k++) {
+                    double offset =
+                        hess_diag[k] / (1 + hess_diag[k] * hess_inv[k][k]);
+                    for (int i = 0; i < ARMS; i++) {
+                        for (int j = 0; j < ARMS; j++) {
+                            tmp[i][j] =
+                                offset * hess_inv[k][i] * hess_inv[j][k];
+                        }
+                    }
+                    for (int i = 0; i < ARMS; i++) {
+                        for (int j = 0; j < ARMS; j++) {
+                            hess_inv[i][j] -= tmp[i][j];
+                        }
+                    }
+                }
+
+                // take newton step
+                double step_len2 = 0.0;
+                for (int i = 0; i < ARMS; i++) {
+                    step[i] = 0.0;
+                    for (int j = 0; j < ARMS; j++) {
+                        step[i] += hess_inv[i][j] * grad[j];
+                    }
+                    step_len2 += step[i] * step[i];
+                    t[i] += step[i];
+                }
+
+                // check for convergence.
+                if (step_len2 < opt_tol2) {
+                    converged = true;
+                    break;
+                }
+            }
+            assert(converged);
+
+            // calculate log joint distribution
+            // joint = (t+logit_p1)y - n(log(e^(t+logit_p1) + 1))
+            //         -(t-mu)^{T}Q(t-mu) + 0.5 * log(det(Q)) + prior
+            double logjoint = logprecQdet[s] + logprior[s];
+            std::array<double, ARMS> tmm0;
+            for (int i = 0; i < ARMS; i++) {
+                tmm0[i] = t[i] - mu_0;
+            }
+            for (int i = 0; i < ARMS; i++) {
+                double quadsum = 0.0;
+                for (int j = 0; j < ARMS; j++) {
+                    quadsum +=
+                        neg_precQ.data()[(s * ARMS + i) * ARMS + j] * tmm0[j];
+                }
+                logjoint += 0.5 * tmm0[i] * quadsum;
+
+                auto theta_adj = t[i] + logit_p1;
+                logjoint += theta_adj * y[i] -
+                            n_arm_samples * std::log(std::exp(theta_adj) + 1);
+            }
+
+            // marginal std dev is the sqrt of the hessian diagonal.
+            // we need to store this because we're going to destroy hess_inv in
+            // the determinant calculation
+            for (int i = 0; i < ARMS; i++) {
+                theta_sigma[i] = std::sqrt(hess_inv[i][i]);
+            }
+
+            // determinant of hessian (this destroys hess_inv so don't use
+            // hess_inv after here!)
+            double c;
+            double det = 1;
+            for (int i = 0; i < ARMS; i++) {
+                for (int k = i + 1; k < ARMS; k++) {
+                    c = hess_inv[k][i] / hess_inv[i][i];
+                    for (int j = i; j < ARMS; j++) {
+                        hess_inv[k][j] = hess_inv[k][j] - c * hess_inv[i][j];
+                    }
+                }
+            }
+            for (int i = 0; i < ARMS; i++) {
+                det *= hess_inv[i][i];
+            }
+
+            // calculate p(sigma^2 | y) along with its normalization
+            auto sigma2_post = std::exp(logjoint + 0.5 * std::log(det));
+            sigma2_integral += sigma2_post * quad_wts[s];
+
+            // calculate exceedance probabilities, integrated over sigma2
+            for (int i = 0; i < ARMS; i++) {
+                double normalized =
+                    (efficacy_thresholds[i] - t[i]) / theta_sigma[i];
+                double exc_sigma2 = 0.5 * (erf(-normalized * M_SQRT1_2) + 1);
+                exceedances[i] += exc_sigma2 * sigma2_post * quad_wts[s];
+            }
+        }
+
+        // normalize the sigma2_post distribution
+        double inv_sigma2_integral = 1.0 / sigma2_integral;
+        for (int i = 0; i < ARMS; i++) {
+            exceedances[i] *= inv_sigma2_integral;
+        }
+        return exceedances;
     }
 };
 
-template <class _GenType, class _UIntType, class _GridRangeType>
-struct BerryINLA::SimGlobalState
-    : SimGlobalStateFixedNDefault<_GenType, double, _UIntType, _GridRangeType> {
+template <class ValueType, int ARMS>
+template <class _GenType, class _ValueType, class _UIntType,
+          class _GridRangeType>
+struct BerryINLA<ValueType, ARMS>::SimGlobalState
+    : SimGlobalStateFixedNDefault<_GenType, _ValueType, _UIntType,
+                                  _GridRangeType> {
     struct SimState;
 
-    using base_t = SimGlobalStateFixedNDefault<_GenType, double, _UIntType,
+    using base_t = SimGlobalStateFixedNDefault<_GenType, _ValueType, _UIntType,
                                                _GridRangeType>;
     using typename base_t::gen_t;
     using typename base_t::grid_range_t;
@@ -122,7 +285,7 @@ struct BerryINLA::SimGlobalState
     const model_t& model;
 
    public:
-    SimGlobalState(const BerryINLA& model, const grid_range_t& grid_range)
+    SimGlobalState(const model_t& model, const grid_range_t& grid_range)
         : base_t(model.n_arm_samples, grid_range), model(model) {}
 
     std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
@@ -131,8 +294,11 @@ struct BerryINLA::SimGlobalState
     }
 };
 
-template <class _GenType, class _UIntType, class _GridRangeType>
-struct BerryINLA::SimGlobalState<_GenType, _UIntType, _GridRangeType>::SimState
+template <class ValueType, int ARMS>
+template <class _GenType, class _ValueType, class _UIntType,
+          class _GridRangeType>
+struct BerryINLA<ValueType, ARMS>::SimGlobalState<
+    _GenType, _ValueType, _UIntType, _GridRangeType>::SimState
     : base_t::sim_state_t {
    private:
     using outer_t = SimGlobalState;
@@ -149,52 +315,35 @@ struct BerryINLA::SimGlobalState<_GenType, _UIntType, _GridRangeType>::SimState
 
     void simulate(gen_t& gen,
                   Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        std::cout << "lol" << std::endl;
         base_t::generate_data(gen);
         base_t::generate_sufficient_stats();
-        std::cout << "gen" << std::endl;
-        return;
+
         const auto& bits = outer_.bits();
-        const auto& gr_view = outer_.grid_range();
-        const auto n_params = gr_view.n_params();  // same as n_arms
-        const auto& model = outer_.model;
-        const auto n_arm_samples = model.n_arm_samples;
-        const auto& critical_values = model.critical_values();
-        std::cout << model.cov.rows() << " " << model.cov.cols() << std::endl;
+        const auto& gr = outer_.grid_range();
+
+        assert(gr.n_params() == ARMS);
+
+        const auto n_arm_samples = outer_.model.n_arm_samples;
+        const auto& critical_values = outer_.model.critical_values();
 
         size_t pos = 0;
-        for (size_t grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
+        for (size_t grid_i = 0; grid_i < gr.n_gridpts(); ++grid_i) {
             auto bits_i = bits.col(grid_i);
 
-            vec_t phat(n_params);
-            for (int i = 0; i < phat.size(); ++i) {
+            vec_t y();
+            for (int i = 0; i < y.size(); ++i) {
                 const auto& ss_i = base_t::sufficient_stats_arm(i);
-                phat(i) = static_cast<value_t>(ss_i(bits_i[i])) / n_arm_samples;
-            }
-            return;
-
-            vec_t posterior_exceedance_probs =
-                outer_.model.get_posterior_exceedance_probs(phat);
-            return;
-
-            // assuming critical_values is sorted in descending order
-            bool do_optimized_update =
-                (posterior_exceedance_probs.array() <=
-                 critical_values[critical_values.size() - 1])
-                    .all();
-            if (do_optimized_update) {
-                rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
-                pos += gr_view.n_tiles(grid_i);
-                continue;
+                y(i) = static_cast<value_t>(ss_i(bits_i[i]));
             }
 
-            for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i); ++n_t, ++pos) {
+            vec_t exceedance = outer_.model.get_posterior_exceedance_probs(y);
+
+            for (size_t n_t = 0; n_t < gr.n_tiles(grid_i); ++n_t, ++pos) {
                 value_t max_null_prob_exceed = 0;
                 for (int arm_i = 0; arm_i < n_params; ++arm_i) {
-                    if (gr_view.check_null(pos, arm_i)) {
+                    if (gr.check_null(pos, arm_i)) {
                         max_null_prob_exceed =
-                            std::max(max_null_prob_exceed,
-                                     posterior_exceedance_probs[arm_i]);
+                            std::max(max_null_prob_exceed, exceedance[arm_i]);
                     }
                 }
 

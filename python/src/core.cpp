@@ -3,6 +3,7 @@
 #include <driver/driver.hpp>
 #include <grid/grid.hpp>
 #include <model/model.hpp>
+#include <random>
 
 namespace py = pybind11;
 
@@ -20,4 +21,15 @@ PYBIND11_MODULE(core, m) {
     py::module_ bound_m = m.def_submodule("bound", "Bound submodule.");
     kevlar::bound::add_to_module(bound_m);
     /* Rest of the dependencies */
+
+    py::class_<std::mt19937>(m, "mt19937")
+        .def(py::init<uint32_t>())
+        .def("uniform_sample", [](std::mt19937& gen, size_t n_samples) {
+            std::uniform_real_distribution<double> unif_;
+            std::vector<double> out(n_samples);
+            for (size_t i = 0; i < n_samples; i++) {
+                out[i] = unif_(gen);
+            }
+            return out;
+        });
 }

@@ -1,14 +1,14 @@
-import jax
-import jax.numpy as jnp
 import numpy as np
-import scipy.linalg
-import scipy.stats
-import util
-from jax.config import config
 from scipy.special import logit
+import scipy.stats
+import scipy.linalg
 
-# This line is critical for enabling 64-bit floats.
-config.update("jax_enable_x64", True)
+# import jax
+# import jax.numpy as jnp
+# from jax.config import config
+
+# # This line is critical for enabling 64-bit floats.
+# config.update("jax_enable_x64", True)
 
 
 def fast_invert(S_in, d):
@@ -21,7 +21,8 @@ def fast_invert(S_in, d):
 
 
 class FastINLA:
-    def __init__(self, sigma2_n=15):
+    def __init__(self, n_arms=4, sigma2_n=15):
+        self.n_arms = n_arms
         self.mu_0 = -1.34
         self.mu_sig_sq = 100.0
         self.logit_p1 = logit(0.3)
@@ -29,8 +30,8 @@ class FastINLA:
         # For numpy impl:
         self.sigma2_n = sigma2_n
         self.sigma2_rule = util.log_gauss_rule(self.sigma2_n, 1e-6, 1e3)
-        self.arms = np.arange(4)
-        self.cov = np.full((self.sigma2_n, 4, 4), self.mu_sig_sq)
+        self.arms = np.arange(self.n_arms)
+        self.cov = np.full((self.sigma2_n, self.n_arms, self.n_arms), self.mu_sig_sq)
         self.cov[:, self.arms, self.arms] += self.sigma2_rule.pts[:, None]
         self.neg_precQ = -np.linalg.inv(self.cov)
         self.logprecQdet = 0.5 * np.log(np.linalg.det(-self.neg_precQ))
@@ -41,31 +42,31 @@ class FastINLA:
         self.thresh_theta = logit(0.1) - logit(0.3)
 
         # For JAX impl:
-        self.sigma2_pts_jax = jnp.asarray(self.sigma2_rule.pts)
-        self.sigma2_wts_jax = jnp.asarray(self.sigma2_rule.wts)
-        self.cov_jax = jnp.asarray(self.cov)
-        self.neg_precQ_jax = jnp.asarray(self.neg_precQ)
-        self.logprecQdet_jax = jnp.asarray(self.logprecQdet)
-        self.log_prior_jax = jnp.asarray(self.log_prior)
+        # self.sigma2_pts_jax = jnp.asarray(self.sigma2_rule.pts)
+        # self.sigma2_wts_jax = jnp.asarray(self.sigma2_rule.wts)
+        # self.cov_jax = jnp.asarray(self.cov)
+        # self.neg_precQ_jax = jnp.asarray(self.neg_precQ)
+        # self.logprecQdet_jax = jnp.asarray(self.logprecQdet)
+        # self.log_prior_jax = jnp.asarray(self.log_prior)
 
-        self.jax_opt_vec = jax.jit(
-            jax.vmap(
-                jax.vmap(
-                    jax_opt,
-                    in_axes=(None, None, 0, 0, 0, None, None, None),
-                    out_axes=(0, 0),
-                ),
-                in_axes=(0, 0, None, None, None, None, None, None),
-                out_axes=(0, 0),
-            )
-        )
+        # self.jax_opt_vec = jax.jit(
+        #     jax.vmap(
+        #         jax.vmap(
+        #             jax_opt,
+        #             in_axes=(None, None, 0, 0, 0, None, None, None),
+        #             out_axes=(0, 0),
+        #         ),
+        #         in_axes=(0, 0, None, None, None, None, None, None),
+        #         out_axes=(0, 0),
+        #     )
+        # )
 
     def numpy_inference(self, y, n):
         N = y.shape[0]
         # TODO: warm start with DB theta ?
         # Step 1) Compute the mode of p(theta, y, sigma^2) holding y and sigma^2 fixed.
         # This is a simple Newton's method implementation.
-        theta_max = np.zeros((N, self.sigma2_n, 4))
+        theta_max = np.zeros((N, self.sigma2_n, self.n_arms))
         converged = False
         for i in range(100):
             theta_m0 = theta_max - self.mu_0
@@ -132,7 +133,7 @@ class FastINLA:
         # Step 5) Calculate exceedance probabilities. We do this per sigma^2 and
         # then integrate over sigma^2
         exceedances = []
-        for i in range(4):
+        for i in range(self.n_arms):
             exc_sigma2 = 1.0 - scipy.stats.norm.cdf(
                 self.thresh_theta,
                 theta_mu[..., i],
@@ -179,8 +180,8 @@ class FastINLA:
 
         ext = cppimport.imp("fast_inla_ext")
         sigma2_post = np.empty((y.shape[0], self.sigma2_n))
-        exceedances = np.empty((y.shape[0], 4))
-        theta_max = np.empty((y.shape[0], self.sigma2_n, 4))
+        exceedances = np.empty((y.shape[0], self.n_arms))
+        theta_max = np.empty((y.shape[0], self.sigma2_n, self.n_arms))
         ext.inla_inference(
             sigma2_post,
             exceedances,
@@ -223,13 +224,13 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
     # When sigma2 is large, the individual arm MLE is a good starting guess.
     # theta_max0 = jnp.where(
     #     sigma2 < 1e-3,
-    #     jnp.repeat(jax.scipy.special.logit(y.sum()/n.sum()),4) - logit_p1,
+    #     jnp.repeat(jax.scipy.special.logit(y.sum()/n.sum()),self.n_arms) - logit_p1,
     #     jax.scipy.special.logit((y + 1e-4) / n) - logit_p1
     # )
-    theta_max0 = jnp.zeros(4)
+    theta_max0 = jnp.zeros(self.n_arms)
 
     out = jax.lax.while_loop(
-        lambda args: args[2], step, (theta_max0, jnp.zeros((4, 4)), True)
+        lambda args: args[2], step, (theta_max0, jnp.zeros((self.n_arms, self.n_arms)), True)
     )
     theta_max, hess_inv, stop = out
     return theta_max, hess_inv
@@ -252,7 +253,7 @@ def jax_fast_invert(S, d):
     return S
 
 
-@jax.jit
+# @jax.jit
 def jax_calc_posterior_and_exceedances(
     theta_max,
     y,
