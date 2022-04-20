@@ -38,8 +38,6 @@ build:asan --copt -O1
 build:asan --copt -g
 build:asan --copt -fno-omit-frame-pointer
 build:asan --linkopt -fsanitize=address
-
-
 """
         )
 
@@ -79,12 +77,10 @@ build --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1"""
 # Linux GCC
 build:gcc --action_env=CC=gcc
 build:gcc --action_env=CXX=g++
-build:gcc --linkopt -fopenmp
 
 # Linux Clang (default)
 build --action_env=CC=clang
 build --action_env=CXX=clang++
-build --linkopt -fopenmp
 """
             )
 
