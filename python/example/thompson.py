@@ -410,31 +410,13 @@ if args.example_type == "adagrid":
         if do_plot:
             thetas = curr.thetas()
 
-            if n_arms == 3:
-                fig = plt.figure()
-                ax = fig.add_subplot(projection="3d")
-                ax.scatter(
-                    thetas[0, :],
-                    thetas[1, :],
-                    thetas[2, :],
-                    marker=".",
-                    c=curr.sim_sizes(),
-                    cmap="plasma",
-                )
-                ax.set_title("Iter={i}".format(i=i))
-
-            elif n_arms == 2:
-                plt.scatter(
-                    thetas[0, :],
-                    thetas[1, :],
-                    marker=".",
-                    c=curr.sim_sizes(),
-                    cmap="plasma",
-                )
-            else:
-                logger.info(
-                    "No plotting mechanism implemented for the current configuration."
-                )
+            plt.scatter(
+                thetas[0, :],
+                thetas[1, :],
+                marker=".",
+                c=curr.sim_sizes(),
+                cmap="plasma",
+            )
 
             plt.show()
         i += 1

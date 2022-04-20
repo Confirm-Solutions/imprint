@@ -126,7 +126,6 @@ struct Thompson<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
    private:
     using unif_t = distribution::Uniform<value_t>;
     const outer_t& outer_;
-    colvec_type<value_t> suff_stats_;
     colvec_type<value_t> g_sums_;  // g_sums_[i] = sum of i iid Gamma(1,1).
     std::gamma_distribution<value_t> gamma_a_;  // Gamma(a,1)
     std::gamma_distribution<value_t> gamma_b_;  // Gamma(b,1)
@@ -205,7 +204,6 @@ struct Thompson<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     SimState(const outer_t& sgs)
         : base_t(sgs),
           outer_(sgs),
-          suff_stats_(sgs.model().n_arms()),
           g_sums_(outer_.model().n_arm_samples() + 1),
           gamma_a_(sgs.model().alpha_prior()),
           gamma_b_(sgs.model().beta_prior()),
