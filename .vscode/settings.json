@@ -103,7 +103,15 @@
         "stack": "cpp",
         "__functional_base": "cpp",
         "alignedvector3": "cpp",
-        "typeindex": "cpp"
+        "typeindex": "cpp",
+        "*.ipp": "cpp",
+        "*.inc": "cpp",
+        "core": "cpp",
+        "geometry": "cpp",
+        "qtalignedmalloc": "cpp",
+        "matrixfunctions": "cpp"
     },
-    "C_Cpp.errorSquiggles": "Enabled"
+    "C_Cpp.errorSquiggles": "Enabled",
+    "editor.formatOnSave": false,
+    "cmake.configureOnOpen": false
 }
