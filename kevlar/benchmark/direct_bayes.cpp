@@ -2,6 +2,8 @@
 
 #include <Eigen/Dense>
 #include <iostream>
+#include <kevlar_bits/bound/accumulator/typeI_error_accum.hpp>
+#include <kevlar_bits/driver/accumulate.hpp>
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/gridder.hpp>
 #include <kevlar_bits/grid/hyperplane.hpp>
@@ -23,21 +25,21 @@ using sgs_t =
     typename model_t::template sim_global_state_t<gen_t, value_t, uint_t, gr_t>;
 using ss_t = typename sgs_t::sim_state_t;
 using vec_t = colvec_type<value_t>;
+using acc_t = bound::TypeIErrorAccum<value_t, uint_t>;
 
 const Eigen::Vector<value_t, 1> critical_values{0.95};
-const auto phat = Eigen::Vector<value_t, 4>{28, 14, 33, 36}.array() / 50;
 const value_t alpha_prior = 0.0005;
 const value_t beta_prior = 0.000005;
 const value_t mu_sig_sq = 0.1;
-const int n_integration_points = 50;
-const int n_arm_size = 50;
+const int n_integration_points = 16;
+const int n_arm_size = 27;
 const int n_arms = 4;
-const int n_thetas = 32;
-const size_t n_samples = 250;
+const int n_thetas = 64;
+const size_t sim_size = 60 * 10;
 const value_t efficacy_threshold = 0.3;
 const auto [quadrature_points, weighted_density_logspace] =
-    model_t::get_quadrature(alpha_prior, beta_prior, n_integration_points,
-                            n_arm_size);
+    sgs_t::get_quadrature(alpha_prior, beta_prior, n_integration_points,
+                          n_arm_size);
 
 vec_t get_efficacy_thresholds() {
     Eigen::Vector<value_t, Eigen::Dynamic> efficacy_thresholds(n_arms);
@@ -51,8 +53,9 @@ struct MockHyperPlane : grid::HyperPlane<value_t> {
 };
 
 static void BM_get_posterior_exceedance_probs(benchmark::State& state) {
+    const auto phat = Eigen::Vector<value_t, 4>{28, 14, 33, 36}.array() / 50;
     for (auto _ : state) {
-        const auto got = ss_t::get_posterior_exceedance_probs(
+        const auto got = sgs_t::get_posterior_exceedance_probs(
             phat, quadrature_points, weighted_density_logspace,
             get_efficacy_thresholds(), n_arm_size, mu_sig_sq);
     }
@@ -93,15 +96,17 @@ static void BM_rej_len(benchmark::State& state) {
 
     colvec_type<value_t> efficacy_thresholds(n_arms);
     efficacy_thresholds.fill(efficacy_threshold);
-    model_t model(n_arms, n_samples, critical_values, efficacy_thresholds);
+    size_t n_threads = std::thread::hardware_concurrency();
+    model_t model(n_arms, n_arm_size, critical_values, efficacy_thresholds);
+
     auto sgs =
         model.make_sim_global_state<gen_t, value_t, uint_t, gr_t>(grid_range);
     size_t seed = 3214;
     gen_t gen(seed);
-    auto mstate = sgs.make_sim_state();
     colvec_type<uint_t> rej_len(grid_range.n_tiles());
+    acc_t acc_os(critical_values.size(), grid_range.n_tiles(), n_arms);
     for (auto _ : state) {
-        mstate->simulate(gen, rej_len);
+        driver::accumulate(sgs, grid_range, acc_os, sim_size, seed, n_threads);
     }
 }
 

@@ -1,6 +1,6 @@
 #pragma once
-#include <algorithm>
 #include <Eigen/Dense>
+#include <algorithm>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
@@ -9,6 +9,7 @@
 #include <kevlar_bits/util/macros.hpp>
 #include <kevlar_bits/util/math.hpp>
 #include <kevlar_bits/util/types.hpp>
+#include <unsupported/Eigen/CXX11/Tensor>
 
 namespace kevlar {
 namespace model {
@@ -24,12 +25,10 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
     using vec_t = colvec_type<value_t>;
     using mat_t = mat_type<value_t>;
 
-    static constexpr int n_integration_points = 50;
+    static constexpr int n_integration_points = 16;
     static constexpr value_t alpha_prior = 0.0005;
     static constexpr value_t beta_prior = 0.000005;
     const vec_t efficacy_thresholds_;
-    vec_t quadrature_points_;
-    vec_t weighted_density_logspace_;
 
    public:
     template <class _GenType, class _ValueType, class _UIntType,
@@ -52,12 +51,7 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
           base_t(),
           efficacy_thresholds_(efficacy_thresholds) {
         assert(efficacy_thresholds.size() == n_arms);
-
         critical_values(cv);
-
-        std::tie(quadrature_points_, weighted_density_logspace_) =
-            get_quadrature(alpha_prior, beta_prior, n_integration_points,
-                           n_arm_size);
     }
 
     using arm_base_t::n_arm_samples;
@@ -80,34 +74,6 @@ struct DirectBayes : FixedSingleArmSize, ModelBase<ValueType> {
     template <class _GridRangeType>
     auto make_kevlar_bound_state(const _GridRangeType& gr) const {
         return kevlar_bound_state_t<_GridRangeType>(n_arm_samples(), gr);
-    }
-
-    // TODO: clean-up
-    // let's evaluate the endpoints of the prior in logspace-sigma:
-    // determine endpoints:
-    static std::pair<vec_t, vec_t> get_quadrature(
-        const value_t alpha_prior, const value_t beta_prior,
-        const int n_integration_points, const int n_arm_size) {
-        // Shared for a given prior
-        // TODO: consider constexpr
-        const value_t a = std::log(1e-8);
-        const value_t b = std::log(1e3);
-        auto pair = leggauss(n_integration_points);
-        // TODO: transpose this in leggauss for efficiency
-        vec_t quadrature_points = pair.row(0);
-        vec_t quadrature_weights = pair.row(1);
-        quadrature_points =
-            ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
-        // sum(wts) = b-a so it averages to 1 over space
-        quadrature_weights = quadrature_weights * ((b - a) / 2);
-        // TODO: remove second alloc here
-        vec_t density_logspace =
-            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
-                .template cast<value_t>();
-        density_logspace.array() *= quadrature_points.array();
-        auto weighted_density_logspace =
-            density_logspace.array() * quadrature_weights.array();
-        return {quadrature_points, weighted_density_logspace};
     }
 };
 
@@ -132,102 +98,72 @@ struct DirectBayes<ValueType>::SimGlobalState
    private:
     using model_t = DirectBayes;
     const model_t& model_;
+    vec_t quadrature_points_;
+    vec_t weighted_density_logspace_;
+    Eigen::Tensor<Eigen::Vector<value_t, 4>, 4> posterior_exceedance_cache_;
+    const double mu_sig_sq_ = 100;
 
    public:
     SimGlobalState(const model_t& model, const grid_range_t& grid_range)
-        : base_t(model.n_arm_samples(), grid_range), model_(model) {}
-
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
-    }
-};
-
-template <class ValueType>
-template <class _GenType, class _ValueType, class _UIntType,
-          class _GridRangeType>
-struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
-                                              _GridRangeType>::SimState
-    : base_t::sim_state_t {
-   private:
-    using outer_t = SimGlobalState;
-
-   public:
-    using base_t = typename outer_t::base_t::sim_state_t;
-    using typename base_t::interface_t;
-
-   private:
-    const outer_t& outer_;
-
-   public:
-    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
-
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        base_t::generate_data(gen);
-        base_t::generate_sufficient_stats();
-
-        const auto& bits = outer_.bits();
-        const auto& gr_view = outer_.grid_range();
-        const auto n_params = gr_view.n_params();  // same as n_arms
-        const auto n_arm_size = outer_.model_.n_arm_samples();
-        const auto& critical_values = outer_.model_.critical_values();
-        constexpr double mu_sig_sq = 100;
-
-        size_t pos = 0;
-        for (size_t grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
-            auto bits_i = bits.col(grid_i);
-
-            vec_t phat(n_params);
-            for (int i = 0; i < phat.size(); ++i) {
-                const auto& ss_i = base_t::sufficient_stats_arm(i);
-                phat(i) = static_cast<value_t>(ss_i(bits_i[i])) / n_arm_size;
-            }
-            vec_t posterior_exceedance_probs = get_posterior_exceedance_probs(
-                phat, outer_.model_.quadrature_points_,
-                outer_.model_.weighted_density_logspace_,
-                outer_.model_.efficacy_thresholds_,
-                outer_.model_.n_arm_samples(), mu_sig_sq);
-
-            // assuming critical_values is sorted in descending order
-            bool do_optimized_update =
-                (posterior_exceedance_probs.array() <=
-                 critical_values[critical_values.size() - 1])
-                    .all();
-            if (do_optimized_update) {
-                rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
-                pos += gr_view.n_tiles(grid_i);
-                continue;
-            }
-
-            for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i); ++n_t, ++pos) {
-                value_t max_null_prob_exceed = 0;
-                for (int arm_i = 0; arm_i < n_params; ++arm_i) {
-                    if (gr_view.check_null(pos, arm_i)) {
-                        max_null_prob_exceed =
-                            std::max(max_null_prob_exceed,
-                                     posterior_exceedance_probs[arm_i]);
+        : base_t(model.n_arm_samples(), grid_range), model_(model) {
+        const int n_arm_size = model_.n_arm_samples();
+        const auto n_params = grid_range.n_params();
+        std::tie(quadrature_points_, weighted_density_logspace_) =
+            get_quadrature(model.alpha_prior, model.beta_prior,
+                           model.n_integration_points, n_arm_size);
+        // Under the current cache design, the number of arms must be known at
+        // compile time
+        assert(n_params == 4);
+        posterior_exceedance_cache_.resize(n_arm_size, n_arm_size, n_arm_size,
+                                           n_arm_size);
+        vec_t suff_stats(n_params);
+        posterior_exceedance_cache_.setConstant(
+            Eigen::Vector<value_t, 4>::Constant(NAN));
+        // Must start at 1 because DB is undefined at zero!
+        for (int i = 1; i < n_arm_size - 1; ++i) {
+            suff_stats[0] = i;
+            for (int j = 1; j < n_arm_size - 1; ++j) {
+                suff_stats[1] = j;
+                for (int k = 1; k < n_arm_size - 1; ++k) {
+                    suff_stats[2] = k;
+                    for (int l = 1; l < n_arm_size - 1; ++l) {
+                        suff_stats[3] = l;
+                        posterior_exceedance_cache_(i, j, k, l) =
+                            get_posterior_exceedance_probs(
+                                suff_stats.array() / n_arm_size,
+                                quadrature_points_, weighted_density_logspace_,
+                                model_.efficacy_thresholds_,
+                                model_.n_arm_samples(), mu_sig_sq_);
                     }
                 }
-
-                int cv_i = 0;
-                for (; cv_i < critical_values.size(); ++cv_i) {
-                    if (max_null_prob_exceed > critical_values[cv_i]) {
-                        break;
-                    }
-                }
-                rej_len(pos) = critical_values.size() - cv_i;
             }
         }
-
-        assert(rej_len.size() == pos);
     }
 
-    using base_t::score;
-
-    // TODO: from here and below are extra functions only used internally.
-    // What's the best way to keep them testable while hiding them from public
-    // interface?
+    static std::pair<vec_t, vec_t> get_quadrature(
+        const value_t alpha_prior, const value_t beta_prior,
+        const int n_integration_points, const int n_arm_size) {
+        // Shared for a given prior
+        // TODO: consider constexpr
+        const value_t a = std::log(1e-8);
+        const value_t b = std::log(1e3);
+        auto pair = leggauss(n_integration_points);
+        // TODO: transpose this in leggauss for efficiency
+        vec_t quadrature_points = pair.row(0);
+        vec_t quadrature_weights = pair.row(1);
+        quadrature_points =
+            ((quadrature_points.array() + 1) * ((b - a) / 2) + a).exp();
+        // sum(wts) = b-a so it averages to 1 over space
+        quadrature_weights = quadrature_weights * ((b - a) / 2);
+        // TODO: remove second alloc here
+        vec_t density_logspace =
+            invgamma_pdf(quadrature_points, alpha_prior, beta_prior)
+                .template cast<value_t>();
+        density_logspace.array() *= quadrature_points.array();
+        auto weighted_density_logspace =
+            density_logspace.array() * quadrature_weights.array();
+        return {quadrature_points, weighted_density_logspace};
+    }
 
     static mat_t faster_invert(const vec_t& D_inverse, value_t O) {
         //(1) compute multiplier on the new rank-one component
@@ -356,6 +292,97 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
             exceed_probs * final_reweight.matrix();
         return posterior_exceedance_probs;
     }
+
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
+        const override {
+        return std::make_unique<sim_state_t>(*this);
+    }
+};
+
+template <class ValueType>
+template <class _GenType, class _ValueType, class _UIntType,
+          class _GridRangeType>
+struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
+                                              _GridRangeType>::SimState
+    : base_t::sim_state_t {
+   private:
+    using outer_t = SimGlobalState;
+
+   public:
+    using base_t = typename outer_t::base_t::sim_state_t;
+    using typename base_t::interface_t;
+
+   private:
+    const outer_t& outer_;
+
+   public:
+    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
+
+    void simulate(gen_t& gen,
+                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        base_t::generate_data(gen);
+        base_t::generate_sufficient_stats();
+
+        const auto& bits = outer_.bits();
+        const auto& gr_view = outer_.grid_range();
+
+        const auto n_params = gr_view.n_params();  // same as n_arms
+        const auto n_arm_size = outer_.model_.n_arm_samples();
+        const auto& critical_values = outer_.model_.critical_values();
+
+        size_t pos = 0;
+
+        for (size_t grid_i = 0; grid_i < gr_view.n_gridpts(); ++grid_i) {
+            auto bits_i = bits.col(grid_i);
+
+            Eigen::array<long, 4> suff_stats;
+            for (int i = 0; i < n_params; ++i) {
+                const auto& ss_i = base_t::sufficient_stats_arm(i);
+                suff_stats[i] = ss_i(bits_i[i]);
+            }
+            const Eigen::Vector<value_t, 4>& posterior_exceedance_probs =
+                outer_.posterior_exceedance_cache_(suff_stats);
+            assert(posterior_exceedance_probs.array().sum() != 0);
+
+            // assuming critical_values is sorted in descending order
+            bool do_optimized_update =
+                (posterior_exceedance_probs.array() <=
+                 critical_values[critical_values.size() - 1])
+                    .all();
+            if (do_optimized_update) {
+                rej_len.segment(pos, gr_view.n_tiles(grid_i)).array() = 0;
+                pos += gr_view.n_tiles(grid_i);
+                continue;
+            }
+
+            for (size_t n_t = 0; n_t < gr_view.n_tiles(grid_i); ++n_t, ++pos) {
+                value_t max_null_prob_exceed = 0;
+                for (int arm_i = 0; arm_i < n_params; ++arm_i) {
+                    if (gr_view.check_null(pos, arm_i)) {
+                        max_null_prob_exceed =
+                            std::max(max_null_prob_exceed,
+                                     posterior_exceedance_probs[arm_i]);
+                    }
+                }
+
+                int cv_i = 0;
+                for (; cv_i < critical_values.size(); ++cv_i) {
+                    if (max_null_prob_exceed > critical_values[cv_i]) {
+                        break;
+                    }
+                }
+                rej_len(pos) = critical_values.size() - cv_i;
+            }
+        }
+
+        assert(rej_len.size() == pos);
+    }
+
+    using base_t::score;
+
+    // TODO: from here and below are extra functions only used internally.
+    // What's the best way to keep them testable while hiding them from public
+    // interface?
 };
 
 }  // namespace binomial

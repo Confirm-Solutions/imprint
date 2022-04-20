@@ -45,10 +45,9 @@ struct direct_bayes_fixture : base_fixture {
     const int n_integration_points = 50;
     const int n_arm_size = 15;
     const value_t tol = 1e-8;
-    const size_t n_arms = 2;
-    const size_t n_samples = 250;
+    const size_t n_arms = 4;
     const colvec_type<value_t, 1> critical_values{0.95};
-    const size_t n_thetas = 10;
+    const size_t n_thetas = 4;
 
     vec_t get_efficacy_thresholds(int n) const {
         Eigen::Vector<value_t, Eigen::Dynamic> efficacy_thresholds(n);
@@ -57,8 +56,8 @@ struct direct_bayes_fixture : base_fixture {
     }
 
     gr_t get_grid_range() const {
-        auto theta_1d = grid::Gridder::make_grid(n_thetas, -1., 0.);
-        auto radius = grid::Gridder::radius(n_thetas, -1., 0.);
+        auto theta_1d = grid::Gridder::make_grid(n_thetas, -1., 1.);
+        auto radius = grid::Gridder::radius(n_thetas, -1., 1.);
 
         colvec_type<value_t> normal(n_arms);
         std::vector<hp_t> hps;
@@ -89,7 +88,7 @@ struct direct_bayes_fixture : base_fixture {
     }
 
     model_t get_test_class() const {
-        model_t b_new(n_arms, n_samples, critical_values,
+        model_t b_new(n_arms, n_arm_size, critical_values,
                       get_efficacy_thresholds(n_arms));
         return b_new;
     }
@@ -99,7 +98,7 @@ TEST_F(direct_bayes_fixture, TestConditionalExceedProbGivenSigma) {
     Eigen::Vector4d logit_efficacy_thresholds;
     logit_efficacy_thresholds.fill(-0.40546511);
     for (bool use_fast : {true, false}) {
-        vec_t got = ss_t::conditional_exceed_prob_given_sigma(
+        vec_t got = sgs_t::conditional_exceed_prob_given_sigma(
             1.10517092, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
             Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
             logit_efficacy_thresholds, Eigen::Vector4d{0, 0, 0, 0}, use_fast);
@@ -107,7 +106,7 @@ TEST_F(direct_bayes_fixture, TestConditionalExceedProbGivenSigma) {
         want << 0.9892854091921082, 0.0656701203047288, 0.999810960134644,
             0.9999877861068269;
         expect_near_vec(got, want, tol);
-        got = ss_t::conditional_exceed_prob_given_sigma(
+        got = sgs_t::conditional_exceed_prob_given_sigma(
             1.01445965e-8, 0.1, Eigen::Vector4d{12.32, 10.08, 11.22, 10.08},
             Eigen::Vector4d{0.24116206, -0.94446161, 0.66329422, 0.94446161},
             logit_efficacy_thresholds, Eigen::Vector4d{0, 0, 0, 0}, use_fast);
@@ -119,14 +118,14 @@ TEST_F(direct_bayes_fixture, TestConditionalExceedProbGivenSigma) {
 
 TEST_F(direct_bayes_fixture, TestGetPosteriorExcedanceProbs) {
     const auto [quadrature_points, weighted_density_logspace] =
-        model_t::get_quadrature(alpha_prior, beta_prior, n_integration_points,
-                                n_arm_size);
+        sgs_t::get_quadrature(alpha_prior, beta_prior, n_integration_points,
+                              n_arm_size);
     vec_t phat = Eigen::Vector4d{3, 8, 5, 4};
     phat.array() /= 15;
     Eigen::Vector<value_t, 4> want{0.64462095, 0.80224266, 0.71778699,
                                    0.67847136};
     for (bool use_optimized : {true, false}) {
-        auto got = ss_t::get_posterior_exceedance_probs(
+        auto got = sgs_t::get_posterior_exceedance_probs(
             phat, quadrature_points, weighted_density_logspace,
             get_efficacy_thresholds(4), n_arm_size, mu_sig_sq, use_optimized);
         expect_near_vec(got, want, tol);
@@ -136,7 +135,7 @@ TEST_F(direct_bayes_fixture, TestGetPosteriorExcedanceProbs) {
 TEST_F(direct_bayes_fixture, TestFasterInvert) {
     auto v = Eigen::Vector4d{1, 2, 3, 4};
     double d = 0.5;
-    const auto got = ss_t::faster_invert(1. / v.array(), d);
+    const auto got = sgs_t::faster_invert(1. / v.array(), d);
     mat_t m = v.asDiagonal();
     m.array() += d;
     mat_t want = m.inverse();
@@ -148,7 +147,7 @@ TEST_F(direct_bayes_fixture, GetGridRange) {
     EXPECT_EQ(grid_range.n_tiles(0), 1);
     EXPECT_EQ(grid_range.n_tiles(1), 1);
     EXPECT_EQ(grid_range.n_tiles(2), 1);
-    EXPECT_EQ(grid_range.n_tiles(3), 1);
+    EXPECT_EQ(grid_range.n_tiles(3), 2);
 };
 
 TEST_F(direct_bayes_fixture, TestRejLen) {
@@ -162,14 +161,35 @@ TEST_F(direct_bayes_fixture, TestRejLen) {
     colvec_type<uint_t> actual(grid_range.n_tiles());
     state->simulate(gen, actual);
     colvec_type<uint_t> expected(grid_range.n_tiles());
-    expected << 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,
+    expected << 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+        0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0,
+        1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1,
+        1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0,
+        0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1,
+        0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1,
+        1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
+        0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1,
+        0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1,
+        1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1;
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+        0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
+        0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1,
+        1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0,
+        1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1;
     expect_eq_vec(actual, expected);
 };
-
 }  // namespace
 }  // namespace binomial
 }  // namespace model
