@@ -45,25 +45,32 @@ build:asan --linkopt -fsanitize=address
         # MacOS
         if platform == "darwin":
             # get canonical brew path
-            conda_prefix = os.environ['CONDA_PREFIX']
-            conda_bin = os.path.join(conda_prefix, 'bin')
-            if not ('kevlar' in conda_prefix):
+            conda_prefix = os.environ["CONDA_PREFIX"]
+            if not ("kevlar" in conda_prefix):
                 print(
-                    'Current conda environment path does not include the '
+                    "Current conda environment path does not include the "
                     'phrase "kevlar". You might need to activate your kevlar '
-                    'conda environment and the run `./generate_bazelrc` '
-                    'again.'
+                    "conda environment and the run `./generate_bazelrc` "
+                    "again."
                 )
 
+            conda_bin = os.path.join(conda_prefix, "bin")
+            conda_inc = os.path.join(conda_prefix, "include")
+            conda_lib = os.path.join(conda_prefix, "lib")
+
             # get canonical omp path
-            sdk_path = run_cmd('xcrun --sdk macosx --show-sdk-path')
-            f.write(f'''
-# Mac Homebrew Clang
+            sdk_path = run_cmd("xcrun --sdk macosx --show-sdk-path")
+            f.write(
+                f"""
+# Use clang from conda-forge
 build --action_env=CC={conda_bin}/clang
 build --action_env=CXX={conda_bin}/clang++
-build --action_env=SDKROOT=${sdk_path}
+build --action_env=BAZEL_CXXOPTS=-isystem{conda_inc}
+build --action_env=BAZEL_LINKOPTS=-L{conda_lib}:-Wl,-rpath,{conda_lib}
+build --action_env=SDKROOT={sdk_path}
 # Tell Bazel not to use the full Xcode toolchain on Mac OS
-build --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1''')
+build --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1"""
+            )
         else:
             # Linux
             f.write(
