@@ -34,7 +34,7 @@ void add_simple_selection(py::module_& m) {
         // somehow hides export of base class version.
         // This is actually what we want!
         .def("critical_values",
-             (void(model_t::*)(
+             (void (model_t::*)(
                  const Eigen::Ref<const colvec_type<model_value_t>>&)) &
                  model_t::critical_values,
              py::arg("critical_values"))
