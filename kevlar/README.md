@@ -2,8 +2,8 @@
 
 ## Overview
 
-The Kevlar C++ core engine, `kevlar`,
-implements the core components of the system.
+The Kevlar C++ core engine, `kevlar`, implements the core components of the
+system.
 
 ## Dependencies
 
@@ -17,8 +17,9 @@ Suggested compilers:
 
 __Note: `CMake` build has been deprecated and is not maintained.__
 
-__Note: For Linux users who wish to use `clang`,
-install `clang` and add a flag to the `bazel` calls below:__
+__Note: For Linux users who wish to use `clang`, install `clang` and add a flag
+to the `bazel` calls below:__
+(QUESTION: does clang-12 exist yet? That would match with the conda-forge toolchain.)
 ```
 sudo apt install clang-11 --install-suggests
 bazel ... --config=clang
