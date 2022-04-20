@@ -1,6 +1,6 @@
 #pragma once
-#include <algorithm>
 #include <Eigen/Dense>
+#include <algorithm>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/exponential/common/fixed_n_log_hazard_rate.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
