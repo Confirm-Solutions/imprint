@@ -17,14 +17,14 @@ Suggested compilers:
 
 __Note: `CMake` build has been deprecated and is not maintained.__
 
-__Note: For Linux users who wish to use `clang`, install `clang` and add a flag
-to the `bazel` calls below:__
-(QUESTION: does clang-12 exist yet? That would match with the conda-forge toolchain.)
+__Note: On Linux, it's best to specify whether you want to use `clang` or `gcc`.
+Add the appropriate flag to each `bazel` call below:
 ```
-sudo apt install clang-11 --install-suggests
+# For gcc
+# For clang
+bazel ... --config=gcc
 bazel ... --config=clang
 ```
-For `gcc`, pass `--config=gcc` instead.
 
 __To build `kevlar`__:
 ```
