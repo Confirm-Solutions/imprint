@@ -2,58 +2,29 @@
 
 ## Overview
 
-The Kevlar C++ core engine, `kevlar`,
-implements the core components of the system.
+The Kevlar C++ core engine, `kevlar`, implements the core components of the
+system.
 
 ## Dependencies
 
-In addition to a C++ compiler that can support C++-17 and [OpenMP](https://www.openmp.org/):
-- [Bazel](https://bazel.build/)
+If you have set up a conda environment following the instructions in the main repo README, you should already have a C++ toolchain installed along with Bazel. If not, we require a C++ toolchain that supports C++-17 and [OpenMP](https://www.openmp.org/) and an installation of [Bazel](https://bazel.build/)
 
 Suggested compilers:
 - [GCC >= 9.3.0](https://gcc.gnu.org/)
 - [Clang >= 11.0.0](https://clang.llvm.org/)
 
-### Mac OS
-
-To install the dependencies:
-```
-brew install bazelisk 
-```
-
-### Ubuntu Linux
-
-To install the dependencies:
-```
-mkdir -p /some/dir
-curl -Lo /some/dir/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64
-chmod +x /some/dir/bazel
-```
-where `/some/dir` is a directory to store the `bazel` binary.
-Note that for a system-wide install, the user may need to call under `sudo`.
-For a local install, the user should add `/some/dir` to `PATH`:
-```
-export PATH="/some/dir:$PATH"
-```
-
 ## Build
 
 __Note: `CMake` build has been deprecated and is not maintained.__
 
-__Note: On Mac, users are expected to use the Homebrew-provided `clang`
-and `libomp` before calling `bazel` and pass an additional flag to all `bazel` calls below:__
+__Note: On Linux, it's best to specify whether you want to use `clang` or `gcc`.
+Add the appropriate flag to each `bazel` call below:
 ```
-brew install llvm libomp
-bazel ... --config=mac
-```
-
-__Note: For Linux users who wish to use `clang`,
-install `clang` and add a flag to the `bazel` calls below:__
-```
-sudo apt install clang-11 --install-suggests
+# For gcc
+# For clang
+bazel ... --config=gcc
 bazel ... --config=clang
 ```
-For `gcc`, pass `--config=gcc` instead.
 
 __To build `kevlar`__:
 ```

@@ -1,6 +1,6 @@
 #pragma once
-#include <algorithm>
 #include <Eigen/Core>
+#include <algorithm>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/util/algorithm.hpp>
 #include <kevlar_bits/util/macros.hpp>
