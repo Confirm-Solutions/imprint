@@ -1,9 +1,8 @@
 import numpy as np
 from pykevlar.core import mt19937
 from pykevlar.driver import accumulate_process
-from pykevlar.grid import HyperPlane
+from pykevlar.grid import HyperPlane, make_cartesian_grid_range
 from pykevlar.model.binomial import SimpleSelection
-from utils import make_cartesian_grid_range
 
 n_arms = 2
 n_thetas = 3

@@ -14,10 +14,10 @@
 
 # +
 import numpy as np
-from pykevlar.grid import HyperPlane
-from pykevlar.model.binomial import SimpleSelection
 from pykevlar.core.model import mt19937
 from pykevlar.driver import accumulate_process
+from pykevlar.grid import HyperPlane
+from pykevlar.model.binomial import SimpleSelection
 from utils import make_cartesian_grid_range
 
 n_arms = 2
@@ -28,7 +28,9 @@ seed = 10
 model = SimpleSelection(n_arms, n_arm_samples, 20, [])
 model.critical_values([2.1])
 
-gr = make_cartesian_grid_range(n_thetas, np.full(n_arms, -0.5), np.full(n_arms, 0.5), 1000)
+gr = make_cartesian_grid_range(
+    n_thetas, np.full(n_arms, -0.5), np.full(n_arms, 0.5), 1000
+)
 
 # define null hypos
 null_hypos = []
@@ -73,4 +75,6 @@ np.testing.assert_allclose(typeI_sum, out.typeI_sum()[0])
 np.testing.assert_allclose(score_sum, out.score_sum().reshape((-1, 2)))
 
 gen = mt19937(seed)
-sample = np.array(gen.uniform_sample(n_arm_samples * n_arms)).reshape((n_arm_samples, n_arms));
+sample = np.array(gen.uniform_sample(n_arm_samples * n_arms)).reshape(
+    (n_arm_samples, n_arms)
+)
