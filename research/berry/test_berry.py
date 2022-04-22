@@ -25,7 +25,7 @@ def test_binomial_hierarchical_grad_hess():
     theta = np.stack((a, qv0), axis=1)
     dx = 0.001
     model = berry.BerryMu()
-    model.log_prior = simple_prior
+    model.log_prior = lambda t: scipy.stats.lognorm.logpdf(1.0 / theta[..., 0], 10.0)
 
     def calc_numerical_grad(local_x_i, row):
         dx_vec = np.zeros(4)
@@ -57,11 +57,6 @@ def test_binomial_hierarchical_grad_hess():
     analytical_hess = model.hess(x_i, data, theta)
 
     np.testing.assert_allclose(num_hess, analytical_hess, atol=1e-5)
-
-
-def simple_prior(theta):
-    Qv = 1.0 / theta[..., 0]
-    return scipy.stats.lognorm.logpdf(Qv, 10.0)
 
 
 def test_inla_sim(n_sims=100, check=True):
@@ -118,7 +113,6 @@ def test_dirty_bayes():
     b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e3))
     y_i = np.array([[3, 8, 5, 4]])
     n_i = np.full((1, 4), 15)
-    print(b.sigma2_rule)
     db_stats = dirty_bayes.calc_dirty_bayes(
         y_i,
         n_i,
@@ -195,13 +189,6 @@ def test_log_gauss_rule():
         a, alpha, scale=beta
     )
     est = np.sum(f * qr.wts)
-    # plt.plot(np.log(pexp) / np.log(10), f)
-    # plt.xlabel('$log_{10}\sigma^2$')
-    # plt.ylabel('$PDF$')
-    # plt.show()
-    # print('exact CDF: ', exact),
-    # print('numerical integration CDF: ', est)
-    # print('error: ', est - exact)
     np.testing.assert_allclose(est, exact, 1e-14)
 
 
@@ -228,18 +215,6 @@ def test_exact_integrate():
         6.668053e-05,
     ]
     np.testing.assert_allclose(p_sigma2_g_y[0], expected, 1e-6)
-
-
-def test_exact_integrate2():
-    n_i = np.full((1, 4), 10)
-    y_i = np.array([[1, 6, 3, 3]])
-    data = np.stack((y_i, n_i), axis=2)
-    b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-1, 1e2))
-
-    p_sigma2_g_y = quadrature.integrate(
-        b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=15
-    )
-    p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
 
 
 @pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
@@ -300,16 +275,9 @@ def test_fast_inla(method, N=10, iterations=1):
 if __name__ == "__main__":
     N = 100000
     it = 4
-    # print('jax')
-    # test_fast_inla('jax', N, it)
+    print("jax")
+    test_fast_inla("jax", N, it)
     print("cpp")
     test_fast_inla("cpp", N, it)
-    # print('numpy')
-    # test_fast_inla('numpy', N, it)
-    # import time
-
-    # for i in range(5):
-    #     start = time.time()
-    #     # test_inla_sim(n_sims=1000, check=False)
-    #     test_exact_integrate2()
-    #     print(time.time() - start)
+    print("numpy")
+    test_fast_inla("numpy", N, it)

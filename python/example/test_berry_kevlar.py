@@ -1,5 +1,5 @@
 import numpy as np
-from pykevlar.core.model import mt19937
+from pykevlar.core import mt19937
 from pykevlar.driver import accumulate_process
 from pykevlar.grid import HyperPlane
 from pykevlar.model.binomial import SimpleSelection
