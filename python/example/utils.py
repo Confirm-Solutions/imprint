@@ -1,20 +1,22 @@
+import logging
 import os
 import pathlib
 from datetime import timedelta
-from logging import DEBUG as log_level
-from logging import basicConfig, getLogger
 from timeit import default_timer as timer
 
 import numpy as np
 from pykevlar.bound import TypeIErrorBound
 from pykevlar.grid import Gridder, GridRange
 
-basicConfig(
+log_level = logging.DEBUG
+logging.basicConfig(
     level=log_level,
     format="%(asctime)s %(levelname)-8s %(module)-20s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
+# Disable matplotlib logging
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 data_dir = "data"  # changeable
 

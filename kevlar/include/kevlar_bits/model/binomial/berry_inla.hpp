@@ -1,6 +1,6 @@
 #pragma once
-#include <algorithm>
 #include <Eigen/Dense>
+#include <algorithm>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/common/fixed_n_default.hpp>
 #include <kevlar_bits/model/fixed_single_arm_size.hpp>
@@ -330,7 +330,7 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState<
         for (size_t grid_i = 0; grid_i < gr.n_gridpts(); ++grid_i) {
             auto bits_i = bits.col(grid_i);
 
-            vec_t y();
+            vec_t y(ARMS);
             for (int i = 0; i < y.size(); ++i) {
                 const auto& ss_i = base_t::sufficient_stats_arm(i);
                 y(i) = static_cast<value_t>(ss_i(bits_i[i]));
@@ -340,7 +340,11 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState<
 
             for (size_t n_t = 0; n_t < gr.n_tiles(grid_i); ++n_t, ++pos) {
                 value_t max_null_prob_exceed = 0;
-                for (int arm_i = 0; arm_i < n_params; ++arm_i) {
+                for (int arm_i = 0; arm_i < ARMS; ++arm_i) {
+                    // if (grid_i == 67) {
+                    //     std::cout << arm_i << " " << gr.check_null(pos,
+                    //     arm_i) << std::endl;
+                    // }
                     if (gr.check_null(pos, arm_i)) {
                         max_null_prob_exceed =
                             std::max(max_null_prob_exceed, exceedance[arm_i]);

@@ -1,14 +1,14 @@
+import jax
+import jax.numpy as jnp
 import numpy as np
-from scipy.special import logit
-import scipy.stats
 import scipy.linalg
+import scipy.stats
+import util
+from jax.config import config
+from scipy.special import logit
 
-# import jax
-# import jax.numpy as jnp
-# from jax.config import config
-
-# # This line is critical for enabling 64-bit floats.
-# config.update("jax_enable_x64", True)
+# This line is critical for enabling 64-bit floats.
+config.update("jax_enable_x64", True)
 
 
 def fast_invert(S_in, d):
@@ -42,24 +42,24 @@ class FastINLA:
         self.thresh_theta = logit(0.1) - logit(0.3)
 
         # For JAX impl:
-        # self.sigma2_pts_jax = jnp.asarray(self.sigma2_rule.pts)
-        # self.sigma2_wts_jax = jnp.asarray(self.sigma2_rule.wts)
-        # self.cov_jax = jnp.asarray(self.cov)
-        # self.neg_precQ_jax = jnp.asarray(self.neg_precQ)
-        # self.logprecQdet_jax = jnp.asarray(self.logprecQdet)
-        # self.log_prior_jax = jnp.asarray(self.log_prior)
+        self.sigma2_pts_jax = jnp.asarray(self.sigma2_rule.pts)
+        self.sigma2_wts_jax = jnp.asarray(self.sigma2_rule.wts)
+        self.cov_jax = jnp.asarray(self.cov)
+        self.neg_precQ_jax = jnp.asarray(self.neg_precQ)
+        self.logprecQdet_jax = jnp.asarray(self.logprecQdet)
+        self.log_prior_jax = jnp.asarray(self.log_prior)
 
-        # self.jax_opt_vec = jax.jit(
-        #     jax.vmap(
-        #         jax.vmap(
-        #             jax_opt,
-        #             in_axes=(None, None, 0, 0, 0, None, None, None),
-        #             out_axes=(0, 0),
-        #         ),
-        #         in_axes=(0, 0, None, None, None, None, None, None),
-        #         out_axes=(0, 0),
-        #     )
-        # )
+        self.jax_opt_vec = jax.jit(
+            jax.vmap(
+                jax.vmap(
+                    jax_opt,
+                    in_axes=(None, None, 0, 0, 0, None, None, None),
+                    out_axes=(0, 0),
+                ),
+                in_axes=(0, 0, None, None, None, None, None, None),
+                out_axes=(0, 0),
+            )
+        )
 
     def numpy_inference(self, y, n):
         N = y.shape[0]
@@ -227,10 +227,11 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
     #     jnp.repeat(jax.scipy.special.logit(y.sum()/n.sum()),self.n_arms) - logit_p1,
     #     jax.scipy.special.logit((y + 1e-4) / n) - logit_p1
     # )
-    theta_max0 = jnp.zeros(self.n_arms)
+    n_arms = y.shape[0]
+    theta_max0 = jnp.zeros(n_arms)
 
     out = jax.lax.while_loop(
-        lambda args: args[2], step, (theta_max0, jnp.zeros((self.n_arms, self.n_arms)), True)
+        lambda args: args[2], step, (theta_max0, jnp.zeros((n_arms, n_arms)), True)
     )
     theta_max, hess_inv, stop = out
     return theta_max, hess_inv
@@ -253,7 +254,7 @@ def jax_fast_invert(S, d):
     return S
 
 
-# @jax.jit
+@jax.jit
 def jax_calc_posterior_and_exceedances(
     theta_max,
     y,
