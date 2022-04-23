@@ -27,6 +27,7 @@ def main():
 build --cxxopt="-std=c++17"
 build --cxxopt="-Wall"
 build --cxxopt="-fopenmp"
+build --linkopt -fopenmp
 
 # ASAN build
 # TODO: add ubsan + msan builds also

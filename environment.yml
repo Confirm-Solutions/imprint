@@ -14,6 +14,7 @@ dependencies:
 
 # C++ toolchain
   - clang=13.0.1
+  - clangxx=13.0.1
   - clang-tools=13.0.1
   # bazel is not currently working for installing the zip package when installed
   # on mac through conda-forge. see:
