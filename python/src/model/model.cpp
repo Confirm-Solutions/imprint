@@ -7,10 +7,12 @@
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/model/binomial/simple_selection.hpp>
+#include <kevlar_bits/model/binomial/thompson.hpp>
 #include <kevlar_bits/model/exponential/simple_log_rank.hpp>
 #include <model/base.hpp>
 #include <model/binomial/fixed_n_default.hpp>
 #include <model/binomial/simple_selection.hpp>
+#include <model/binomial/thompson.hpp>
 #include <model/exponential/fixed_n_log_hazard_rate.hpp>
 #include <model/exponential/simple_log_rank.hpp>
 #include <model/fixed_single_arm_size.hpp>
@@ -32,14 +34,17 @@ using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
  */
 void add_binomial_to_module(py::module_& m) {
     using namespace binomial;
+
     using sgs_fixed_n_default_t =
         SimGlobalStateFixedNDefault<gen_t, value_t, uint_t, gr_t>;
     using kbs_fixed_n_default_t = KevlarBoundStateFixedNDefault<gr_t>;
-    using simple_selection_t = SimpleSelection<value_t>;
-
     add_fixed_n_default<sgs_fixed_n_default_t, kbs_fixed_n_default_t>(m);
 
+    using simple_selection_t = SimpleSelection<value_t>;
     add_simple_selection<simple_selection_t, gen_t, value_t, uint_t, gr_t>(m);
+
+    using thompson_t = Thompson<value_t>;
+    add_thompson<thompson_t, gen_t, value_t, uint_t, gr_t>(m);
 }
 
 /*

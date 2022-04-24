@@ -8,4 +8,5 @@
 ) for name in [
     "simple_selection",
     "simple_log_rank",
+    "thompson",
 ]]
