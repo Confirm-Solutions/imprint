@@ -22,14 +22,14 @@ namespace exponential {
  */
 template <class GenType, class ValueType, class UIntType, class GridRangeType>
 struct SimGlobalStateFixedNLogHazardRate
-    : SimGlobalStateBase<GenType, ValueType, UIntType> {
+    : SimGlobalStateBase<ValueType, UIntType> {
     struct SimState;
 
-    using base_t = SimGlobalStateBase<GenType, ValueType, UIntType>;
-    using typename base_t::gen_t;
+    using base_t = SimGlobalStateBase<ValueType, UIntType>;
     using typename base_t::interface_t;
     using typename base_t::uint_t;
     using typename base_t::value_t;
+    using gen_t = GenType;
     using grid_range_t = GridRangeType;
 
     using sim_state_t = SimState;
@@ -101,12 +101,14 @@ struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
         sufficient_stats_;  // sufficient statistic for each arm
                             // - sum of Exp(1) for group 0 (control)
                             // - sum of Exp(hzrd_rate_) for group 1 (treatment)
+    gen_t gen_;
 
    public:
-    SimState(const outer_t& outer)
+    SimState(const outer_t& outer, size_t seed)
         : outer_(outer),
           exp_(1.0),
-          exp_randoms_(outer.n_arm_samples(), outer.n_params()) {}
+          exp_randoms_(outer.n_arm_samples(), outer.n_params()),
+          gen_(seed) {}
 
     KEVLAR_STRONG_INLINE
     auto control() { return exp_randoms_.col(0); }
@@ -127,8 +129,8 @@ struct SimGlobalStateFixedNLogHazardRate<GenType, ValueType, UIntType,
      * set to 1.
      */
     KEVLAR_STRONG_INLINE
-    void generate_data(gen_t& gen) {
-        exp_.sample(outer_.n_arm_samples(), outer_.n_params(), gen,
+    void generate_data() {
+        exp_.sample(outer_.n_arm_samples(), outer_.n_params(), gen_,
                     exp_randoms_);
         if (hzrd_rate_ != 1) exp_randoms_.col(1) *= (1. / hzrd_rate_);
     }

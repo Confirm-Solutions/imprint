@@ -53,19 +53,17 @@ TEST_F(slr_fixture, simulate_test) {
     // New model
     model_t model(n_arm_samples, censor_time, cvs);
     auto sgs = model.make_sim_global_state<gen_t, value_t, uint_t>(gr);
-    auto ss = sgs.make_sim_state();
+    auto ss = sgs.make_sim_state(seed);
     colvec_type<uint_t> actual(gr.n_tiles());
-    gen.seed(seed);
-    ss->simulate(gen, actual);
+    ss->simulate(actual);
 
     // Old model
     model_legacy_t model_leg(n_arm_samples, censor_time, cvs);
     model_leg.set_grid_range(gr);
-    auto ss_leg = model_leg.make_sim_state();
+    auto ss_leg = model_leg.make_sim_state(seed);
     colvec_type<uint_t> expected(gr.n_tiles());
     expected.setZero();
-    gen.seed(seed);
-    ss_leg->simulate(gen, expected);
+    ss_leg->simulate(expected);
 
     expect_eq_vec(actual, expected);
 }

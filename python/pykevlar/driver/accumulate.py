@@ -35,8 +35,19 @@ def accumulate_process(
     number of simulations under the given model.
     """
 
+    if n_threads <= 0:
+        raise ValueError("n_threads must be positive.")
+
+    max_threads = os.cpu_count()
+    if n_threads > max_threads:
+        n_threads = n_threads % max_threads
+        print(n_threads)
+
     # create sim global state
     sgs = model.make_sim_global_state(grid_range)
+
+    # create sim states
+    ss_s = [sgs.make_sim_state(base_seed + i) for i in range(n_threads)]
 
     # prepare output
     acc_o = TypeIErrorAccum(
@@ -45,11 +56,10 @@ def accumulate_process(
 
     # run C++ core routine
     accumulate(
-        sim_global_state=sgs,
+        vec_sim_states=ss_s,
         grid_range=grid_range,
         accum=acc_o,
         sim_size=sim_size,
-        seed=base_seed,
         n_threads=n_threads,
     )
 

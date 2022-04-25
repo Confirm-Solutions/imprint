@@ -70,7 +70,7 @@ void add_exponential_to_module(py::module_& m) {
  */
 void add_to_module(py::module_& m) {
     using mb_t = ModelBase<value_t>;
-    using sgs_t = SimGlobalStateBase<gen_t, value_t, uint_t>;
+    using sgs_t = SimGlobalStateBase<value_t, uint_t>;
     using kbs_t = KevlarBoundStateBase<value_t>;
 
     add_model_base<mb_t>(m);

@@ -33,18 +33,18 @@ struct ModelBase {
  * This class contains the interface for all model-specific
  * simulation related global caching and creating simulation states.
  */
-template <class GenType, class ValueType, class UIntType>
+template <class ValueType, class UIntType>
 struct SimGlobalStateBase {
     struct SimState;
 
     using interface_t = SimGlobalStateBase;
-    using gen_t = GenType;
     using value_t = ValueType;
     using uint_t = UIntType;
     using sim_state_t = SimState;
 
     virtual ~SimGlobalStateBase(){};
-    virtual std::unique_ptr<sim_state_t> make_sim_state() const = 0;
+
+    virtual std::unique_ptr<sim_state_t> make_sim_state(size_t seed) const = 0;
 };
 
 /*
@@ -52,9 +52,15 @@ struct SimGlobalStateBase {
  * This class contains the interface for all model-specific
  * simulation related routines.
  */
-template <class GenType, class ValueType, class UIntType>
-struct SimGlobalStateBase<GenType, ValueType, UIntType>::SimState {
+template <class ValueType, class UIntType>
+struct SimGlobalStateBase<ValueType, UIntType>::SimState {
+   private:
+    using outer_t = SimGlobalStateBase;
+
+   public:
     using interface_t = SimState;
+    using uint_t = typename outer_t::uint_t;
+    using value_t = typename outer_t::value_t;
 
     virtual ~SimState(){};
 
@@ -64,8 +70,7 @@ struct SimGlobalStateBase<GenType, ValueType, UIntType>::SimState {
      * The ith position of rejection_length corresponds to
      * the ith tile in a grid-range.
      */
-    virtual void simulate(gen_t& gen,
-                          Eigen::Ref<colvec_type<uint_t>> rejection_length) = 0;
+    virtual void simulate(Eigen::Ref<colvec_type<uint_t>> rejection_length) = 0;
 
     /*
      * Computes the score of exponential family for parameter at param_idx

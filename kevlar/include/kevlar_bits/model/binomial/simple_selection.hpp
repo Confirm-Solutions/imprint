@@ -100,9 +100,9 @@ struct SimpleSelection<ValueType>::SimGlobalState
     SimGlobalState(const model_t& model, const grid_range_t& grid_range)
         : base_t(model.n_arm_samples(), grid_range), model_(model) {}
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -211,12 +211,12 @@ struct SimpleSelection<ValueType>::SimGlobalState<
     };
 
    public:
-    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
+    SimState(const outer_t& sgs, size_t seed)
+        : base_t(sgs, seed), outer_(sgs) {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
         // sample binomial data for the whole grid-range
-        base_t::generate_data(gen);
+        base_t::generate_data();
         generate_sufficient_stats();
 
         const auto& sgs = outer_;

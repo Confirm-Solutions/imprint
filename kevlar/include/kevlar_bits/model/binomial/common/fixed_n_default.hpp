@@ -23,15 +23,14 @@ namespace binomial {
  * so it assumes grid-points lie in the natural parameter space.
  */
 template <class GenType, class ValueType, class UIntType, class GridRangeType>
-struct SimGlobalStateFixedNDefault
-    : SimGlobalStateBase<GenType, ValueType, UIntType> {
+struct SimGlobalStateFixedNDefault : SimGlobalStateBase<ValueType, UIntType> {
     struct SimState;
 
-    using base_t = SimGlobalStateBase<GenType, ValueType, UIntType>;
-    using typename base_t::gen_t;
+    using base_t = SimGlobalStateBase<ValueType, UIntType>;
     using typename base_t::interface_t;
     using typename base_t::uint_t;
     using typename base_t::value_t;
+    using gen_t = GenType;
     using grid_range_t = GridRangeType;
 
     using sim_state_t = SimState;
@@ -164,6 +163,7 @@ struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
         sufficient_stat_;  // sufficient statistic table for each
                            // arm and prob value sufficient_stat_(i,j) =
                            // suff stat at unique prob i at arm j.
+    gen_t gen_;
 
     template <bool do_const>
     KEVLAR_STRONG_INLINE auto sufficient_stats_arm(size_t j) const {
@@ -175,7 +175,13 @@ struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
     }
 
    public:
-    SimState(const outer_t& outer) : outer_(outer), uniform_(0., 1.) {}
+    SimState(const outer_t& outer, size_t seed)
+        : outer_(outer), uniform_(0., 1.), gen_(seed) {}
+
+    /*
+     * Returns a reference to the RNG.
+     */
+    auto& rng() { return gen_; }
 
     /*
      * Returns a read-only reference to the uniform randoms.
@@ -201,10 +207,10 @@ struct SimGlobalStateFixedNDefault<GenType, ValueType, UIntType,
      * Generate uniform random variables of shape (n_arm_samples, n_params).
      */
     KEVLAR_STRONG_INLINE
-    void generate_data(gen_t& gen) {
+    void generate_data() {
         const auto n_arm_samples = outer_.n_arm_samples_;
         const auto n_params = outer_.n_params();
-        uniform_.sample(n_arm_samples, n_params, gen, uniform_randoms_);
+        uniform_.sample(n_arm_samples, n_params, gen_, uniform_randoms_);
     }
 
     /*

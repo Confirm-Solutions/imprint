@@ -22,4 +22,5 @@ pybind_extension(
     main = "{}_main.py".format(name),
 ) for name in [
     "core",
+    "model",
 ]]

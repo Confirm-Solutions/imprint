@@ -31,14 +31,14 @@ struct ss_fixture : base_fixture {
             using outer_t = SimGlobalStateWrap;
             using base_t = typename outer_t::base_t::sim_state_t;
             using base_t::base_t;
-            void simulate(gen_t&, Eigen::Ref<colvec_type<uint_t>>) override{};
+            void simulate(Eigen::Ref<colvec_type<uint_t>>) override{};
         };
 
         using base_t::base_t;
 
-        std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-            const override {
-            return std::make_unique<SimStateWrap>(*this);
+        std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+            size_t seed) const override {
+            return std::make_unique<SimStateWrap>(*this, seed);
         }
     };
 
@@ -60,9 +60,9 @@ TEST_F(ss_fixture, score_test) {
     thetas.row(1) << -2, -1;
 
     sgs_t sgs(n_arm_samples, gr);
-    ss_t ss(sgs);
+    ss_t ss(sgs, seed);
 
-    ss.generate_data(gen);
+    ss.generate_data();
     ss.generate_sufficient_stats();
 
     for (size_t i = 0; i < n; ++i) {

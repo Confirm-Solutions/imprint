@@ -1,6 +1,8 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
+#include <export_utils/types.hpp>
+#include <kevlar_bits/model/base.hpp>
 #include <kevlar_bits/util/types.hpp>
 
 namespace kevlar {
@@ -13,13 +15,10 @@ void add_base_tests(py::module_& m) {
     using sbs_t = SGSB;
     using ss_t = typename sbs_t::sim_state_t;
 
-    m.def("test_py_sgs", [](const sbs_t& s) { return s.make_sim_state(); });
     m.def("test_py_ss_simulate", [](ss_t& s) {
-        using gen_t = typename sbs_t::gen_t;
         using uint_t = typename sbs_t::uint_t;
-        gen_t gen;
         colvec_type<uint_t> rej_len(10);
-        s.simulate(gen, rej_len);
+        s.simulate(rej_len);
         return rej_len;
     });
     m.def("test_py_ss_score", [](const ss_t& s) {
