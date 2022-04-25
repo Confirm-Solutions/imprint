@@ -41,7 +41,6 @@ def accumulate_process(
     max_threads = os.cpu_count()
     if n_threads > max_threads:
         n_threads = n_threads % max_threads
-        print(n_threads)
 
     # create sim global state
     sgs = model.make_sim_global_state(grid_range)
