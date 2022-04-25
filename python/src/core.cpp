@@ -3,6 +3,7 @@
 #include <driver/driver.hpp>
 #include <grid/grid.hpp>
 #include <model/model.hpp>
+#include <std/std.hpp>
 
 namespace py = pybind11;
 
@@ -19,5 +20,8 @@ PYBIND11_MODULE(core, m) {
 
     py::module_ bound_m = m.def_submodule("bound", "Bound submodule.");
     kevlar::bound::add_to_module(bound_m);
+
+    py::module_ std_m = m.def_submodule("std", "STD submodule.");
+    kevlar::std::add_to_module(std_m);
     /* Rest of the dependencies */
 }
