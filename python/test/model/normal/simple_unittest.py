@@ -52,7 +52,7 @@ class TestSimple(unittest.TestCase):
         upper = 1.4
         cv = 1.96
         model = self.make_model([upper + cv])
-        gr = self.make_grid_range(100, lower, upper)
-        sim_size = int(1e4)
+        gr = self.make_grid_range(10, lower, upper)
+        sim_size = int(1e3)
         acc_o = accumulate_process(model, gr, sim_size=sim_size, base_seed=0)
         print(acc_o.typeI_sum() / sim_size)
