@@ -14,8 +14,7 @@ class TestSimple(unittest.TestCase):
         thetas = Gridder.make_grid(n, lower, upper).reshape((1, n))
         radii = Gridder.radius(n, lower, upper) * np.ones((1, n))
         sim_sizes = 10 * np.ones(n, dtype=np.uint32)
-        gr = GridRange(thetas, radii, sim_sizes)
-        gr.create_tiles([])
+        gr = GridRange(thetas, radii, sim_sizes, [])
         return gr
 
     def test_make_model(self):

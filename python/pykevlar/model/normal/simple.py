@@ -1,6 +1,4 @@
-import jax.numpy as jnp
 import numpy as np
-from jax import jit
 from pykevlar.core.model import ModelBase, SimStateBase
 
 
@@ -11,10 +9,8 @@ class SimState(SimStateBase):
         self.std_normal = 0
         np.random.seed(seed)
 
-    @jit
     def simulate__(mus, comp, nulls):
-        rejs = mus > comp
-        return rejs & nulls
+        return nulls & (mus[0, :] > comp)
 
     def simulate(self, rej_len):
         cvs = self.outer.outer.critical_values()
@@ -22,9 +18,9 @@ class SimState(SimStateBase):
         self.std_normal = np.random.normal()
 
         rej_len[...] = SimState.simulate__(
-            self.outer.jnp_thetas[0, :],
+            self.outer.thetas,
             cvs[0] - self.std_normal,
-            self.outer.jnp_nulls,
+            self.outer.nulls,
         )
 
     def score(self, gridpt_idx, out):
@@ -34,15 +30,7 @@ class SimState(SimStateBase):
 class SimGlobalState:
     def __init__(self, outer, gr):
         self.outer = outer
-        self.gr = gr
-        self.jnp_thetas = jnp.array(gr.thetas())
-        self.jnp_nulls = jnp.array(
-            [
-                gr.check_null(i, j, 0)
-                for i in range(gr.n_gridpts())
-                for j in range(gr.n_tiles(i))
-            ]
-        )
+        self.thetas = gr.thetas()
         self.nulls = np.array(
             [
                 gr.check_null(i, j, 0)
