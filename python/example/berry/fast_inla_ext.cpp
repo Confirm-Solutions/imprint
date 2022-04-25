@@ -24,13 +24,14 @@ Access<T, D> get(Arr x) {
 }
 
 int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
-                   Arr y_in, Arr n_in, Arr sigma2_pts_in, Arr sigma2_wts_in,
-                   Arr log_prior_in, Arr neg_precQ_in, Arr cov_in,
-                   Arr logprecQdet_in, double mu_0, double logit_p1, double tol,
-                   double thresh_theta) {
+                   Arr theta_sigma_out, Arr y_in, Arr n_in, Arr sigma2_pts_in,
+                   Arr sigma2_wts_in, Arr log_prior_in, Arr neg_precQ_in,
+                   Arr cov_in, Arr logprecQdet_in, double mu_0, double logit_p1,
+                   double tol, double thresh_theta) {
     auto sigma2_post = get<double, 2>(sigma2_post_out);
     auto exceedances = get<double, 2>(exceedances_out);
     auto theta_max = get<double, 3>(theta_max_out);
+    auto theta_sigma = get<double, 3>(theta_sigma_out);
 
     auto y = get<double, 2>(y_in);
     auto n = get<double, 2>(n_in);
@@ -43,12 +44,10 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
     auto logprecQdet = get<double, 1>(logprecQdet_in);
     int N = y.buf.shape[0];
     int nsig2 = theta_max.buf.shape[1];
-    int na = 4;
     double tol2 = tol * tol;
 
-    // #pragma omp parallel for
+#pragma omp parallel for
     for (int p = 0; p < N; p++) {
-        std::vector<double> theta_sigma(nsig2 * 4);
         for (int s = 0; s < nsig2; s++) {
             std::array<double, 4> t{};
             std::array<double, 4> grad;
@@ -115,10 +114,14 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             // marginal std dev is the sqrt of the hessian diagonal.
             for (int i = 0; i < 4; i++) {
                 theta_max.get(p, s, i) = t[i];
-                theta_sigma[s * 4 + i] = std::sqrt(hess_inv[i][i]);
+                theta_sigma.get(p, s, i) = std::sqrt(hess_inv[i][i]);
             }
 
-            assert(converged);
+            if (!converged) {
+                throw std::runtime_error(
+                    "INLA optimization failed to converge");
+            }
+
             // calculate log joint distribution
             std::array<double, 4> tmm0;
             for (int i = 0; i < 4; i++) {
@@ -172,7 +175,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             for (int s = 0; s < nsig2; s++) {
                 double mu = theta_max.get(p, s, i);
                 double normalized =
-                    (thresh_theta - mu) / theta_sigma[s * 4 + i];
+                    (thresh_theta - mu) / theta_sigma.get(p, s, i);
                 double exc_sigma2 = 0.5 * (erf(-normalized * M_SQRT1_2) + 1);
                 exceedances.get(p, i) +=
                     exc_sigma2 * sigma2_post.get(p, s) * sigma2_wts.get(s);

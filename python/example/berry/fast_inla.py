@@ -61,6 +61,12 @@ class FastINLA:
             )
         )
 
+    def inference(self, y, n, method="numpy"):
+        fncs = dict(
+            numpy=self.numpy_inference, jax=self.jax_inference, cpp=self.cpp_inference
+        )
+        return fncs[method](y, n)
+
     def numpy_inference(self, y, n):
         N = y.shape[0]
         # TODO: warm start with DB theta ?
@@ -143,7 +149,7 @@ class FastINLA:
                 exc_sigma2 * sigma2_post * self.sigma2_rule.wts[None, :], axis=1
             )
             exceedances.append(exc)
-        return sigma2_post, np.stack(exceedances, axis=-1), theta_max
+        return sigma2_post, np.stack(exceedances, axis=-1), theta_max, theta_sigma
 
     def jax_inference(self, y, n):
         y = jnp.asarray(y)
@@ -159,7 +165,7 @@ class FastINLA:
             self.tol,
         )
 
-        sigma2_post, exceedances = jax_calc_posterior_and_exceedances(
+        sigma2_post, exceedances, theta_sigma = jax_calc_posterior_and_exceedances(
             theta_max,
             y,
             n,
@@ -173,7 +179,7 @@ class FastINLA:
             self.thresh_theta,
         )
 
-        return sigma2_post, exceedances, theta_max
+        return sigma2_post, exceedances, theta_max, theta_sigma
 
     def cpp_inference(self, y, n):
         import cppimport
@@ -182,10 +188,12 @@ class FastINLA:
         sigma2_post = np.empty((y.shape[0], self.sigma2_n))
         exceedances = np.empty((y.shape[0], self.n_arms))
         theta_max = np.empty((y.shape[0], self.sigma2_n, self.n_arms))
+        theta_sigma = np.empty((y.shape[0], self.sigma2_n, self.n_arms))
         ext.inla_inference(
             sigma2_post,
             exceedances,
             theta_max,
+            theta_sigma,
             y,
             n,
             self.sigma2_rule.pts,
@@ -199,7 +207,7 @@ class FastINLA:
             self.tol,
             self.thresh_theta,
         )
-        return sigma2_post, exceedances, theta_max
+        return sigma2_post, exceedances, theta_max, theta_sigma
 
 
 def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
@@ -294,4 +302,4 @@ def jax_calc_posterior_and_exceedances(
     exceedances = jnp.sum(
         exc_sigma2 * sigma2_post[:, :, None] * sigma2_wts[None, :, None], axis=1
     )
-    return sigma2_post, exceedances
+    return sigma2_post, exceedances, theta_sigma

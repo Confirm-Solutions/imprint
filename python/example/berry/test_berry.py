@@ -218,6 +218,28 @@ def test_exact_integrate():
 
 
 @pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
+def test_inla_properties(method):
+    n_i = np.array([[35, 35], [35, 35]])
+    y_i = np.array([[4, 7], [7, 4]])
+    inla_model = fast_inla.FastINLA(n_arms=2)
+    sigma2_post, exceedances, theta_max, theta_sigma = inla_model.numpy_inference(
+        y_i, n_i
+    )
+
+    # INLA inference should be perfectly symmetric in the arm ordering.
+    np.testing.assert_allclose(theta_max[0, :, 0], theta_max[1, :, 1])
+    np.testing.assert_allclose(theta_max[1, :, 0], theta_max[0, :, 1])
+    np.testing.assert_allclose(theta_sigma[0, :, 0], theta_sigma[1, :, 1])
+    np.testing.assert_allclose(theta_sigma[1, :, 0], theta_sigma[0, :, 1])
+    np.testing.assert_allclose(exceedances[0], np.flip(exceedances[1]))
+    np.testing.assert_allclose(sigma2_post[0], sigma2_post[1])
+
+    # INLA sigma2_post should integrate to 1.0
+    sigma2_integral = np.sum(sigma2_post * inla_model.sigma2_rule.wts, axis=-1)
+    np.testing.assert_allclose(sigma2_integral, 1.0)
+
+
+@pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
@@ -226,12 +248,7 @@ def test_fast_inla(method, N=10, iterations=1):
     runtimes = []
     for i in range(iterations):
         start = time.time()
-        if method == "numpy":
-            out = inla_model.numpy_inference(y_i, n_i)
-        elif method == "jax":
-            out = inla_model.jax_inference(y_i, n_i)
-        elif method == "cpp":
-            out = inla_model.cpp_inference(y_i, n_i)
+        out = inla_model.inference(y_i, n_i, method=method)
         end = time.time()
         runtimes.append(end - start)
 
@@ -240,7 +257,7 @@ def test_fast_inla(method, N=10, iterations=1):
         print("median runtime", np.median(runtimes))
         print("us per sample", np.median(runtimes) * 1e6 / N)
 
-    sigma2_post, exceedances, theta_max = out
+    sigma2_post, exceedances, theta_max, theta_sigma = out
 
     np.testing.assert_allclose(
         theta_max[0, 12],
@@ -273,7 +290,7 @@ def test_fast_inla(method, N=10, iterations=1):
 
 
 if __name__ == "__main__":
-    N = 100000
+    N = 10000
     it = 4
     print("jax")
     test_fast_inla("jax", N, it)

@@ -42,7 +42,6 @@ P(y, \theta, \sigma^2) &= P(\sigma^2) P(\theta|\sigma^2) P(y|\theta)
 
 
 
-
 # Dirty Bayes
 
 ## Section 1: Approximating the posterior conditional on hyperparameters
@@ -82,8 +81,6 @@ Using Gaussian posterior conjugacy:
 \mu_d = ...\\
 \Sigma_d = ...\\
 \end{align}
-
-
 
 ## Section 2: Integration over hyperparameters
 ### Step #5: integrate out $\sigma^2$
