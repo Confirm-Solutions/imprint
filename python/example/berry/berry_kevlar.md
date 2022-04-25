@@ -24,10 +24,9 @@ from scipy.special import logit, expit
 import matplotlib.pyplot as plt
 import numpy as np
 from pykevlar.core import mt19937
-from pykevlar.grid import HyperPlane
+from pykevlar.grid import HyperPlane, make_cartesian_grid_range
 from pykevlar.driver import accumulate_process
 import pykevlar.core.model.binomial
-from utils import make_cartesian_grid_range
 ```
 
 ```python
@@ -112,8 +111,8 @@ plt.xlabel(r'$\theta_0$')
 plt.ylabel(r'$\theta_1$')
 cbar.set_label('Type I error')
 plt.show()
-plt.title('Yellow points are above 2.5%')
-plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=out.typeI_sum()[0] > 0.025)
+plt.title('Yellow points are above 10%')
+plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=out.typeI_sum()[0] / sim_size > 0.1)
 plt.xlabel(r'$\theta_0$')
 plt.ylabel(r'$\theta_1$')
 plt.show()
@@ -146,8 +145,21 @@ samples = np.transpose(samples, (0, 2, 1))
 
 ```python
 # In a normal situation, we can generate samples like this:
-np.random.seed(seed)
-samples = np.random.rand(sim_size, n_arms, n_arm_samples)
+# np.random.seed(seed)
+# samples = np.random.rand(sim_size, n_arm_samples, n_arms)
+```
+
+```python
+print((64 ** 4) * 2.5 / 1e6 * 10000 / 3600.0, 'core hours')
+```
+
+```python
+365e3 / (145 * 1000),  4.2e6 / (145 * 1000)
+```
+
+```python
+
+64 ** 4 * 4 * 4 * 4 / 1e9
 ```
 
 ```python
@@ -172,8 +184,9 @@ y = np.sum(samples[None] < p_tiles[:, None, None, :], axis=2)
 # TODO: This is where we implement the early stopping procedure.
 y_flat = y.reshape((-1, 2))
 n_flat = np.full_like(y_flat, n_arm_samples)
-_, exceedance_flat, _ = fi.jax_inference(y_flat, n_flat)
-exceedance = exceedance_flat.to_py().reshape(y.shape)
+_, exceedance_flat, _, _ = fi.jax_inference(y_flat, n_flat)
+exceedance = exceedance_flat.reshape(y.shape)
+# instead of success, "did we reject"
 success = exceedance > critical_values[0]
 ```
 
@@ -187,11 +200,14 @@ is_null_per_arm = np.array([[gr.check_null(i, j) for j in range(n_arms)] for i i
 false_reject = success & is_null_per_arm[:, None,]
 any_rejection = np.any(false_reject, axis=-1)
 typeI_sum = any_rejection.sum(axis=-1)
-
 ```
 
 ```python
+y.size * 4 / 3e9 * 1000
+```
 
+```python
+%%time
 # The score function is the primary component of the typeI gradient:
 # 1. for binomial, it's just: y - n * p
 # 2. only summed when there is a rejection in the given simulation
@@ -241,7 +257,7 @@ plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=typeI_sum / sim_size)
 plt.colorbar()
 plt.show()
 
-plt.title('Grid points with multiple tiles')
+plt.title('Tile count per grid point')
 plt.scatter(theta[:,0], theta[:,1], c=np.array(gr.n_tiles_per_pt))
 plt.colorbar()
 plt.show()
@@ -255,6 +271,82 @@ This is a check to determine how much of the type I error is real versus an arti
 
 ```python
 import mcmc
+```
+
+```python
+sorted_idxs = np.argsort(typeI_sum)
+idx = sorted_idxs[-1]
+p_tiles[idx]
+```
+
+```python
+y_mcmc = y[idx, :]
+n_mcmc = np.full((sim_size, n_arms), n_arm_samples)
+data_mcmc = np.stack((y_mcmc, n_mcmc), axis=-1)
+n_mcmc_sims = 1000
+results_mcmc = mcmc.mcmc_berry(
+    data_mcmc[:n_mcmc_sims], fi.logit_p1, np.full(n_mcmc_sims, fi.thresh_theta), n_arms=2
+)
+
+success_mcmc = results_mcmc["exceedance"] > critical_values[0]
+
+```
+
+```python
+import pickle
+with open(f'berry_kevlar_mcmc{idx}.pkl', 'wb') as f:
+    pickle.dump(results_mcmc, f)
+```
+
+```python
+mcmc_typeI = np.sum(np.any(success_mcmc & is_null_per_arm[idx, None,:], axis=-1), axis=-1)
+inla_typeI = typeI_sum[idx]
+mcmc_typeI, inla_typeI
+```
+
+```python
+bad_sim_idxs = np.where(
+    np.any((success[idx] & (~success_mcmc)) & is_null_per_arm[idx, None], axis=-1)
+)[0]
+unique_bad = np.unique(y[idx, bad_sim_idxs], axis=0)
+print("theta =", theta_tiles[idx])
+bad_count = 0
+for i in range(unique_bad.shape[0]):
+    y_bad = unique_bad[i]
+    other_sim_idx = np.where((y[idx, :, 0] == y_bad[0]) & (y[idx, :, 1] == y_bad[1]))[0]
+    pct_mcmc = (
+        np.any(
+            success_mcmc[other_sim_idx] & is_null_per_arm[idx, None, :], axis=-1
+        ).sum()
+        / other_sim_idx.shape[0]
+    )
+    if pct_mcmc < 0.2:
+        print("bad y =", y_bad, "count =", other_sim_idx.shape[0])
+        bad_count += other_sim_idx.shape[0]
+print("\ninla type I =", inla_typeI)
+print("bad type I count =", bad_count)
+print('"true" type I count =', inla_typeI - bad_count)
+# print('pct of mcmc sims that had type I error', pct_mcmc)
+# print('')
+
+# print(
+#     "unique y where INLA says type 1 but MCMC says not type 1: ",
+#     np.unique(y[idx, bad_sim_idxs], axis=0),
+# )
+
+```
+
+```python
+bad_sim_idxs = np.where(np.any((success[idx] & (success_mcmc)) & is_null_per_arm[idx, None], axis=-1))[0]
+print('theta: ', theta_tiles[idx])
+print('unique y where INLA says type 1 and MCMC also says type 1: ', np.unique(y[idx, bad_sim_idxs], axis=0))
+```
+
+```python
+
+bad_sim_idxs = np.where(np.any((~success[idx] & (~success_mcmc)) & is_null_per_arm[idx, None], axis=-1))[0]
+print('theta: ', theta_tiles[idx])
+print('unique y where INLA says type 1 and MCMC also says type 1: ', np.unique(y[idx, bad_sim_idxs], axis=0))
 ```
 
 # [work-in-progress] Trying to set up a Python Kevlar Model.
