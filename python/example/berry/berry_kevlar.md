@@ -23,7 +23,7 @@ import fast_inla
 from scipy.special import logit, expit
 import matplotlib.pyplot as plt
 import numpy as np
-from pykevlar.core import mt19937
+from pykevlar import mt19937
 from pykevlar.grid import HyperPlane, make_cartesian_grid_range
 from pykevlar.driver import accumulate_process
 import pykevlar.core.model.binomial
@@ -147,19 +147,6 @@ samples = np.transpose(samples, (0, 2, 1))
 # In a normal situation, we can generate samples like this:
 # np.random.seed(seed)
 # samples = np.random.rand(sim_size, n_arm_samples, n_arms)
-```
-
-```python
-print((64 ** 4) * 2.5 / 1e6 * 10000 / 3600.0, 'core hours')
-```
-
-```python
-365e3 / (145 * 1000),  4.2e6 / (145 * 1000)
-```
-
-```python
-
-64 ** 4 * 4 * 4 * 4 / 1e9
 ```
 
 ```python
@@ -287,9 +274,7 @@ n_mcmc_sims = 1000
 results_mcmc = mcmc.mcmc_berry(
     data_mcmc[:n_mcmc_sims], fi.logit_p1, np.full(n_mcmc_sims, fi.thresh_theta), n_arms=2
 )
-
 success_mcmc = results_mcmc["exceedance"] > critical_values[0]
-
 ```
 
 ```python
