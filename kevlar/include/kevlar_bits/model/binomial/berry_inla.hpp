@@ -309,7 +309,6 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState<
 
    private:
     const outer_t& outer_;
-    std::mt19937 gen;
 
    public:
     SimState(const outer_t& sgs, size_t seed)
