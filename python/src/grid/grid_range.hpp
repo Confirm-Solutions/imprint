@@ -22,6 +22,12 @@ void add_grid_range(py::module_& m) {
                       const Eigen::Ref<const mat_type<value_t>>&,
                       const Eigen::Ref<const colvec_type<uint_t>>&>(),
              py::arg("thetas"), py::arg("radii"), py::arg("sim_sizes"))
+        .def(py::init<const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const mat_type<value_t>>&,
+                      const Eigen::Ref<const colvec_type<uint_t>>&,
+                      const vec_surf_t&, bool>(),
+             py::arg("thetas"), py::arg("radii"), py::arg("sim_sizes"),
+             py::arg("surfaces"), py::arg("prune") = true)
         .def("create_tiles", &gr_t::template create_tiles<vec_surf_t>,
              py::arg("surfaces"))
         .def("prune", &gr_t::prune)
@@ -43,13 +49,19 @@ void add_grid_range(py::module_& m) {
         .def("sim_sizes_const",
              py::overload_cast<>(&gr_t::sim_sizes, py::const_),
              py::return_value_policy::reference_internal)
-        .def("check_null", &gr_t::check_null, py::arg("tile_idx"),
+        .def("check_null",
+             py::overload_cast<size_t, size_t>(&gr_t::check_null, py::const_),
+             py::arg("tile_idx"), py::arg("hypo_idx"))
+        .def("check_null",
+             py::overload_cast<size_t, size_t, size_t>(&gr_t::check_null,
+                                                       py::const_),
+             py::arg("gridpt_idx"), py::arg("rel_tile_idx"),
              py::arg("hypo_idx"))
         .def(py::pickle(
             [](const gr_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
                 return py::make_tuple(p.thetas(), p.radii(), p.sim_sizes(),
-                                      p.n_tiles__(), p.tiles(), p.bits__());
+                                      p.cum_n_tiles__(), p.tiles(), p.bits__());
             },
             [](py::tuple t) {  // __setstate__
                 if (t.size() != 6) {
@@ -62,8 +74,8 @@ void add_grid_range(py::module_& m) {
                     std::decay_t<decltype(std::declval<gr_t>().radii())>;
                 using s_t =
                     std::decay_t<decltype(std::declval<gr_t>().sim_sizes())>;
-                using nt_t =
-                    std::decay_t<decltype(std::declval<gr_t>().n_tiles__())>;
+                using nt_t = std::decay_t<
+                    decltype(std::declval<gr_t>().cum_n_tiles__())>;
                 using tt_t =
                     std::decay_t<decltype(std::declval<gr_t>().tiles())>;
                 using b_t =
@@ -72,7 +84,7 @@ void add_grid_range(py::module_& m) {
                 auto thetas = t[0].cast<t_t>();
                 auto radii = t[1].cast<r_t>();
                 auto sim_sizes = t[2].cast<s_t>();
-                auto n_tiles = t[3].cast<nt_t>();
+                auto cum_n_tiles = t[3].cast<nt_t>();
                 auto tiles = t[4].cast<tt_t>();
                 auto bits = t[5].cast<b_t>();
 
@@ -81,7 +93,7 @@ void add_grid_range(py::module_& m) {
                 p.thetas() = thetas;
                 p.radii() = radii;
                 p.sim_sizes() = sim_sizes;
-                p.n_tiles__() = n_tiles;
+                p.cum_n_tiles__() = cum_n_tiles;
                 p.tiles__() = tiles;
                 p.bits__() = bits;
 

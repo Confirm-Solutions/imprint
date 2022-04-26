@@ -10,7 +10,6 @@
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
-#include <random>
 
 namespace kevlar {
 namespace bound {
@@ -18,10 +17,9 @@ namespace bound {
 namespace py = pybind11;
 
 void add_to_module(py::module_& m) {
-    using gen_t = std::mt19937;
     using tile_t = grid::Tile<py_double_t>;
     using gr_t = grid::GridRange<py_double_t, py_uint_t, tile_t>;
-    using sgs_t = model::SimGlobalStateBase<gen_t, py_double_t, py_uint_t>;
+    using sgs_t = model::SimGlobalStateBase<py_double_t, py_uint_t>;
     using ss_t = typename sgs_t::sim_state_t;
     using kbs_t = model::KevlarBoundStateBase<py_double_t>;
     using acc_t = TypeIErrorAccum<py_double_t, py_uint_t>;

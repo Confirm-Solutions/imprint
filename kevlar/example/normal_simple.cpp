@@ -50,16 +50,15 @@ int main() {
 
     // create a simulation state,
     // which defines the simulation routine.
-    auto ss = sgs.make_sim_state();
+    auto ss = sgs.make_sim_state(seed);
 
     colvec_type<uint32_t> rejection_length(gr.n_tiles());
     colvec_type<uint32_t> rejection_sum(gr.n_tiles());
     rejection_sum.setZero();
-    std::mt19937 gen(seed);
 
     // simulate and accumulate rejection counts
     for (size_t i = 0; i < n_sims; ++i) {
-        ss->simulate(gen, rejection_length);
+        ss->simulate(rejection_length);
         rejection_sum += rejection_length;
     }
 

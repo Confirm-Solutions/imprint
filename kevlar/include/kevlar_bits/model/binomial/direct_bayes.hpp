@@ -293,9 +293,9 @@ struct DirectBayes<ValueType>::SimGlobalState
         return posterior_exceedance_probs;
     }
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -316,18 +316,17 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     const outer_t& outer_;
 
    public:
-    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
+    SimState(const outer_t& sgs, size_t seed)
+        : base_t(sgs, seed), outer_(sgs) {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        base_t::generate_data(gen);
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        base_t::generate_data();
         base_t::generate_sufficient_stats();
 
         const auto& bits = outer_.bits();
         const auto& gr_view = outer_.grid_range();
 
         const auto n_params = gr_view.n_params();  // same as n_arms
-        const auto n_arm_size = outer_.model_.n_arm_samples();
         const auto& critical_values = outer_.model_.critical_values();
 
         size_t pos = 0;
@@ -379,10 +378,6 @@ struct DirectBayes<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     }
 
     using base_t::score;
-
-    // TODO: from here and below are extra functions only used internally.
-    // What's the best way to keep them testable while hiding them from public
-    // interface?
 };
 
 }  // namespace binomial

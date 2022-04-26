@@ -104,9 +104,9 @@ struct Thompson<ValueType>::SimGlobalState
     SimGlobalState(const model_t& model, const grid_range_t& grid_range)
         : base_t(model.n_arm_samples(), grid_range), model_(model) {}
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -139,9 +139,12 @@ struct Thompson<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     }
 
     KEVLAR_STRONG_INLINE
-    void generate_data(gen_t& gen) {
+    void generate_data() {
         // generate uniforms
-        base_t::generate_data(gen);
+        base_t::generate_data();
+
+        // get rng
+        auto& gen = base_t::rng();
 
         // cache gamma values
         end_left_ = gamma_a_(gen);
@@ -201,18 +204,17 @@ struct Thompson<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     }
 
    public:
-    SimState(const outer_t& sgs)
-        : base_t(sgs),
+    SimState(const outer_t& sgs, size_t seed)
+        : base_t(sgs, seed),
           outer_(sgs),
           g_sums_(outer_.model().n_arm_samples() + 1),
           gamma_a_(sgs.model().alpha_prior()),
           gamma_b_(sgs.model().beta_prior()),
           gamma_1_() {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
         // generate all possible gamma outcomes and uniforms
-        generate_data(gen);
+        generate_data();
 
         const auto& sgs = outer_;
         const auto& bits = sgs.bits();

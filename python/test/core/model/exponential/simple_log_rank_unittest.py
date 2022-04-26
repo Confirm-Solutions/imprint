@@ -39,6 +39,6 @@ class TestSimpleLogRank(unittest.TestCase):
         # the following just needs to run without error
         gr = self.make_grid_range(3, 5)
         sgs = m.make_sim_global_state(gr)
-        sgs.make_sim_state()
+        sgs.make_sim_state(0)
 
         m.make_kevlar_bound_state(gr)

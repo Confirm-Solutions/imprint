@@ -102,7 +102,6 @@ static void BM_rej_len(benchmark::State& state) {
     auto sgs =
         model.make_sim_global_state<gen_t, value_t, uint_t, gr_t>(grid_range);
     size_t seed = 3214;
-    gen_t gen(seed);
     colvec_type<uint_t> rej_len(grid_range.n_tiles());
     acc_t acc_os(critical_values.size(), grid_range.n_tiles(), n_arms);
     for (auto _ : state) {

@@ -22,8 +22,8 @@ struct GridRange {
     colvec_type<uint_t> sim_sizes_;  // vector of simulation sizes
 
     // updated via member functions
-    std::vector<uint_t>
-        n_tiles_;  // n_tiles_[i] = number of tiles for ith gridpoint
+    std::vector<uint_t> cum_n_tiles_;  // cum_n_tiles_[i] = cumulative number of
+                                       // tiles for ith gridpoint
     std::vector<bits_t> bits_;  // vector of bits to represent ISH of each tile
     std::vector<tile_t>
         tiles_;  // vector of tiles (flattened across all gridpoints)
@@ -79,11 +79,21 @@ struct GridRange {
               const Eigen::Ref<const colvec_type<uint_t>>& sim_sizes)
         : thetas_(thetas), radii_(radii), sim_sizes_(sim_sizes) {}
 
+    template <class VecSurfType>
+    GridRange(const Eigen::Ref<const mat_type<value_t>>& thetas,
+              const Eigen::Ref<const mat_type<value_t>>& radii,
+              const Eigen::Ref<const colvec_type<uint_t>>& sim_sizes,
+              const VecSurfType& surfs, bool do_prune = true)
+        : thetas_(thetas), radii_(radii), sim_sizes_(sim_sizes) {
+        create_tiles(surfs);
+        if (do_prune) prune();
+    }
+
     GridRange(const GridRange& gr)
         : thetas_(gr.thetas_),
           radii_(gr.radii_),
           sim_sizes_(gr.sim_sizes_),
-          n_tiles_(gr.n_tiles_),
+          cum_n_tiles_(gr.cum_n_tiles_),
           bits_(gr.bits_),
           tiles_(gr.tiles_) {
         reset_tiles_viewer();
@@ -93,7 +103,7 @@ struct GridRange {
         : thetas_(std::move(gr.thetas_)),
           radii_(std::move(gr.radii_)),
           sim_sizes_(std::move(gr.sim_sizes_)),
-          n_tiles_(std::move(gr.n_tiles_)),
+          cum_n_tiles_(std::move(gr.cum_n_tiles_)),
           bits_(std::move(gr.bits_)),
           tiles_(std::move(gr.tiles_)) {
         reset_tiles_viewer();
@@ -103,7 +113,7 @@ struct GridRange {
         thetas_ = gr.thetas_;
         radii_ = gr.radii_;
         sim_sizes_ = gr.sim_sizes_;
-        n_tiles_ = gr.n_tiles_;
+        cum_n_tiles_ = gr.cum_n_tiles_;
         bits_ = gr.bits_;
         tiles_ = gr.tiles_;
         reset_tiles_viewer();
@@ -114,7 +124,7 @@ struct GridRange {
         thetas_ = std::move(gr.thetas_);
         radii_ = std::move(gr.radii_);
         sim_sizes_ = std::move(gr.sim_sizes_);
-        n_tiles_ = std::move(gr.n_tiles_);
+        cum_n_tiles_ = std::move(gr.cum_n_tiles_);
         bits_ = std::move(gr.bits_);
         tiles_ = std::move(gr.tiles_);
         reset_tiles_viewer();
@@ -135,7 +145,8 @@ struct GridRange {
      */
     template <class VecSurfaceType>
     void create_tiles(const VecSurfaceType& vec_surf) {
-        n_tiles_.resize(n_gridpts());
+        cum_n_tiles_.resize(n_gridpts() + 1);
+        cum_n_tiles_[0] = 0;
 
         bits_.reserve(n_gridpts());
         tiles_.reserve(
@@ -206,8 +217,8 @@ struct GridRange {
                 }
             }
 
-            n_tiles_[j] = tiles_.size() - tiles_begin;
-            tiles_begin += n_tiles_[j];
+            cum_n_tiles_[j + 1] = tiles_.size();
+            tiles_begin += cum_n_tiles_[j + 1] - tiles_begin;
         }
 
         assert(tiles_begin == n_tiles());
@@ -222,11 +233,12 @@ struct GridRange {
         if (n_tiles() == 0) return;
 
         std::vector<uint_t> grid_idx;
-        std::vector<uint_t> new_n_tiles;
+        std::vector<uint_t> new_cum_n_tiles;
         std::vector<bits_t> new_bits;
         std::vector<tile_t> new_tiles;
 
-        new_n_tiles.reserve(n_gridpts());
+        new_cum_n_tiles.reserve(n_gridpts() + 1);
+        new_cum_n_tiles.push_back(0);
         new_bits.reserve(bits_.size());
         new_tiles.reserve(tiles_.size());
 
@@ -244,13 +256,13 @@ struct GridRange {
             if (n_append == 0) {
                 grid_idx.push_back(g);
             } else {
-                new_n_tiles.push_back(n_append);
+                new_cum_n_tiles.push_back(n_append + new_cum_n_tiles.back());
             }
             pos += n_tiles(g);
         }
 
         std::swap(bits_, new_bits);
-        std::swap(n_tiles_, new_n_tiles);
+        std::swap(cum_n_tiles_, new_cum_n_tiles);
         std::swap(tiles_, new_tiles);
 
         mat_type<value_t> new_thetas(thetas_.rows(),
@@ -298,7 +310,7 @@ struct GridRange {
 
     // This function is only valid once create_tiles() has been called.
     KEVLAR_STRONG_INLINE uint_t n_tiles(size_t gridpt_idx) const {
-        return n_tiles_[gridpt_idx];
+        return cum_n_tiles_[gridpt_idx + 1] - cum_n_tiles_[gridpt_idx];
     }
     KEVLAR_STRONG_INLINE uint_t n_tiles() const { return tiles_.size(); }
     KEVLAR_STRONG_INLINE uint_t n_gridpts() const { return thetas_.cols(); }
@@ -319,6 +331,13 @@ struct GridRange {
                 (static_cast<unsigned char>(1) << hypo_idx)) == 0;
     }
 
+    KEVLAR_STRONG_INLINE
+    bool check_null(size_t gridpt_idx, size_t rel_tile_idx,
+                    size_t hypo_idx) const {
+        size_t tile_idx = n_tiles(gridpt_idx) + rel_tile_idx;
+        return check_null(tile_idx, hypo_idx);
+    }
+
     /*
      * Returns true if the gridpoint at idx
      * is associated with a regular tile, i.e. a rectangular tile.
@@ -336,7 +355,7 @@ struct GridRange {
      * but also pre-fetches less in total.
      */
     KEVLAR_STRONG_INLINE
-    bool is_regular(size_t idx) const { return n_tiles_[idx] == 1; }
+    bool is_regular(size_t idx) const { return n_tiles(idx) == 1; }
 
     KEVLAR_STRONG_INLINE
     static constexpr size_t max_bits() { return sizeof(bits_t) * 8; }
@@ -348,9 +367,11 @@ struct GridRange {
 
     // Helper functions for pickling stuff
     KEVLAR_STRONG_INLINE auto& tiles__() { return tiles_; }
-    KEVLAR_STRONG_INLINE auto& n_tiles__() { return n_tiles_; }
+    KEVLAR_STRONG_INLINE auto& cum_n_tiles__() { return cum_n_tiles_; }
     KEVLAR_STRONG_INLINE auto& bits__() { return bits_; }
-    KEVLAR_STRONG_INLINE const auto& n_tiles__() const { return n_tiles_; }
+    KEVLAR_STRONG_INLINE const auto& cum_n_tiles__() const {
+        return cum_n_tiles_;
+    }
     KEVLAR_STRONG_INLINE const auto& bits__() const { return bits_; }
 };
 

@@ -16,10 +16,9 @@ namespace exponential {
 namespace legacy {
 
 template <class ValueType, class UIntType, class GridRangeType>
-struct ExpControlkTreatment
-    : ControlkTreatmentBase,
-      ModelBase<ValueType>,
-      SimGlobalStateBase<std::mt19937, ValueType, UIntType> {
+struct ExpControlkTreatment : ControlkTreatmentBase,
+                              ModelBase<ValueType>,
+                              SimGlobalStateBase<ValueType, UIntType> {
    private:
     using static_interface_t = ControlkTreatmentBase;
 
@@ -30,7 +29,7 @@ struct ExpControlkTreatment
     using base_t = static_interface_t;
     using model_base_t = ModelBase<ValueType>;
     using gen_t = std::mt19937;
-    using sgs_t = SimGlobalStateBase<std::mt19937, value_t, uint_t>;
+    using sgs_t = SimGlobalStateBase<value_t, uint_t>;
 
     struct StateType : sgs_t::sim_state_t {
        private:
@@ -38,18 +37,19 @@ struct ExpControlkTreatment
         const outer_t& outer_;
 
        public:
-        StateType(const outer_t& outer)
+        StateType(const outer_t& outer, size_t seed)
             : outer_(outer),
               exp_dist_(1.0),
               exp_(outer.n_samples(), outer.n_arms()),
               logrank_cum_sum_(2 * outer.n_samples() + 1),
-              v_cum_sum_(2 * outer.n_samples() + 1) {}
+              v_cum_sum_(2 * outer.n_samples() + 1),
+              gen_(seed) {}
 
-        void simulate(gen_t& gen,
-                      Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
             // generate data
-            exp_ = exp_.NullaryExpr(outer_.n_samples(), outer_.n_arms(),
-                                    [&](auto, auto) { return exp_dist_(gen); });
+            exp_ =
+                exp_.NullaryExpr(outer_.n_samples(), outer_.n_arms(),
+                                 [&](auto, auto) { return exp_dist_(gen_); });
 
             // generate suff stat
             suff_stat_ = exp_.colwise().sum();
@@ -208,6 +208,7 @@ struct ExpControlkTreatment
                          // - sum of Exp(hzrd_rate) for group 1 (treatment)
         colvec_type<value_t> logrank_cum_sum_;
         colvec_type<value_t> v_cum_sum_;
+        gen_t gen_;
     };
 
     using state_t = StateType;
@@ -254,9 +255,9 @@ struct ExpControlkTreatment
     /*
      * Create a state object associated with the current model instance.
      */
-    std::unique_ptr<typename sgs_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<state_t>(*this);
+    std::unique_ptr<typename sgs_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<state_t>(*this, seed);
     }
 
     value_t cov_quad(size_t j,

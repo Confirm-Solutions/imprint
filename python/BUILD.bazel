@@ -15,6 +15,13 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "pykevlar_headers",
+    hdrs = glob(["src/**/*.hpp"]),
+    includes = ["src/"],
+    visibility = ["//visibility:public"],
+)
+
 pybind_extension(
     name = "pykevlar/core",
     srcs = glob([

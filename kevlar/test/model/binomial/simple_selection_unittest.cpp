@@ -149,7 +149,7 @@ TEST_F(bckt_state_fixture, test_rej) {
     auto sgs =
         b_new.make_sim_global_state<gen_t, value_t, uint_t, gr_t>(grid_range);
 
-    auto s_new = sgs.make_sim_state();
+    auto s_new = sgs.make_sim_state(seed);
     state_leg_t s_leg(b_leg);
 
     // get legacy rejections
@@ -162,8 +162,7 @@ TEST_F(bckt_state_fixture, test_rej) {
 
     // get new rejections
     colvec_type<uint_t> actual(grid_range.n_tiles());
-    gen.seed(seed);
-    s_new->simulate(gen, actual);
+    s_new->simulate(actual);
 
     expect_eq_vec(actual, expected);
 }
