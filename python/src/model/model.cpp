@@ -82,14 +82,12 @@ void add_binomial_to_module(py::module_& m) {
     using thompson_t = Thompson<value_t>;
     add_thompson<thompson_t, gen_t, value_t, uint_t, gr_t>(m);
 
-    {
-        add_berry_inla_to_module<2>(m, "BerryINLA2", "BerryINLA2SimGlobalState",
-                                    "BerryINLA2SimState");
-        add_berry_inla_to_module<3>(m, "BerryINLA3", "BerryINLA3SimGlobalState",
-                                    "BerryINLA3SimState");
-        add_berry_inla_to_module<4>(m, "BerryINLA4", "BerryINLA4SimGlobalState",
-                                    "BerryINLA4SimState");
-    }
+    add_berry_inla_to_module<2>(m, "BerryINLA2", "BerryINLA2SimGlobalState",
+                                "BerryINLA2SimState");
+    add_berry_inla_to_module<3>(m, "BerryINLA3", "BerryINLA3SimGlobalState",
+                                "BerryINLA3SimState");
+    add_berry_inla_to_module<4>(m, "BerryINLA4", "BerryINLA4SimGlobalState",
+                                "BerryINLA4SimState");
 }
 
 /*
