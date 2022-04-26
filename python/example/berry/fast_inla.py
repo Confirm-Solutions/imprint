@@ -21,7 +21,7 @@ def fast_invert(S_in, d):
 
 
 class FastINLA:
-    def __init__(self, n_arms=4, sigma2_n=15):
+    def __init__(self, n_arms=4, sigma2_n=15, critical_value=0.85):
         self.n_arms = n_arms
         self.mu_0 = -1.34
         self.mu_sig_sq = 100.0
@@ -40,6 +40,7 @@ class FastINLA:
         )
         self.tol = 1e-3
         self.thresh_theta = logit(0.1) - logit(0.3)
+        self.critical_value = critical_value
 
         # For JAX impl:
         self.sigma2_pts_jax = jnp.asarray(self.sigma2_rule.pts)
@@ -61,7 +62,11 @@ class FastINLA:
             )
         )
 
-    def inference(self, y, n, method="numpy"):
+    def rejection_inference(self, y, n, method="jax"):
+        _, exceedance, _, _ = self.inference(y, n, method)
+        return exceedance > self.critical_value
+
+    def inference(self, y, n, method="jax"):
         fncs = dict(
             numpy=self.numpy_inference, jax=self.jax_inference, cpp=self.cpp_inference
         )

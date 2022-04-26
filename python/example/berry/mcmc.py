@@ -15,13 +15,14 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 
 
-@profile
 def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples=10000):
-    @profile
     def mcmc_berry_model(y, n):
         mu = numpyro.sample("mu", dist.Normal(-1.34, 10))
 
-        # An attempt at sampling from the logarithm to make the conditioning better.
+        # NOTE: An attempt at sampling from the logarithm to make the
+        # conditioning better and avoid the need for small step_size. This
+        # didn't work but maybe something like it would work, so I left the code
+        # here.
         # LogTransform = dist.transforms._InverseTransform(dist.transforms.ExpTransform())
         # log_inverse_gamma = dist.TransformedDistribution(
         #     dist.InverseGamma(0.0005, 0.000005),
@@ -59,6 +60,9 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
         x=[None] * n_data,
         summary=[None] * n_data,
     )
+
+    # Small step_size is necessary for the sampler to notice the density lying
+    # in [1e-6, 1e-3]. Without this, results are very wrong.
     nuts_kwargs = dict(step_size=0.002, adapt_step_size=False)
     nuts_kernel = numpyro.infer.NUTS(mcmc_berry_model, **nuts_kwargs)
     mcmc = numpyro.infer.MCMC(

@@ -341,10 +341,6 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState<
             for (size_t n_t = 0; n_t < gr.n_tiles(grid_i); ++n_t, ++pos) {
                 value_t max_null_prob_exceed = 0;
                 for (int arm_i = 0; arm_i < ARMS; ++arm_i) {
-                    // if (grid_i == 67) {
-                    //     std::cout << arm_i << " " << gr.check_null(pos,
-                    //     arm_i) << std::endl;
-                    // }
                     if (gr.check_null(pos, arm_i)) {
                         max_null_prob_exceed =
                             std::max(max_null_prob_exceed, exceedance[arm_i]);
