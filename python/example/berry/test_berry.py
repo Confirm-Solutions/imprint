@@ -217,6 +217,37 @@ def test_exact_integrate():
     np.testing.assert_allclose(p_sigma2_g_y[0], expected, 1e-6)
 
 
+# def test_exact_convergence():
+#     n_i = np.full((1, 2), 10)
+#     y_i = np.array([[1, 6]])
+#     data = np.stack((y_i, n_i), axis=2)
+#     b = berry.Berry(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
+
+#     sigma2_n
+#     cov = np.full((sigma2_n, n_arms, n_arms), mu_sig_sq)
+#     cov[:, arms, arms] += sigma2_rule.pts[:, None]
+#     neg_precQ = -np.linalg.inv(cov)
+#     logjoint = (
+#         0.5 * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
+#         + self.logprecQdet
+#         + np.sum(
+#             theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
+#             axis=-1,
+#         )
+#         + self.log_prior
+#     )
+
+#     I_11 = quadrature.integrate(
+#         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=11
+#     )
+#     I_11 /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
+#     I_13 = quadrature.integrate(
+#         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=13
+#     )
+#     I_13 /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
+#     np.testing.assert_allclose(I_11, I_13, 1e-5)
+
+
 @pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
 def test_inla_properties(method):
     n_i = np.array([[35, 35], [35, 35]])

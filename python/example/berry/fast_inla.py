@@ -107,18 +107,7 @@ class FastINLA:
         assert converged
 
         # Step 2) Calculate the joint distribution p(theta, y, sigma^2)
-        theta_m0 = theta_max - self.mu_0
-        theta_adj = theta_max + self.logit_p1
-        exp_theta_adj = np.exp(theta_adj)
-        logjoint = (
-            0.5 * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
-            + self.logprecQdet
-            + np.sum(
-                theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
-                axis=-1,
-            )
-            + self.log_prior
-        )
+        logjoint = self.log_joint(theta_max)
 
         # Step 3) Calculate p(sigma^2 | y) = (
         #   p(theta_max, y, sigma^2)
@@ -155,6 +144,23 @@ class FastINLA:
             )
             exceedances.append(exc)
         return sigma2_post, np.stack(exceedances, axis=-1), theta_max, theta_sigma
+
+    def log_joint(self, y, n, theta):
+        """
+        theta is expected to have shape (N, n_sigma2, n_arms)
+        """
+        theta_m0 = theta - self.mu_0
+        theta_adj = theta + self.logit_p1
+        exp_theta_adj = np.exp(theta_adj)
+        return (
+            0.5 * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
+            + self.logprecQdet
+            + np.sum(
+                theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
+                axis=-1,
+            )
+            + self.log_prior
+        )
 
     def jax_inference(self, y, n):
         y = jnp.asarray(y)
