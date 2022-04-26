@@ -99,7 +99,10 @@ print('runtime', end - start)
 
 ```python
 theta = gr.thetas().T.copy()
-theta_tiles = np.repeat(theta, np.array(gr.n_tiles_per_pt), axis=0)
+# TODO: it'd be nice to add theta_tiles and is_null_per_arm to the GridRange object!
+cum_n_tiles = np.array(gr.cum_n_tiles)
+n_tiles_per_pt = cum_n_tiles[1:] - cum_n_tiles[:-1]
+theta_tiles = np.repeat(theta, n_tiles_per_pt, axis=0)
 ```
 
 ```python
@@ -162,7 +165,10 @@ samples = np.transpose(samples, (0, 2, 1))
 # n_arms). So, we add empty dimensions to broadcast to an output `y` array of
 # shape: (n_thetas, sim_size, n_arm_samples, n_arms)
 theta = gr.thetas().T.copy()
-theta_tiles = np.repeat(theta, np.array(gr.n_tiles_per_pt), axis=0)
+# TODO: it'd be nice to add theta_tiles and is_null_per_arm to the GridRange object!
+cum_n_tiles = np.array(gr.cum_n_tiles)
+n_tiles_per_pt = cum_n_tiles[1:] - cum_n_tiles[:-1]
+theta_tiles = np.repeat(theta, n_tiles_per_pt, axis=0)
 p_tiles = expit(theta_tiles)
 y = np.sum(samples[None] < p_tiles[:, None, None, :], axis=2)
 
@@ -172,7 +178,7 @@ y = np.sum(samples[None] < p_tiles[:, None, None, :], axis=2)
 y_flat = y.reshape((-1, 2))
 n_flat = np.full_like(y_flat, n_arm_samples)
 _, exceedance_flat, _, _ = fi.jax_inference(y_flat, n_flat)
-exceedance = exceedance_flat.reshape(y.shape)
+exceedance = exceedance_flat.reshape(y.shape).to_py()
 # instead of success, "did we reject"
 success = exceedance > critical_values[0]
 ```
@@ -190,10 +196,6 @@ typeI_sum = any_rejection.sum(axis=-1)
 ```
 
 ```python
-y.size * 4 / 3e9 * 1000
-```
-
-```python
 %%time
 # The score function is the primary component of the typeI gradient:
 # 1. for binomial, it's just: y - n * p
@@ -206,7 +208,7 @@ Confirm that Kevlar and this Python code produce the same output.
 
 ```python
 typeI_good = np.all(out.typeI_sum() == typeI_sum)
-score_good = np.all(out.score_sum().reshape((-1, 2)) == typeI_score)
+score_good = np.all(np.abs(out.score_sum().reshape((-1, 2)) - typeI_score) < 1e-13)
 typeI_good, score_good
 ```
 
@@ -219,7 +221,7 @@ typeI_good, score_good
 # plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=y_avg[:,1] / n_arm_samples)
 # plt.colorbar()
 # plt.show()
-pos_start = np.cumsum(gr.n_tiles_per_pt) - gr.n_tiles_per_pt[0]
+pos_start = gr.cum_n_tiles[:-1]
 is_null_per_arm_gridpt = np.add.reduceat(is_null_per_arm, pos_start, axis=0) > 0
 
 plt.title('Is null for arm 0?')
@@ -245,7 +247,7 @@ plt.colorbar()
 plt.show()
 
 plt.title('Tile count per grid point')
-plt.scatter(theta[:,0], theta[:,1], c=np.array(gr.n_tiles_per_pt))
+plt.scatter(theta[:,0], theta[:,1], c=n_tiles_per_pt)
 plt.colorbar()
 plt.show()
 ```

@@ -105,9 +105,9 @@ struct SimpleLogRank<ValueType>::SimGlobalState
           model_(model),
           grid_range_(grid_range) {}
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -178,14 +178,13 @@ struct SimpleLogRank<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     }
 
    public:
-    SimState(const outer_t& outer)
-        : base_t(outer),
+    SimState(const outer_t& outer, size_t seed)
+        : base_t(outer, seed),
           outer_(outer),
           lrt_(base_t::control(), base_t::treatment()) {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        base_t::generate_data(gen);
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        base_t::generate_data();
         base_t::generate_sufficient_stats();
 
         // sort the columns to optimize log-rank procedure.

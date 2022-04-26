@@ -55,14 +55,14 @@ template <class ValueType>
 template <class _GenType, class _ValueType, class _UIntType,
           class _GridRangeType>
 struct Simple<ValueType>::SimGlobalState
-    : SimGlobalStateBase<_GenType, _ValueType, _UIntType> {
+    : SimGlobalStateBase<_ValueType, _UIntType> {
     struct SimState;
 
-    using base_t = SimGlobalStateBase<_GenType, _ValueType, _UIntType>;
-    using typename base_t::gen_t;
+    using base_t = SimGlobalStateBase<_ValueType, _UIntType>;
     using typename base_t::interface_t;
     using typename base_t::uint_t;
     using typename base_t::value_t;
+    using gen_t = _GenType;
     using grid_range_t = _GridRangeType;
 
     using sim_state_t = SimState;
@@ -84,9 +84,9 @@ struct Simple<ValueType>::SimGlobalState
         // the grid-points themselves
     }
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -110,12 +110,13 @@ struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
     normal_t normal_;       // standard normal object
     value_t std_normal_ =
         std::numeric_limits<value_t>::infinity();  // standard normal r.v.
+    gen_t gen_;
 
    public:
-    SimState(const outer_t& outer) : outer_(outer), normal_(0., 1.) {}
+    SimState(const outer_t& outer, size_t seed)
+        : outer_(outer), normal_(0., 1.), gen_(seed) {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rejection_length) override {
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rejection_length) override {
         // grab global state members
         const auto& model = outer_.model();
         const auto& gr = outer_.grid_range();
@@ -124,7 +125,7 @@ struct Simple<ValueType>::SimGlobalState<_GenType, _ValueType, _UIntType,
         const auto& cv = model.critical_values();
 
         // generate a new standard normal
-        std_normal_ = normal_.sample(gen);
+        std_normal_ = normal_.sample(gen_);
 
         size_t pos = 0;
         for (int i = 0; i < gr.n_gridpts(); ++i) {

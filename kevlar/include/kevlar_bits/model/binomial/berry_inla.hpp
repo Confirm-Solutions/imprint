@@ -288,9 +288,9 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState
     SimGlobalState(const model_t& model, const grid_range_t& grid_range)
         : base_t(model.n_arm_samples, grid_range), model(model) {}
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -309,13 +309,14 @@ struct BerryINLA<ValueType, ARMS>::SimGlobalState<
 
    private:
     const outer_t& outer_;
+    std::mt19937 gen;
 
    public:
-    SimState(const outer_t& sgs) : base_t(sgs), outer_(sgs) {}
+    SimState(const outer_t& sgs, size_t seed)
+        : base_t(sgs, seed), outer_(sgs) {}
 
-    void simulate(gen_t& gen,
-                  Eigen::Ref<colvec_type<uint_t>> rej_len) override {
-        base_t::generate_data(gen);
+    void simulate(Eigen::Ref<colvec_type<uint_t>> rej_len) override {
+        base_t::generate_data();
         base_t::generate_sufficient_stats();
 
         const auto& bits = outer_.bits();

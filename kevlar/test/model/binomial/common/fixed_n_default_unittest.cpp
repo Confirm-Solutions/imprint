@@ -25,9 +25,9 @@ struct SimGlobalStateFixedNDefaultWrap
 
     using base_t::base_t;
 
-    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state()
-        const override {
-        return std::make_unique<sim_state_t>(*this);
+    std::unique_ptr<typename interface_t::sim_state_t> make_sim_state(
+        size_t seed) const override {
+        return std::make_unique<sim_state_t>(*this, seed);
     }
 };
 
@@ -39,7 +39,7 @@ struct SimGlobalStateFixedNDefaultWrap<GenType, ValueType, UIntType,
     using base_t = typename outer_t::base_t::sim_state_t;
 
     using base_t::base_t;
-    void simulate(gen_t&, Eigen::Ref<colvec_type<uint_t>>) override{};
+    void simulate(Eigen::Ref<colvec_type<uint_t>>) override{};
 };
 
 // ======================================================
@@ -166,9 +166,9 @@ TEST_F(ss_fixed_n_default_fixture, two_arm_suff_stat_score) {
     thetas.row(1) << 0.1, -0.3, 0.1, -0.3, 0.2;
 
     sgs_t sgs(n_arm_samples, gr);
-    ss_t ss = *static_cast<ss_t*>(sgs.make_sim_state().get());
+    ss_t ss = *static_cast<ss_t*>(sgs.make_sim_state(0).get());
 
-    ss.generate_data(gen);
+    ss.generate_data();
     ss.generate_sufficient_stats();
 
     std::vector<colvec_type<double>> pu_v(2);

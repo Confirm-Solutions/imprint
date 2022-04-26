@@ -151,15 +151,13 @@ TEST_F(direct_bayes_fixture, GetGridRange) {
 };
 
 TEST_F(direct_bayes_fixture, TestRejLen) {
+    size_t seed = 3214;
     auto model = get_test_class();
     auto grid_range = get_grid_range();
     auto sgs = model.make_sim_global_state<gen_t, value_t, uint_t>(grid_range);
-    auto state = sgs.make_sim_state();
-    size_t seed = 3214;
-    std::mt19937 gen;
-    gen.seed(seed);
+    auto state = sgs.make_sim_state(seed);
     colvec_type<uint_t> actual(grid_range.n_tiles());
-    state->simulate(gen, actual);
+    state->simulate(actual);
     colvec_type<uint_t> expected(grid_range.n_tiles());
     expected << 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
         1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
