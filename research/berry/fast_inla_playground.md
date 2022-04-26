@@ -33,35 +33,6 @@ import quadrature
 ```
 
 ```python
-N = int(1e2)
-n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
-y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
-data = np.stack((y_i, n_i), axis=2)
-fi = fast_inla.FastINLA()
-sigma2_post, _, theta_mu, theta_sigma = fi.numpy_inference(y_i, n_i)
-correct = np.array(
-    [
-        1.25954474e02,
-        4.52520893e02,
-        8.66625278e02,
-        5.08333300e02,
-        1.30365045e02,
-        2.20403048e01,
-        3.15183578e00,
-        5.50967224e-01,
-        2.68365061e-01,
-        1.23585852e-01,
-        1.13330444e-02,
-        5.94800210e-04,
-        4.01075571e-05,
-        4.92782335e-06,
-        1.41605356e-06,
-    ]
-)
-np.testing.assert_allclose(sigma2_post[0], correct, rtol=1e-3)
-```
-
-```python
 n_arms = 2
 fi = fast_inla.FastINLA(n_arms=n_arms, sigma2_n=90)
 b = berry.Berry(n_arms=n_arms, sigma2_bounds=(1e-6, 1e3))
