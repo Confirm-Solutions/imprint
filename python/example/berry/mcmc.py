@@ -47,7 +47,7 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
 
     # Number of devices to pmap over
     n_data = data.shape[0]
-    rng_keys = jax.random.split(jax.random.PRNGKey(0), n_cores_mcmc)
+    seed = 0
 
     def do_mcmc(rng_key, y, n):
         # Small step_size is necessary for the sampler to notice the density lying
@@ -85,6 +85,10 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
             data_chunk = np.pad(
                 data_chunk, [(0, chunk_end - n_data), (0, 0), (0, 0)], mode="symmetric"
             )
+
+        # We need to generate new keys each time because they are immutable.
+        # Otherwise, the same random numbers will be re-used over and over.
+        rng_keys = jax.random.split(jax.random.PRNGKey(seed + i), n_cores_mcmc)
         traces = p_do_mcmc(rng_keys, data_chunk[..., 0], data_chunk[..., 1])
 
         for j in range(min(chunk_end, n_data) - i):
