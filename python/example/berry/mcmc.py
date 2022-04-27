@@ -1,7 +1,9 @@
 # flake8: noqa E402
 import os
 
-os.environ["XLA_FLAGS"] = "--xla_force_host_platform_device_count=6"
+# TODO: this could be set more globally and in a flexible way, but for now, this seems fine.
+n_cores_mcmc = 6
+os.environ["XLA_FLAGS"] = f"--xla_force_host_platform_device_count={n_cores_mcmc}"
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -45,12 +47,23 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
 
     # Number of devices to pmap over
     n_data = data.shape[0]
-    rng_keys = jax.random.split(jax.random.PRNGKey(0), n_data)
+    rng_keys = jax.random.split(jax.random.PRNGKey(0), n_cores_mcmc)
 
-    # NOTE: pmap requires an exact match between data.shape[0] and the number of
-    # devices. so to use it further with more than n_cores datasets, we would
-    # need to batch the data and layer a vmap underneath
-    # traces = jax.pmap(do_mcmc)(rng_keys, data[..., 0], data[..., 1])
+    def do_mcmc(rng_key, y, n):
+        # Small step_size is necessary for the sampler to notice the density lying
+        # in [1e-6, 1e-3]. Without this, results are very wrong.
+        nuts_kwargs = dict(step_size=0.002, adapt_step_size=False)
+        nuts_kernel = numpyro.infer.NUTS(mcmc_berry_model, **nuts_kwargs)
+        mcmc = numpyro.infer.MCMC(
+            nuts_kernel,
+            progress_bar=False,
+            num_warmup=1000,
+            num_samples=n_samples,
+        )
+        mcmc.run(rng_key, y, n)
+        return mcmc.get_samples(group_by_chain=True)
+
+    p_do_mcmc = jax.pmap(do_mcmc)
 
     mcmc_stats = dict(
         cilow=np.empty((n_data, n_arms)),
@@ -61,32 +74,31 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
         summary=[None] * n_data,
     )
 
-    # Small step_size is necessary for the sampler to notice the density lying
-    # in [1e-6, 1e-3]. Without this, results are very wrong.
-    nuts_kwargs = dict(step_size=0.002, adapt_step_size=False)
-    nuts_kernel = numpyro.infer.NUTS(mcmc_berry_model, **nuts_kwargs)
-    mcmc = numpyro.infer.MCMC(
-        nuts_kernel,
-        progress_bar=False,
-        num_warmup=1000,
-        num_samples=n_samples,
-    )
-    for i in range(n_data):
-        y = jnp.asarray(data[i, :, 0], dtype=dtype)
-        n = jnp.asarray(data[i, :, 1], dtype=dtype)
-        mcmc.run(rng_keys[i], y, n)
-        x = mcmc.get_samples(group_by_chain=True)
-        assert x["theta"].dtype == dtype
-        summary = numpyro.diagnostics.summary(x, prob=0.95)
-        mcmc_stats["cilow"][i] = summary["theta"]["2.5%"]
-        mcmc_stats["cihi"][i] = summary["theta"]["97.5%"]
-        mcmc_stats["theta_map"][i] = summary["theta"]["mean"]
-        n_samples = x["theta"].shape[0] * x["theta"].shape[1]
-        mcmc_stats["exceedance"][i] = (
-            np.sum(x["theta"] > suc_thresh[i], axis=(0, 1)) / n_samples
-        )
-        mcmc_stats["x"][i] = x
-        mcmc_stats["summary"][i] = summary
+    for i in range(0, n_data, n_cores_mcmc):
+        chunk_end = i + n_cores_mcmc
+        data_chunk = data[i:chunk_end]
+
+        # This is ugly but kind of fun. Just pad the array to have length
+        # n_cores_mcmc in the first dimension if the chunk is smaller the
+        # n_cores_mcmc
+        if chunk_end > n_data:
+            data_chunk = np.pad(
+                data_chunk, [(0, chunk_end - n_data), (0, 0), (0, 0)], mode="symmetric"
+            )
+        traces = p_do_mcmc(rng_keys, data_chunk[..., 0], data_chunk[..., 1])
+
+        for j in range(min(chunk_end, n_data) - i):
+            x = {k: v[j] for k, v in traces.items()}
+            summary = numpyro.diagnostics.summary(x, prob=0.95)
+            mcmc_stats["cilow"][i + j] = summary["theta"]["2.5%"]
+            mcmc_stats["cihi"][i + j] = summary["theta"]["97.5%"]
+            mcmc_stats["theta_map"][i + j] = summary["theta"]["mean"]
+            n_samples = x["theta"].shape[0] * x["theta"].shape[1]
+            mcmc_stats["exceedance"][i + j] = (
+                np.sum(x["theta"] > suc_thresh[i + j], axis=(0, 1)) / n_samples
+            )
+            mcmc_stats["x"][i + j] = x
+            mcmc_stats["summary"][i + j] = summary
     return mcmc_stats
 
 
@@ -95,7 +107,7 @@ if __name__ == "__main__":
     from constants import DATA2
 
     b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-6, 1e3), n_arms=2)
-    N = 2
+    N = 10
     n_i = np.full((N, 2), 35)
     y_i = np.full_like(n_i, 5)
     data = np.stack((y_i, n_i), axis=-1)
