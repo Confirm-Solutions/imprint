@@ -70,7 +70,7 @@ class FastINLA:
         fncs = dict(
             numpy=self.numpy_inference, jax=self.jax_inference, cpp=self.cpp_inference
         )
-        return fncs[method](y, n)
+        return fncs[method](y, n)[:4]
 
     def numpy_inference(self, y, n):
         N = y.shape[0]
@@ -107,7 +107,7 @@ class FastINLA:
         assert converged
 
         # Step 2) Calculate the joint distribution p(theta, y, sigma^2)
-        logjoint = self.log_joint(theta_max)
+        logjoint = self.log_joint(y, n, theta_max)
 
         # Step 3) Calculate p(sigma^2 | y) = (
         #   p(theta_max, y, sigma^2)
@@ -143,7 +143,13 @@ class FastINLA:
                 exc_sigma2 * sigma2_post * self.sigma2_rule.wts[None, :], axis=1
             )
             exceedances.append(exc)
-        return sigma2_post, np.stack(exceedances, axis=-1), theta_max, theta_sigma
+        return (
+            sigma2_post,
+            np.stack(exceedances, axis=-1),
+            theta_max,
+            theta_sigma,
+            hess_inv,
+        )
 
     def log_joint(self, y, n, theta):
         """

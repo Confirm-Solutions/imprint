@@ -47,43 +47,12 @@ import numpy as np
 import util
 
 
-def build_centered_quad_rules(fi, y, n, *, integrate_sigma=True, n_quad=11, w_quad=6):
-    """
-    The ideal range of theta integration will depend heavily on the value of sigma2:
-    If sigma2 is very small, then there will not be much variation in esimated
-    values of theta. If sigma2 is larger, there will be lots of variation. Thus,
-    in order to correctly integrate over the theta dimensions, we need to vary
-    the domain of theta integration depending on the value of sigma2. The method
-    implemented here is fairly simple:
-    - find the MAP for a given value of sigma2.
-    - (very approximately) assume a standard deviation of a normal appx at that MAP.
-    - construct a gaussian quadrature rule that would conservatively cover that
-      normal approximately by integrating out to 6x the standard deviation
-    """
-    # x0_info = inla.optimize_x0(model, data[:, None, :], sigma2_rule.pts[None, :, None])
-    # # Note: in INLA notation, x is used to refer to the Berry "theta"
-    # thetacenters = x0_info["x"]
-    # thetastd = np.minimum(
-    #     np.sqrt(sigma2_rule.pts), np.full_like(sigma2_rule.pts, max_sigma2)
-    # )
-    # thetamins = thetacenters - w * thetastd[None, :, None]
-    # thetamaxs = thetacenters + w * thetastd[None, :, None]
-    # points, weights = np.polynomial.legendre.leggauss(n)
-    # thetapts = np.transpose(
-    #     thetamins[None, :, :, :]
-    #     + (thetamaxs[None, :, :, :] - thetamins[None, :, :, :])
-    #     * (points[:, None, None, None] * 0.5 + 0.5),
-    #     (1, 2, 3, 0),
-    # )
-    # thetawts = (
-    #     weights[None, None, None, :]
-    #     * (thetamaxs[:, :, :, None] - thetamins[:, :, :, None])
-    #     * 0.5
-    # )
-
-    points, weights = np.polynomial.legendre.leggauss(n_quad)
-    etapts = w_quad * points
-    etawts = w_quad * weights
+def build_grid(
+    fi, y, n, *, integrate_sigma=True, integrate_thetas=None, n_theta=11, w_theta=6
+):
+    points, weights = np.polynomial.legendre.leggauss(n_theta)
+    etapts = w_theta * points
+    etawts = w_theta * weights
     grid_eta = np.stack(
         np.meshgrid(*[etapts for k in range(fi.n_arms)], indexing="ij"), axis=-1
     )
@@ -97,32 +66,34 @@ def build_centered_quad_rules(fi, y, n, *, integrate_sigma=True, n_quad=11, w_qu
     phat = y / n
     sample_I = n * phat * (1 - phat)
 
+    # TODO: we can also use inla hess_inv to compute the full variance here with
+    # higher fidelity than DB.
+    _, _, mode, _, hess_inv = fi.numpy_inference(y, n)
+    sigma_posterior = hess_inv  # np.transpose(hess_inv, (0, 1, 3, 2))
+
     # Dirty bayes calculation of variance matrix.
     sigma_precision = np.empty((sample_I.shape[0], *fi.neg_precQ.shape))
     sigma_precision[:] = fi.neg_precQ[None, ...]
     sigma_precision[..., fi.arms, fi.arms] += sample_I[:, None, ...]
-    sigma_posterior = np.linalg.inv(sigma_precision)
+    sigma_posterior2 = np.linalg.inv(sigma_precision)
 
     # Step : decorrelate our coordinate system.
     w, v = np.linalg.eigh(sigma_posterior)
-
-    # TODO: we can also use inla hess_inv to compute the full variance here with
-    # higher fidelity than DB.
-    _, _, mode, _ = fi.inference(y, n)
-
-    # We need to multiply by the absolute value of the determinant of the
-    # transformation. Because we have already computed a eigendecomposition, the
-    # determinant of matrix is just product of eigenvalues.
-    det_jacobian = np.abs(w.prod(axis=-1))
-    grid_theta_wts = np.einsum("kl,ij->kijl", det_jacobian, grid_eta_wts)
+    std_dev_eig = w  # np.sqrt(np.abs(w))
 
     # Map from eta to theta space.
     broadcast_shape = list(mode.shape)
     for i in range(fi.n_arms):
         broadcast_shape.insert(1, 1)
-    grid_theta = np.einsum("klij,...i,kli->k...lj", v, grid_eta, w) + mode.reshape(
-        broadcast_shape
-    )
+    grid_theta = np.einsum(
+        "klij,...i,kli->k...lj", v, grid_eta, std_dev_eig
+    ) + mode.reshape(broadcast_shape)
+
+    # We need to multiply by the absolute value of the determinant of the
+    # transformation. Because we have already computed a eigendecomposition, the
+    # determinant of matrix is just product of eigenvalues.
+    det_jacobian = std_dev_eig.prod(axis=-1)
+    grid_theta_wts = np.einsum("kl,ij->kijl", det_jacobian, grid_eta_wts)
 
     sigma2_broadcast = [1] * len(grid_theta_wts.shape)
     sigma2_broadcast[-1] = fi.sigma2_rule.wts.shape[0]
@@ -134,50 +105,8 @@ def build_centered_quad_rules(fi, y, n, *, integrate_sigma=True, n_quad=11, w_qu
     if integrate_sigma:
         full_wts *= fi.sigma2_rule.wts.reshape(sigma2_broadcast)
 
-    return full_grid, full_wts
-
-
-# def build_integration_grids(thetapts, sigma2_rule, n_arms=4, fixed_dims=dict()):
-#     """
-#     Build a giant multidimensional array of integration points for theta and sigma2:
-
-#     By default, the centered quadrature rules produced by build_centered_quad_rules will
-#     be used for each theta dimension. However, in some situations, the end goal
-#     will be to produce a distribution with a theta variable as one of the
-#     unintegrated variables. In that case, we need to use a fixed grid for that
-#     theta regardless of the value of sigma2. To specify that fixed grid, we use,
-#     for example:
-#     fixed_dims = {0: theta0_grid, 1: theta1_grid}
-
-#     Returns:
-#     - grids has shape (n_sims, n_sigma2, n_theta0, n_theta1, n_theta2, n_theta3, 5)
-#     n_theta# will b
-#     """
-#     theta = []
-#     for i in range(thetapts.shape[0]):
-#         theta.append([])
-#         for j in range(thetapts.shape[1]):
-#             meshgrid_entries = []
-#             for k in range(n_arms):
-#                 if k in fixed_dims:
-#                     meshgrid_entries.append(fixed_dims[k].pts)
-#                 else:
-#                     meshgrid_entries.append(thetapts[i, j, k, :])
-#             theta[i].append(np.meshgrid(*meshgrid_entries, indexing="ij"))
-#     theta = np.transpose(np.array(theta), (0, 1, *range(3, 3 + n_arms), 2))
-#     grids = np.concatenate(
-#         (
-#             theta,
-#             np.broadcast_to(
-#                 np.expand_dims(sigma2_rule.pts, (0, *range(2, 2 + n_arms))),
-#                 theta.shape[:-1],
-#             )[..., None],
-#         ),
-#         axis=-1,
-#     )
-#     giant_grid_theta = grids[..., :n_arms].reshape((grids.shape[0], -1, n_arms)).copy()
-#     giant_grid_sigma2 = grids[..., n_arms:].reshape((grids.shape[0], -1, 1)).copy()
-#     return grids, giant_grid_theta, giant_grid_sigma2
+    return grid_theta, full_wts
+    # return full_grid, full_wts
 
 
 def quad_sum(
@@ -216,19 +145,16 @@ def quad_sum(
 
 def integrate(
     fi,
-    data,
+    y,
+    n,
     *,
-    n_arms=4,
     integrate_sigma2=False,
     integrate_thetas=(),
     fixed_dims=dict(),
     n_theta=11,
     w_theta=6,
-    max_sigma2=2.0
 ):
-    pts, wts = build_centered_quad_rules(
-        fi, data, n=n_theta, w=w_theta, max_sigma2=max_sigma2
-    )
+    pts, wts = build_grid(fi, y, n, n_quad=n_theta, w_quad=w_theta)
 
     joint = np.exp(
         fi.log_joint(giant_grid_theta, data[:, None, :], giant_grid_sigma2)
