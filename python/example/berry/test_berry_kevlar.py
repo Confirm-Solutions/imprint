@@ -71,7 +71,7 @@ def test_kevlar_and_py_binomial_accumulate():
 
     theta = gr.thetas().T.copy()
     # TODO: it'd be nice to add theta_tiles and is_null_per_arm to the GridRange object!
-    cum_n_tiles = np.array(gr.cum_n_tiles)
+    cum_n_tiles = np.array(gr.cum_n_tiles())
     n_tiles_per_pt = cum_n_tiles[1:] - cum_n_tiles[:-1]
     theta_tiles = np.repeat(theta, n_tiles_per_pt, axis=0)
     is_null_per_arm = np.array(
