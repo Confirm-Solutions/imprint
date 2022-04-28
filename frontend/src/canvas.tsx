@@ -8,6 +8,7 @@ export interface CanvasState {
     checkboxStates: boolean[]
     data: MatrixData
     layerNames: string[]
+    colorscale: string
 }
 
 async function plot(context: HTMLDivElement, height: number, width: number, state: CanvasState) {
@@ -18,10 +19,11 @@ async function plot(context: HTMLDivElement, height: number, width: number, stat
     }
 
     var data = getPlotlyData(state.data, state.plotType, state.checkboxStates, state.layerNames)
-    const layout: Partial<Plotly.Layout> = {
+    const layout: any = {
         height: height,
         width: width,
         autosize: false,
+        coloraxis: { colorscale: state.colorscale },
         legend: {
             font: {
                 family: '"Roboto","Helvetica","Arial",sans-serif',
