@@ -1,7 +1,46 @@
 """
-Implementation of a numerical integration solver for low dimensional models.
+# Multidimensional numerical integration
 
+Implementation of a numerical integration solver for low dimensional models.
 This runs on the Berry model.
+
+We'd like to verify our INLA implementation. MCMC is an alternative that would
+give a rough verification. However, MCMC converges quite slowly so it's
+difficult to get nearly exact posterior estimates. Fortunately, the example
+problem that we are considering here has only five dimensions: one
+hyperparameter controlling the sharing and four latent variables that describe
+the success of each trial arm. A five dimensional integral is feasible to
+compute numerically.
+
+A fully robust implementation would use adaptive quadrature strategies and cover
+a much larger parameter domain. However, our goal is not to build a robust multi
+dimensional integration tool. Instead, our goal is to simply demonstrate that
+the marginal distributions being produced from our INLA implementation are
+reasonably good.
+
+# Sources of error
+
+The goal of developing the "exact" integrator was to develop more confidence in
+our INLA and MCMC estimators. But, first we need to examine the error from this
+method.
+
+There are three sources of error:
+* $x$ domain error: we arbitrarily truncated the domain in order to numerically
+  integrate. There are other quadrature rules that would handle an infinite
+  domain, but they have their own complexities. Fortunately, we can estimate the
+  quadrature error resulting from the finite domain by evaluating the integrand
+  at the end points of the interval.
+* approximation error: we chose to use an 11 point quadrature rule in the latent
+  variables. How much more accurate would the integral be if we had chosen a 12
+  point quadrature rule? Or a 20 point rule? For a smooth integrand, Gaussian
+  quadrature will normally converge very quickly.
+* $\theta$ domain error: we truncated the range of sharing hyperparameters. This
+  affects our density function because we need to normalize by the integral over
+  the entire domain of hyperparameters. This $\theta$ domain error can be made
+  consistent between the different methods we examine by using the same $\theta$
+  grid in the INLA calculations. This error is also the easiest form of error to
+  control by a user because it is very obvious when a PDF is still large at the
+  edge of the domain. So, we ignore this source of error.
 """
 import inla
 import numpy as np
@@ -45,7 +84,7 @@ def build_centered_quad_rules(model, data, n=11, w=6, max_sigma2=2.0):
     return thetapts, thetawts
 
 
-def build_integration_grids(thetapts, sigma2_rule, fixed_dims=dict()):
+def build_integration_grids(thetapts, sigma2_rule, n_arms=4, fixed_dims=dict()):
     """
     Build a giant multidimensional array of integration points for theta and sigma2:
 
@@ -66,24 +105,25 @@ def build_integration_grids(thetapts, sigma2_rule, fixed_dims=dict()):
         theta.append([])
         for j in range(thetapts.shape[1]):
             meshgrid_entries = []
-            for k in range(4):
+            for k in range(n_arms):
                 if k in fixed_dims:
                     meshgrid_entries.append(fixed_dims[k].pts)
                 else:
                     meshgrid_entries.append(thetapts[i, j, k, :])
             theta[i].append(np.meshgrid(*meshgrid_entries, indexing="ij"))
-    theta = np.transpose(np.array(theta), (0, 1, 3, 4, 5, 6, 2))
+    theta = np.transpose(np.array(theta), (0, 1, *range(3, 3 + n_arms), 2))
     grids = np.concatenate(
         (
             theta,
             np.broadcast_to(
-                np.expand_dims(sigma2_rule.pts, (0, 2, 3, 4, 5)), theta.shape[:-1]
+                np.expand_dims(sigma2_rule.pts, (0, *range(2, 2 + n_arms))),
+                theta.shape[:-1],
             )[..., None],
         ),
         axis=-1,
     )
-    giant_grid_theta = grids[..., :4].reshape((grids.shape[0], -1, 4)).copy()
-    giant_grid_sigma2 = grids[..., 4:].reshape((grids.shape[0], -1, 1)).copy()
+    giant_grid_theta = grids[..., :n_arms].reshape((grids.shape[0], -1, n_arms)).copy()
+    giant_grid_sigma2 = grids[..., n_arms:].reshape((grids.shape[0], -1, 1)).copy()
     return grids, giant_grid_theta, giant_grid_sigma2
 
 
@@ -93,6 +133,7 @@ def quad_sum(
     sigma2_rule=None,
     integrate_sigma2=False,
     integrate_thetas=(),
+    n_arms=4,
     fixed_dims=dict(),
 ):
     """
@@ -102,17 +143,18 @@ def quad_sum(
     """
     joint_weighted = joint.copy()
     sum_dims = []
+    theta_dims = range(2, 2 + n_arms)
     if integrate_sigma2:
         wts = sigma2_rule.wts
-        joint_weighted *= np.expand_dims(wts, (0, 2, 3, 4, 5))
+        joint_weighted *= np.expand_dims(wts, (0, *theta_dims))
         sum_dims.append(1)
     for i in integrate_thetas:
         if i in fixed_dims:
             wts = fixed_dims[i].wts
-            add_dims = [0, 1, 2, 3, 4, 5]
+            add_dims = [0, 1, *theta_dims]
         else:
             wts = thetawts[:, :, i]
-            add_dims = [2, 3, 4, 5]
+            add_dims = list(theta_dims)
         add_dims.remove(i + 2)
         sum_dims.append(i + 2)
         joint_weighted *= np.expand_dims(wts, add_dims)
@@ -123,6 +165,7 @@ def integrate(
     model,
     data,
     *,
+    n_arms=4,
     integrate_sigma2=False,
     integrate_thetas=(),
     fixed_dims=dict(),
@@ -134,7 +177,7 @@ def integrate(
         model, data, n=n_theta, w=w_theta, max_sigma2=max_sigma2
     )
     grids, giant_grid_theta, giant_grid_sigma2 = build_integration_grids(
-        thetapts, model.sigma2_rule, fixed_dims=fixed_dims
+        thetapts, model.sigma2_rule, fixed_dims=fixed_dims, n_arms=n_arms
     )
 
     joint = np.exp(
@@ -146,6 +189,7 @@ def integrate(
         sigma2_rule=model.sigma2_rule,
         integrate_sigma2=integrate_sigma2,
         integrate_thetas=integrate_thetas,
+        n_arms=n_arms,
     )
 
 

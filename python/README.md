@@ -34,5 +34,5 @@ pip install --force-reinstall bazel-bin/python/dist/pykevlar-0.1-py3-none-any.wh
 ## Smoke test
 
 ```
-bazel run --config clang -c opt //python/example:simple_selection -- main
+bazel run -c opt //python/example:simple_selection -- main
 ```

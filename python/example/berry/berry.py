@@ -33,10 +33,11 @@ class Berry(inla.INLAModel):
     def __init__(
         self,
         *,
-        p0=np.full(4, 0.1),
-        p1=np.full(4, 0.3),
+        n_arms=4,
+        p0=None,
+        p1=None,
         sigma2_n=90,
-        sigma2_bounds=(1e-8, 1e3),
+        sigma2_bounds=(1e-6, 1e3),
     ):
         """
         sigma2_n_quad: int, the number of quadrature points to use integrating
@@ -44,15 +45,18 @@ class Berry(inla.INLAModel):
         sigma2_bounds: a tuple (a, b) specifying the integration limits in the
           sigma2 dimension
         """
+        self.n_arms = n_arms
         self.n_stages = 6
-        self.n_arms = 4
-
-        # alternative hypothesis!
-        self.p1 = p1
-        self.logit_p1 = logit(p1)
 
         # rate of response below this is the null hypothesis
         self.p0 = p0
+        if self.p0 is None:
+            self.p0 = np.full(self.n_arms, 0.1)
+        # alternative hypothesis!
+        self.p1 = p1
+        if self.p1 is None:
+            self.p1 = np.full(self.n_arms, 0.3)
+        self.logit_p1 = logit(self.p1)
 
         # Interim success criterion:
         # For some of Berry's calculations (e.g. the interim analysis success

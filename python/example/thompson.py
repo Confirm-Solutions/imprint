@@ -7,9 +7,9 @@ from timeit import default_timer as timer
 
 import numpy as np
 from pykevlar.driver import accumulate_process
-from pykevlar.grid import HyperPlane
+from pykevlar.grid import HyperPlane, make_cartesian_grid_range
 from pykevlar.model.binomial import Thompson
-from utils import make_cartesian_grid_range, to_array
+from utils import to_array
 
 
 def sigmoid(t):

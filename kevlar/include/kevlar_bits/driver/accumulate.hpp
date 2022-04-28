@@ -26,8 +26,7 @@ inline void accumulate_(const VecSSType& vec_ss,
 
     assert(vec_ss.size() == n_threads);
 
-    omp_set_num_threads(n_threads);
-#pragma omp parallel for schedule(static)  // TODO: add some args
+#pragma omp parallel for schedule(static) num_threads(n_threads)
     for (size_t t = 0; t < n_threads; ++t) {
         auto& sim_state = *vec_ss[t];
         colvec_type<uint_t> rej_len(grid_range.n_tiles());
@@ -70,7 +69,7 @@ inline void accumulate(const SGSType& sgs, const GridRangeType& grid_range,
     }
 
     if (n_threads > max_threads) {
-        n_threads %= max_threads;
+        n_threads = max_threads;
     }
 
     std::vector<std::unique_ptr<ss_t>> ss_s;

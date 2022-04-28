@@ -13,6 +13,10 @@ jupyter:
     name: python3
 ---
 
+This notebook is verifying that the two hyperparameter $(\mu, \sigma^2)$ version of the Berry problem is producing the same results as the one parameter condensed $\sigma^2$ version.
+
+At the end of the notebook, we plot $p(\sigma^2 | y)$ as determined by INLA via both of these versions of the problem.
+
 ```python
 %load_ext autoreload
 %autoreload 2

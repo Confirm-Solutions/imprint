@@ -2,14 +2,14 @@ import argparse
 import os
 from datetime import timedelta
 from logging import DEBUG as log_level
-from logging import WARNING, basicConfig, getLogger
+from logging import basicConfig, getLogger
 from timeit import default_timer as timer
 
 import numpy as np
 from pykevlar.driver import accumulate_process
-from pykevlar.grid import HyperPlane
+from pykevlar.grid import HyperPlane, make_cartesian_grid_range
 from pykevlar.model.binomial import SimpleSelection
-from utils import make_cartesian_grid_range, to_array
+from utils import to_array
 
 # ==========================================
 
@@ -262,13 +262,10 @@ elif args.example_type == "adagrid":
     do_plot = args.plot
 
     # imports conditional on command-line args
+    import matplotlib.pyplot as plt
     from pykevlar.batcher import SimpleBatch
     from pykevlar.grid import AdaGrid
     from scipy.stats import norm
-
-    # Disable matplotlib logging
-    getLogger("matplotlib").setLevel(WARNING)
-    import matplotlib.pyplot as plt
 
 # Begin our logging
 basicConfig(

@@ -6,6 +6,7 @@
 #include <kevlar_bits/grid/grid_range.hpp>
 #include <kevlar_bits/grid/tile.hpp>
 #include <kevlar_bits/model/base.hpp>
+#include <kevlar_bits/model/binomial/berry_inla.hpp>
 #include <kevlar_bits/model/binomial/simple_selection.hpp>
 #include <kevlar_bits/model/binomial/thompson.hpp>
 #include <kevlar_bits/model/exponential/simple_log_rank.hpp>
@@ -29,6 +30,40 @@ using gen_t = std::mt19937;
 using tile_t = grid::Tile<value_t>;
 using gr_t = grid::GridRange<value_t, uint_t, tile_t>;
 
+template <int ARMS>
+void add_berry_inla_to_module(py::module_& m, const char* model_name,
+                              const char* sgs_name, const char* ss_name) {
+    using model_t = binomial::BerryINLA<double, ARMS>;
+
+    using sgs_t = typename model_t::template sim_global_state_t<gen_t, value_t,
+                                                                uint_t, gr_t>;
+    py::class_<model_t, FixedSingleArmSize, ModelBase<double>>(m, model_name)
+        .def(py::init<int, const Eigen::Ref<const colvec_type<double>>&,
+                      const Eigen::Ref<const colvec_type<double>>&,
+                      const Eigen::Ref<const colvec_type<double>>&,
+                      const Eigen::Ref<const mat_type<double>>&,
+                      const Eigen::Ref<const mat_type<double>>&,
+                      const Eigen::Ref<const colvec_type<double>>&,
+                      const Eigen::Ref<const colvec_type<double>>&, double,
+                      double>(),
+             py::arg("arm_size"), py::arg("critical_values"),
+             py::arg("efficacy_thresholds"), py::arg("quad_wts"),
+             py::arg("cov"), py::arg("neg_precQ"), py::arg("logprecQdet"),
+             py::arg("logprior"), py::arg("opt_tol"), py::arg("logit_p1"))
+        .def("get_posterior_exceedance_probs",
+             &model_t::get_posterior_exceedance_probs)
+        .def("make_sim_global_state",
+             static_cast<sgs_t (model_t::*)(const gr_t&) const>(
+                 &model_t::template make_sim_global_state<gen_t, value_t,
+                                                          uint_t, gr_t>),
+             py::arg("grid_range"));
+    using sgs_base_t = typename sgs_t::interface_t;
+    py::class_<sgs_t, sgs_base_t>(m, sgs_name);
+
+    using ss_t = typename sgs_t::sim_state_t;
+    using ss_base_t = typename ss_t::base_t;
+    py::class_<ss_t, ss_base_t>(m, ss_name);
+}
 /*
  * Adds binomial models.
  */
@@ -38,6 +73,7 @@ void add_binomial_to_module(py::module_& m) {
     using sgs_fixed_n_default_t =
         SimGlobalStateFixedNDefault<gen_t, value_t, uint_t, gr_t>;
     using kbs_fixed_n_default_t = KevlarBoundStateFixedNDefault<gr_t>;
+
     add_fixed_n_default<sgs_fixed_n_default_t, kbs_fixed_n_default_t>(m);
 
     using simple_selection_t = SimpleSelection<value_t>;
@@ -45,6 +81,13 @@ void add_binomial_to_module(py::module_& m) {
 
     using thompson_t = Thompson<value_t>;
     add_thompson<thompson_t, gen_t, value_t, uint_t, gr_t>(m);
+
+    add_berry_inla_to_module<2>(m, "BerryINLA2", "BerryINLA2SimGlobalState",
+                                "BerryINLA2SimState");
+    add_berry_inla_to_module<3>(m, "BerryINLA3", "BerryINLA3SimGlobalState",
+                                "BerryINLA3SimState");
+    add_berry_inla_to_module<4>(m, "BerryINLA4", "BerryINLA4SimGlobalState",
+                                "BerryINLA4SimState");
 }
 
 /*

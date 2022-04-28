@@ -28,7 +28,7 @@ struct Binomial {
      * Computes the score of a binomial distribution with parameters n, p.
      * The score is given by:
      *      t - n * p
-     * where t is the sufficient statistic.
+     * where t is the count.
      * The parameters t, n, p are all array-like with the same underlying value
      * type.
      */
@@ -40,9 +40,9 @@ struct Binomial {
 
     /*
      * Computes the quadratic form (of v) of the covariance matrix
-     * of the sufficient statistic evaluated at p.
+     * of the count evaluated at p.
      * If n has length d, the function assumes a random variable of length d
-     * with each component i representing the sufficient statistic of
+     * with each component i representing the count from
      * sampling n[i] i.i.d. samples of Bernoulli from p[i].
      * This function assumes that the binomial r.v.'s are independent
      * with array-like parameters n, p, v with the same underlying value type.

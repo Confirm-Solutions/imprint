@@ -308,6 +308,10 @@ struct GridRange {
         return sim_sizes_;
     }
 
+    KEVLAR_STRONG_INLINE const std::vector<uint_t>& cum_n_tiles() const {
+        return cum_n_tiles_;
+    }
+
     // This function is only valid once create_tiles() has been called.
     KEVLAR_STRONG_INLINE uint_t n_tiles(size_t gridpt_idx) const {
         return cum_n_tiles_[gridpt_idx + 1] - cum_n_tiles_[gridpt_idx];
