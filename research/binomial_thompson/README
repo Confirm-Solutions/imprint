@@ -1,0 +1,13 @@
+There are two batch files in this folder.
+
+The first, arraySimulate.sbatch, calls the parallel binomial simulation.
+It should, as a side effect, save the parameters that are part of it.
+
+This will do M = 100 replications, currently, and save the key outputs into tempdir.
+We do not keep the entire simulation output; merely the key averages.
+
+The summary statistics can then be very quickly processed, live with CollectSims.R, or calling the file
+Collect.sbatch
+
+This will output a .RData file.
+That .RData file must then be exported to home computer, in order to see graphs etc.
