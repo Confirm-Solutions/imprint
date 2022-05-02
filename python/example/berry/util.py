@@ -14,6 +14,29 @@ class QuadRule:
     wts: np.ndarray
 
 
+def broadcast(arr, target_shape, dest_dims):
+    """
+    This is a helper functions for the gnarly broadcasting operations required
+    in the quadrature code.
+
+    arr: the array to broadcast
+    target_shape: the requested broadcast shape.
+    dest_dims: the index of the output dimensions corresponding to each input dimension.
+    """
+
+    broadcast_shape = [1] * len(target_shape)
+    for d, size in enumerate(arr.shape):
+        target_dim = dest_dims[d]
+        broadcast_shape[target_dim] = size
+        if not target_shape[target_dim] == size:
+            raise ValueError(
+                f"Input array size of {size} along dimension {d}"
+                f" does not match requested shape of {target_shape[d]}"
+                f" on dimension {target_dim}."
+            )
+    return arr.reshape(broadcast_shape)
+
+
 def simpson_rule(n, a=-1, b=1):
     """
     Output the points and weights for a Simpson rule quadrature on the interval

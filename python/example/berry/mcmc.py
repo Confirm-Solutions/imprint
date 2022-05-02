@@ -2,8 +2,12 @@
 import os
 
 # TODO: this could be set more globally and in a flexible way, but for now, this seems fine.
-n_cores_mcmc = 6
-os.environ["XLA_FLAGS"] = f"--xla_force_host_platform_device_count={n_cores_mcmc}"
+# I think we should have a jax_setup module that sets variables like this before
+# importing jax.
+n_requested_cores_mcmc = 6
+os.environ[
+    "XLA_FLAGS"
+] = f"--xla_force_host_platform_device_count={n_requested_cores_mcmc}"
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -73,7 +77,7 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
         x=[None] * n_data,
         summary=[None] * n_data,
     )
-
+    n_cores_mcmc = jax.local_device_count()
     for i in range(0, n_data, n_cores_mcmc):
         chunk_end = i + n_cores_mcmc
         data_chunk = data[i:chunk_end]

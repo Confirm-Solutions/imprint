@@ -14,11 +14,18 @@ jupyter:
 ---
 
 ```python
+%load_ext autoreload
+%autoreload 2
+```
+
+```python
 import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 from scipy.special import logit
 
+import sys
+sys.path.append('../../python/example/berry')
 import util
 
 n_i = np.array([20, 20, 35, 35])
@@ -113,7 +120,6 @@ sigma2_post
 arm_idx = 0
 ti_N = 61
 ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
-# ti_rule = util.gauss_rule(ti_N, -6.0, 2.0)
 ```
 
 
@@ -121,23 +127,19 @@ ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
 
 
 ```python
-import berry
+import fast_inla
 import quadrature
 
-b = berry.Berry()
-integrate_dims = [0, 1, 2, 3]
-integrate_dims.remove(arm_idx)
+fi = fast_inla.FastINLA(n_arms=4)
 quad_p_ti_g_y = quadrature.integrate(
-    b,
-    data[
-        None,
-    ],
-    integrate_sigma2=True,
-    integrate_thetas=integrate_dims,
-    fixed_dims={arm_idx: ti_rule},
-    n_theta=9,
+    fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts
 )
 quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
+
+```
+
+```python
+quad_p_ti_g_y
 ```
 
 <!-- #region -->
@@ -168,6 +170,45 @@ plt.legend()
 plt.show()
 ```
 
+## 2.1a: redo it for all the arms:
+
+```python
+for arm_idx in [0]:
+    print(arm_idx)
+    quad_p_ti_g_y, grids, wts, joint = quadrature.integrate(
+        fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+        w_theta=24, n_theta=11,
+        return_intermediates=True
+    )
+    quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
+
+    theta_i_sigma = np.sqrt(np.diagonal(-np.linalg.inv(hess), axis1=1, axis2=2))
+    theta_i_mu = theta_max
+    gaussian_pdf = scipy.stats.norm.pdf(
+        ti_rule.pts[:, None],
+        theta_i_mu[None, :, arm_idx],
+        theta_i_sigma[None, :, arm_idx],
+    )
+    gaussian_p_ti_g_y = np.sum(
+        gaussian_pdf * sigma2_post * sigma2_rule.wts[None, :], axis=1
+    )
+
+    plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
+    plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+    plt.legend()
+    plt.show()
+```
+
+```python
+grids[0,30,:,:,5,sig_idx,1]
+```
+
+```python
+for sig_idx in range(15):
+    plt.contourf(grids[0,30,:,:,5,sig_idx,1], grids[0,30,:,:,5,sig_idx,2], np.log(joint)[0,30,:,:,5,sig_idx])
+    plt.show()
+```
+
 ## 2.2: Laplace approximation of $p(\theta_i|y, \sigma^2)$
 
 Instead of assuming $p(\theta_i|y, \sigma^2)$ is Gaussian, we will compute it using the same Laplace approximation method that we used to compute $p(\sigma^2|y)$. That is:
@@ -176,67 +217,25 @@ Instead of assuming $p(\theta_i|y, \sigma^2)$ is Gaussian, we will compute it us
 
 
 ```python
-subset_arms = [0, 1, 2, 3]
-subset_arms.remove(arm_idx)
-# If
-# 1) t_{arm_idx} is chosen without regard to the other theta values
-# 2) sigma2 is very small
-# then, the optimization problem will be poorly conditioned and ugly because the
-# chances of t_{arm_idx} being very different from the other theta values is
-# super small with small sigma2
-ti_max = np.tile(theta_max[None, :, subset_arms], (ti_N, 1, 1))
-y_i_sub = y_i[..., subset_arms]
-n_i_sub = n_i[..., subset_arms]
-precQ_tiled = np.tile(precQ, (ti_N, 1, 1, 1))
-for i in range(100):
-    ti_all_max = np.zeros((*ti_max.shape[:2], 4))
-    ti_all_max[..., subset_arms] = ti_max
-    ti_all_max[..., arm_idx] = ti_rule.pts[:, None]
+y_tiled = np.tile(y_i[None,:], (ti_rule.pts.shape[0], 1))
+n_tiled = np.tile(n_i[None,:], (ti_rule.pts.shape[0], 1))
+ti_pts_tiled = np.tile(ti_rule.pts[:, None], (1, fi.sigma2_n)) 
 
-    ti_all_m0 = ti_all_max - mu_0
-    ti_adj = ti_max + logit_p1
-    ti_grad = (
-        -np.sum(precQ_tiled * ti_all_m0[..., None, :], axis=-1)[..., subset_arms]
-        + y_i_sub
-        - (n_i_sub * np.exp(ti_adj) / (np.exp(ti_adj) + 1))
-    )
-    ti_hess = -precQ_tiled[..., subset_arms][..., subset_arms, :].copy()
-    ti_hess[..., np.arange(3), np.arange(3)] -= (
-        n_i_sub * np.exp(ti_adj) / ((np.exp(ti_adj) + 1) ** 2)
-    )
-    step = -np.linalg.solve(ti_hess, ti_grad)
-    ti_max += step
+ti_max, hess_inv = fi.optimize_mode(y_tiled, n_tiled, fixed_arm_dim=arm_idx, fixed_arm_values=ti_pts_tiled)
+ti_logjoint = fi.log_joint(y_tiled, n_tiled, ti_max)
 
-    if np.max(np.linalg.norm(step, axis=-1)) < tol:
-        print(i)
-        break
-```
-
-```python
-ti_all_max = np.zeros((*ti_max.shape[:2], 4))
-ti_all_max[..., subset_arms] = ti_max
-ti_all_max[..., arm_idx] = ti_rule.pts[:, None]
-
-ti_all_m0 = ti_all_max - mu_0
-ti_adj = ti_all_max + logit_p1
-ti_logjoint = (
-    -0.5 * np.einsum("...i,...ij,...j", ti_all_m0, precQ, ti_all_m0)
-    + 0.5 * np.log(precQdet)[None, :]
-    + np.sum(ti_adj * y_i - n_i * np.log(np.exp(ti_adj) + 1), axis=-1)
-    + log_prior[None, :]
-)
-```
-
-```python
-ti_hess = -precQ_tiled[..., subset_arms][..., subset_arms, :].copy()
-ti_hess[..., np.arange(3), np.arange(3)] -= (
-    n_i_sub
-    * np.exp(ti_adj[..., subset_arms])
-    / ((np.exp(ti_adj[..., subset_arms]) + 1) ** 2)
-)
-ti_post = np.exp(ti_logjoint - 0.5 * np.log(np.linalg.det(-ti_hess)))
+ti_post = np.exp(ti_logjoint + 0.5 * np.log(np.linalg.det(-hess_inv)))
 ti_post /= np.sum(ti_post * ti_rule.wts[:, None], axis=0)
 laplace_p_ti_g_y = np.sum(ti_post * sigma2_post * sigma2_rule.wts, axis=1)
+```
+
+```python
+plt.figure(figsize=(7, 4))
+plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
+plt.plot(ti_rule.pts, laplace_p_ti_g_y, "k-o", markersize=3, label="INLA-Laplace")
+plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+plt.legend()
+plt.show()
 ```
 
 # Section 3: Treat a single arm directly?
@@ -247,7 +246,7 @@ This is actually quite easy given the calculations already done above.
 
 ```python
 new = np.sum(
-    np.exp(ti_logjoint - 0.5 * np.log(np.linalg.det(-ti_hess))) * ti_rule.wts[:, None],
+    np.exp(ti_logjoint - 0.5 * np.log(np.linalg.det(-hess_inv))) * ti_rule.wts[:, None],
     axis=0,
 )
 new /= np.sum(new * sigma2_rule.wts)
@@ -259,18 +258,6 @@ plt.show()
 
 ```python
 t0_analytical_p_ti_g_y = np.sum(ti_post * new * sigma2_rule.wts, axis=1)
-```
-
-```python
-plt.figure(figsize=(7, 4))
-plt.plot(
-    ti_rule.pts, t0_analytical_p_ti_g_y, "m-o", markersize=3, label="INLA-t0-analytical"
-)
-plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
-plt.plot(ti_rule.pts, laplace_p_ti_g_y, "k-o", markersize=3, label="INLA-Laplace")
-plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
-plt.legend()
-plt.show()
 ```
 
 ```python

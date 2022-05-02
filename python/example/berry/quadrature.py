@@ -48,99 +48,133 @@ import util
 
 
 def build_grid(
-    fi, y, n, *, integrate_sigma=True, integrate_thetas=None, n_theta=11, w_theta=6
+    fi,
+    y,
+    n,
+    *,
+    integrate_sigma2=True,
+    fixed_arm_dim=None,
+    fixed_arm_values=None,
+    n_theta=11,
+    w_theta=6,
 ):
+    """
+    Build a theta integration grid for each value of sigma2.
+
+    fi:
+        a FastINLA object, used for determining the mode and variance of the
+        distribution being integrated.
+
+    y, n:
+        Binomial count data!
+
+    integrate_sigma:
+        should we integrate over the sigma2 values
+
+    fixed_dims:
+        any theta dimensions for which we should use a pre-specified
+        list of points instead of determining the optimal range. this is
+        specified as a dictionary with integer keys specifying the fixed
+        dimensions and a numpy array specifying the points to use.
+        NOTE: we will not be integrating over these dimensions.
+
+    n_theta:
+        the number of quadrature points per dimension.
+
+    w_theta:
+        the number of standard deviations to extend outwards from the mode.
+
+    The procedure here is as follows:
+    1. Construct an "eta-space" grid that is simply a cartesian product of the
+       gaussian quadrature rule.
+    2. Identify the mode and variance of the distribution using the same tools
+       created for the INLA implementation.
+    3. Decompose the variance into an orthogonal coordinate system using an
+       eigendecomposition
+    4. Assume the rectangular eta grid is in this orthogonal coordinate system
+    5. Map from eta to theta via the eigenvectors/values
+    6. Don't forget to multiply the quadrature weights by the determinant of the
+       jacobian of the transformation.
+    """
+    N, R = y.shape
+    S = fi.sigma2_n
+    integrate_thetas = list(range(fi.n_arms))
+    if fixed_arm_dim is not None:
+        integrate_thetas.remove(fixed_arm_dim)
+
     points, weights = np.polynomial.legendre.leggauss(n_theta)
     etapts = w_theta * points
     etawts = w_theta * weights
     grid_eta = np.stack(
-        np.meshgrid(*[etapts for k in range(fi.n_arms)], indexing="ij"), axis=-1
+        np.meshgrid(*[etapts for k in integrate_thetas], indexing="ij"), axis=-1
     )
     grid_eta_wts = np.prod(
         np.stack(
-            np.meshgrid(*[etawts for k in range(fi.n_arms)], indexing="ij"), axis=-1
+            np.meshgrid(*[etawts for k in integrate_thetas], indexing="ij"), axis=-1
         ),
         axis=-1,
     )
 
-    phat = y / n
-    sample_I = n * phat * (1 - phat)
+    # Compute mode and the inverse hessian at the mode via INLA!
+    if fixed_arm_dim is None:
+        mode, hess_inv = fi.optimize_mode(y, n)
+    else:
+        M = fixed_arm_values.shape[0]
+        y_tiled = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
+        n_tiled = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
+        arm_values_tiled = np.tile(fixed_arm_values[None, :, None], (N, 1, S)).reshape(
+            (-1, S)
+        )
+        mode, hess_inv = fi.optimize_mode(
+            y_tiled,
+            n_tiled,
+            fixed_arm_dim=fixed_arm_dim,
+            fixed_arm_values=arm_values_tiled,
+        )
 
-    # TODO: we can also use inla hess_inv to compute the full variance here with
-    # higher fidelity than DB.
-    _, _, mode, _, hess_inv = fi.numpy_inference(y, n)
-    sigma_posterior = hess_inv  # np.transpose(hess_inv, (0, 1, 3, 2))
+    # Step 2: decorrelate our coordinate system.
+    # the negative of hess_inv is the covariance matrix. We take the subset
+    # corresponding to the dimensions we will be integrating over.
+    w, v = np.linalg.eigh(-hess_inv)
+    axis_half_len = np.sqrt(np.abs(w))
 
-    # Dirty bayes calculation of variance matrix.
-    sigma_precision = np.empty((sample_I.shape[0], *fi.neg_precQ.shape))
-    sigma_precision[:] = fi.neg_precQ[None, ...]
-    sigma_precision[..., fi.arms, fi.arms] += sample_I[:, None, ...]
-    sigma_posterior2 = np.linalg.inv(sigma_precision)
-
-    # Step : decorrelate our coordinate system.
-    w, v = np.linalg.eigh(sigma_posterior)
-    std_dev_eig = w  # np.sqrt(np.abs(w))
-
-    # Map from eta to theta space.
-    broadcast_shape = list(mode.shape)
-    for i in range(fi.n_arms):
+    # Map the coordinates from eta to theta space.
+    mode_subset = mode[..., integrate_thetas]
+    broadcast_shape = list(mode_subset.shape)
+    for i in range(len(integrate_thetas)):
         broadcast_shape.insert(1, 1)
     grid_theta = np.einsum(
-        "klij,...i,kli->k...lj", v, grid_eta, std_dev_eig
-    ) + mode.reshape(broadcast_shape)
+        "klij,...i,kli->k...lj", v, grid_eta, axis_half_len
+    ) + mode_subset.reshape(broadcast_shape)
 
+    # Map the quadrature weights from eta to theta space.
     # We need to multiply by the absolute value of the determinant of the
     # transformation. Because we have already computed a eigendecomposition, the
     # determinant of matrix is just product of eigenvalues.
-    det_jacobian = std_dev_eig.prod(axis=-1)
-    grid_theta_wts = np.einsum("kl,ij->kijl", det_jacobian, grid_eta_wts)
+    det_jacobian = axis_half_len.prod(axis=-1)
+    grid_theta_wts = np.einsum("kl,...->k...l", det_jacobian, grid_eta_wts)
 
-    sigma2_broadcast = [1] * len(grid_theta_wts.shape)
-    sigma2_broadcast[-1] = fi.sigma2_rule.wts.shape[0]
-    full_grid = np.empty((*grid_theta_wts.shape, fi.n_arms + 1))
-    full_grid[..., :2] = grid_theta
-    full_grid[..., 2] = fi.sigma2_rule.pts.reshape(sigma2_broadcast)
-
+    # Reshape the final results to:
+    # (N, n_theta1, ..., n_thetaM, n_sigma2, n_arms + 1)
+    # The entries corresponding to theta_i will be full_grid[..., i]
+    # while the entries corresponding to sigma2 will be full_grid[..., -1]
+    full_grid = np.empty((*grid_theta.shape[:-1], R + 1))
+    full_grid[..., integrate_thetas] = grid_theta
+    full_grid[..., fi.n_arms] = util.broadcast(
+        fi.sigma2_rule.pts, full_grid.shape[:-1], [-1]
+    )
     full_wts = grid_theta_wts
-    if integrate_sigma:
-        full_wts *= fi.sigma2_rule.wts.reshape(sigma2_broadcast)
+    if fixed_arm_dim is not None:
+        final_shape = [N, M] + list(full_grid.shape[1:])
+        full_grid = full_grid.reshape(final_shape)
+        full_grid[..., fixed_arm_dim] = util.broadcast(
+            fixed_arm_values, full_grid.shape[:-1], [1]
+        )
+        full_wts = grid_theta_wts.reshape(final_shape[:-1])
 
-    return grid_theta, full_wts
-    # return full_grid, full_wts
-
-
-def quad_sum(
-    joint,
-    thetawts=None,
-    sigma2_rule=None,
-    integrate_sigma2=False,
-    integrate_thetas=(),
-    n_arms=4,
-    fixed_dims=dict(),
-):
-    """
-    By specifying integrate_sigma2=True and integrate_thetas=(1,2,3), this
-    function will compute, for example: p(\theta_0 | y)
-    The returned integral will not be normalized.
-    """
-    joint_weighted = joint.copy()
-    sum_dims = []
-    theta_dims = range(2, 2 + n_arms)
     if integrate_sigma2:
-        wts = sigma2_rule.wts
-        joint_weighted *= np.expand_dims(wts, (0, *theta_dims))
-        sum_dims.append(1)
-    for i in integrate_thetas:
-        if i in fixed_dims:
-            wts = fixed_dims[i].wts
-            add_dims = [0, 1, *theta_dims]
-        else:
-            wts = thetawts[:, :, i]
-            add_dims = list(theta_dims)
-        add_dims.remove(i + 2)
-        sum_dims.append(i + 2)
-        joint_weighted *= np.expand_dims(wts, add_dims)
-    return joint_weighted.sum(axis=tuple(sum_dims))
+        full_wts *= util.broadcast(fi.sigma2_rule.wts, full_wts.shape, [-1])
+    return full_grid, full_wts
 
 
 def integrate(
@@ -148,25 +182,41 @@ def integrate(
     y,
     n,
     *,
-    integrate_sigma2=False,
-    integrate_thetas=(),
-    fixed_dims=dict(),
+    integrate_sigma2=True,
+    fixed_arm_dim=None,
+    fixed_arm_values=None,
     n_theta=11,
     w_theta=6,
+    return_intermediates=False,
 ):
-    pts, wts = build_grid(fi, y, n, n_quad=n_theta, w_quad=w_theta)
-
-    joint = np.exp(
-        fi.log_joint(giant_grid_theta, data[:, None, :], giant_grid_sigma2)
-    ).reshape(grids.shape[:-1])
-    return quad_sum(
-        joint,
-        thetawts=thetawts,
-        sigma2_rule=model.sigma2_rule,
+    grids, wts = build_grid(
+        fi,
+        y,
+        n,
         integrate_sigma2=integrate_sigma2,
-        integrate_thetas=integrate_thetas,
-        n_arms=n_arms,
+        fixed_arm_dim=fixed_arm_dim,
+        fixed_arm_values=fixed_arm_values,
+        n_theta=n_theta,
+        w_theta=w_theta,
     )
+
+    grids_ravel = grids[..., : fi.n_arms].reshape((-1, fi.sigma2_n, fi.n_arms))
+    joint = np.exp(fi.log_joint(y[None, :], n[None, :], grids_ravel)).reshape(
+        grids.shape[:-1]
+    )
+
+    if fixed_arm_dim is None:
+        sum_dims = list(range(1, fi.n_arms + 1))
+    else:
+        sum_dims = list(range(2, fi.n_arms + 1))
+
+    if integrate_sigma2:
+        sum_dims.append(-1)
+
+    if return_intermediates:
+        return np.sum(joint * wts, tuple(sum_dims)), grids, wts, joint
+    else:
+        return np.sum(joint * wts, tuple(sum_dims))
 
 
 def quadrature_posterior_theta(model, data, thresh):
