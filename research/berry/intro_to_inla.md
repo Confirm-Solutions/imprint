@@ -132,7 +132,8 @@ import quadrature
 
 fi = fast_inla.FastINLA(n_arms=4)
 quad_p_ti_g_y = quadrature.integrate(
-    fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts
+    fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+    n_theta=21
 )
 quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
 
@@ -173,12 +174,11 @@ plt.show()
 ## 2.1a: redo it for all the arms:
 
 ```python
-for arm_idx in [0]:
+for arm_idx in range(4)[::-1]:
     print(arm_idx)
     quad_p_ti_g_y, grids, wts, joint = quadrature.integrate(
         fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
-        w_theta=24, n_theta=11,
-        return_intermediates=True
+        n_theta=21, return_intermediates=True
     )
     quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
 
@@ -196,16 +196,6 @@ for arm_idx in [0]:
     plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
     plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
     plt.legend()
-    plt.show()
-```
-
-```python
-grids[0,30,:,:,5,sig_idx,1]
-```
-
-```python
-for sig_idx in range(15):
-    plt.contourf(grids[0,30,:,:,5,sig_idx,1], grids[0,30,:,:,5,sig_idx,2], np.log(joint)[0,30,:,:,5,sig_idx])
     plt.show()
 ```
 

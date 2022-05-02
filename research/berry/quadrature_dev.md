@@ -33,7 +33,7 @@ mu_sig_sq = 100.0
 mu_0 = -1.34
 logit_p1 = logit(0.3)
 n = np.full((1, 2), 35)
-y = np.array([[2, 8]])
+y = np.array([[0, 1]])
 n.shape, y.shape
 ```
 
@@ -89,9 +89,6 @@ import quadrature
 import fast_inla
 
 fi = fast_inla.FastINLA(n_arms, sigma2_n=sigma2_n)
-n_theta = 11
-w_theta = 10
-integrate_sigma = False
 ```
 
 ```python
@@ -120,61 +117,113 @@ mcmc_pdf[1:] = (mcmc_cdf[1:] - mcmc_cdf[:-1]) / sigma2_mcmc.shape[0]
 ```
 
 ```python
-points, weights = np.polynomial.legendre.leggauss(n_theta)
-etapts = w_theta * points
-etawts = w_theta * weights
+n_theta = 11
+w_theta = 10
+integrate_sigma2 = False
+fixed_arm_dim = None
+fixed_arm_values = None
+```
+
+```python
+N, R = y.shape
+S = fi.sigma2_n
+integrate_thetas = list(range(fi.n_arms))
+if fixed_arm_dim is not None:
+    integrate_thetas.remove(fixed_arm_dim)
+
+etapts, etawts = np.polynomial.legendre.leggauss(n_theta)
 grid_eta = np.stack(
-    np.meshgrid(*[etapts for k in range(fi.n_arms)], indexing="ij"), axis=-1
+    np.meshgrid(*[etapts for k in integrate_thetas], indexing="ij"), axis=-1
 )
 grid_eta_wts = np.prod(
     np.stack(
-        np.meshgrid(*[etawts for k in range(fi.n_arms)], indexing="ij"), axis=-1
+        np.meshgrid(*[etawts for k in integrate_thetas], indexing="ij"), axis=-1
     ),
     axis=-1,
 )
 
-phat = y / n
-sample_I = n * phat * (1 - phat)
+# Compute mode and the inverse hessian at the mode via INLA!
+if fixed_arm_dim is None:
+    mode, hess_inv = fi.optimize_mode(y, n)
+else:
+    M = fixed_arm_values.shape[0]
+    y_tiled = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
+    n_tiled = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
+    arm_values_tiled = np.tile(fixed_arm_values[None, :, None], (N, 1, S)).reshape(
+        (-1, S)
+    )
+    mode, hess_inv = fi.optimize_mode(
+        y_tiled,
+        n_tiled,
+        fixed_arm_dim=fixed_arm_dim,
+        fixed_arm_values=arm_values_tiled,
+    )
 
-# TODO: we can also use inla hess_inv to compute the full variance here with
-# higher fidelity than DB.
-sigma2_post_fi, _, mode, _, hess_inv = fi.numpy_inference(y, n)
-sigma_posterior = -hess_inv  # np.transpose(hess_inv, (0, 1, 3, 2))
-
-# Dirty bayes calculation of variance matrix.
-sigma_precision = np.empty((sample_I.shape[0], *fi.neg_precQ.shape))
-sigma_precision[:] = fi.neg_precQ[None, ...]
-sigma_precision[..., fi.arms, fi.arms] += sample_I[:, None, ...]
-sigma_posterior2 = np.linalg.inv(sigma_precision)
-
-# Step : decorrelate our coordinate system.
-w, v = np.linalg.eigh(sigma_posterior)
-# axis_half_len = w
+# Step 2: decorrelate our coordinate system.
+# the negative of hess_inv is the covariance matrix. We take the subset
+# corresponding to the dimensions we will be integrating over.
+w, v = np.linalg.eigh(-hess_inv)
 axis_half_len = np.sqrt(np.abs(w))
 
-# Map from eta to theta space.
-broadcast_shape = list(mode.shape)
-for i in range(fi.n_arms):
+# Step 3: explore the coordinate system axis to determine the necessary domain scale.
+mode_logjoint = fi.log_joint(y, n, mode)
+log_tol = np.log(1e-10)
+lr = 0.25
+for eigen_idx in range(len(integrate_thetas)):
+    dir_steps = np.empty((2, *mode.shape[:2]))
+    for i, direction in enumerate([-1, 1]):
+        step = np.full(mode.shape[:2], direction)
+        for j in range(10):
+            probe = (
+                mode
+                + axis_half_len[..., eigen_idx, None]
+                * v[..., :, eigen_idx]
+                * step[..., None]
+            )
+            logjoint = fi.log_joint(y, n, probe)
+            delta = logjoint - mode_logjoint
+            step = (1 - lr) * step + lr * step * (log_tol / delta)
+            step[step * direction < 0] = direction
+        dir_steps[i] = step
+    # TODO: convergence test
+    axis_half_len[..., eigen_idx] *= np.max(np.abs(dir_steps), axis=0)
+
+# Map the coordinates from eta to theta space.
+mode_subset = mode[..., integrate_thetas]
+broadcast_shape = list(mode_subset.shape)
+for i in range(len(integrate_thetas)):
     broadcast_shape.insert(1, 1)
 grid_theta = np.einsum(
     "klij,...i,kli->k...lj", v, grid_eta, axis_half_len
-) + mode.reshape(broadcast_shape)
+) + mode_subset.reshape(broadcast_shape)
 
+# Map the quadrature weights from eta to theta space.
 # We need to multiply by the absolute value of the determinant of the
 # transformation. Because we have already computed a eigendecomposition, the
 # determinant of matrix is just product of eigenvalues.
 det_jacobian = axis_half_len.prod(axis=-1)
-grid_theta_wts = np.einsum("kl,ij->kijl", det_jacobian, grid_eta_wts)
+grid_theta_wts = np.einsum("kl,...->k...l", det_jacobian, grid_eta_wts)
 
-sigma2_broadcast = [1] * len(grid_theta_wts.shape)
-sigma2_broadcast[-1] = fi.sigma2_rule.wts.shape[0]
-full_grid = np.empty((*grid_theta_wts.shape, fi.n_arms + 1))
-full_grid[..., :2] = grid_theta
-full_grid[..., 2] = fi.sigma2_rule.pts.reshape(sigma2_broadcast)
-
+# Reshape the final results to:
+# (N, n_theta1, ..., n_thetaM, n_sigma2, n_arms + 1)
+# The entries corresponding to theta_i will be full_grid[..., i]
+# while the entries corresponding to sigma2 will be full_grid[..., -1]
+full_grid = np.empty((*grid_theta.shape[:-1], R + 1))
+full_grid[..., integrate_thetas] = grid_theta
+full_grid[..., fi.n_arms] = util.broadcast(
+    fi.sigma2_rule.pts, full_grid.shape[:-1], [-1]
+)
 full_wts = grid_theta_wts
-if integrate_sigma:
-    full_wts *= fi.sigma2_rule.wts.reshape(sigma2_broadcast)
+if fixed_arm_dim is not None:
+    final_shape = [N, M] + list(full_grid.shape[1:])
+    full_grid = full_grid.reshape(final_shape)
+    full_grid[..., fixed_arm_dim] = util.broadcast(
+        fixed_arm_values, full_grid.shape[:-1], [1]
+    )
+    full_wts = grid_theta_wts.reshape(final_shape[:-1])
+
+if integrate_sigma2:
+    full_wts *= util.broadcast(fi.sigma2_rule.wts, full_wts.shape, [-1])
 ```
 
 ```python
@@ -206,10 +255,6 @@ for sig_idx in [10]:#range(0, sigma2_n, 1):
 ```
 
 ```python
-grid_eta.shape
-```
-
-```python
 sig_idx = 10
 eta = np.stack([ti.ravel() for ti in theta2d], axis=-1)
 theta = (eta * axis_half_len[0,sig_idx]).dot(v[0,sig_idx])
@@ -228,6 +273,10 @@ cbar.set_label('$log_{10}$ joint')
 plt.xlim([ts.min(), ts.max()])
 plt.ylim([ts.min(), ts.max()])
 plt.show()
+```
+
+```python
+sigma2_post_fi, _, _, _ = fi.inference(y, n)
 ```
 
 ```python
@@ -268,6 +317,65 @@ plt.legend()
 plt.xlabel('$\sigma^2$')
 plt.ylabel('p($\sigma^2$ | y)')
 plt.show()
+```
+
+```python
+ti_N = 101
+ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
+```
+
+```python
+grids, wts = quadrature.build_grid(
+    fi, y, n, fixed_arm_dim=0, fixed_arm_values=ti_rule.pts, n_theta=21
+)
+grids_ravel = grids[..., : fi.n_arms].reshape((-1, fi.sigma2_n, fi.n_arms))
+logjoint = fi.log_joint(y[None, :], n[None, :], grids_ravel).reshape(
+    grids.shape[:-1]
+)
+```
+
+```python
+for i in range(0, 11, 1):
+    field = logjoint[0, :, i, :] * fi.sigma2_rule.wts
+    levels = np.linspace(np.max(field) - 30, np.max(field), 21)
+    plt.contourf(grids[0, :, i, :, 0], np.log10(grids[0, :, i, :, 2]), field, levels=levels)
+    plt.colorbar()
+    plt.show()
+```
+
+```python
+grids[0, :, :, i, 1]
+```
+
+```python
+for i in range(0, 90, 10):
+    field = logjoint[0, :, :, i]
+    vmax = np.max(field)
+    vmin = vmax - 30
+    levels = np.linspace(vmin, vmax, 21)
+    plt.scatter(grids[0, :, :, i, 0], grids[0, :, :, i, 1], c=field, vmin=vmin, vmax=vmax)
+    # plt.contourf(grids[0, :, :, i, 0], grids[0, :, :, i, 1], field, levels=levels)
+    plt.colorbar()
+    plt.show()
+```
+
+```python
+for arm_idx in range(2):
+    mcmc_arm = results_mcmc["x"][0]['theta'][0,:,arm_idx].to_py() 
+    mcmc_arm_cdf = (mcmc_arm[None, :] < ti_rule.pts[:, None]).sum(axis=1)
+    mcmc_arm_pdf = np.zeros(ti_rule.pts.shape[0])
+    mcmc_arm_pdf[1:] = (mcmc_arm_cdf[1:] - mcmc_arm_cdf[:-1]) / mcmc_arm.shape[0]
+    mcmc_arm_pdf /= np.sum(mcmc_arm_pdf * ti_rule.wts)
+
+    quad_p_ti_g_y = quadrature.integrate(
+        fi, y, n, fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+        n_theta=21
+    )
+    quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
+    plt.plot(ti_rule.pts, quad_p_ti_g_y[0])
+    plt.plot(ti_rule.pts, mcmc_arm_pdf, 'k.')
+    plt.ylim([0, 1.0])
+    plt.show()
 ```
 
 ```python

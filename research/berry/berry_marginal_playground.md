@@ -19,63 +19,66 @@ jupyter:
 ```
 
 ```python
+# Import MCMC first so that JAX gets set up with 8 cores.
+import sys
+sys.path.append('../../python/example/berry')
+import mcmc
+
 import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
+%config InlineBackend.figure_format='retina'
 from scipy.special import logit
 
-import sys
-sys.path.append('../../python/example/berry')
 import util
 import fast_inla
-import berry
 import quadrature
 ```
 
 ```python
 n_arms = 2
 fi = fast_inla.FastINLA(n_arms=n_arms, sigma2_n=90)
-b = berry.Berry(n_arms=n_arms, sigma2_bounds=(1e-6, 1e3))
 
-n_i = np.full((N, n_arms), 35)
-y_i = np.full_like(n_i, 5)
-data = np.stack((y_i, n_i), axis=-1)
-sigma2_post, _, theta_mu, theta_sigma = fi.numpy_inference(y_i, n_i)
-```
-
-```python
-n_arms = 2
+# Compute for a grid of y values ranging from 0 to 9 with n = 35
 ys = np.arange(0, 10)
 Y1, Y2 = np.meshgrid(ys, ys)
 y_i = np.stack((Y1.ravel(), Y2.ravel()), axis=-1)
 n_i = np.full_like(y_i, 35)
-data = np.stack((y_i, n_i), axis=-1)
-sigma2_post, _, theta_mu, theta_sigma = fi.numpy_inference(y_i, n_i)
 ```
 
 ```python
-for arm_idx, plot_idx in [(0, 48), (1, 84)]:
-    ti_N = 201
-    ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
-    print('y=', data[plot_idx,:,0])
+import mcmc
 
-    # quadrature marginal
+results_mcmc = mcmc.mcmc_berry(
+    np.stack((y_i, n_i), axis=-1),
+    fi.logit_p1,
+    np.full(data.shape[0], fi.thresh_theta),
+    n_arms=n_arms,
+    dtype=np.float64,
+    n_samples=20000
+)
+```
+
+```python
+def compare_arm_marginals(y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=None):
+    print('arm_idx=', arm_idx, ' y=', y[plot_idx])
+    ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
+
+    sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(y, n)
+
     integrate_dims = list(range(n_arms))
     integrate_dims.remove(arm_idx)
     quad_p_ti_g_y = quadrature.integrate(
-        b,
-        data[
-            plot_idx:(plot_idx + 1),
-        ],
+        fi,
+        y[plot_idx : (plot_idx + 1)],
+        n[plot_idx : (plot_idx + 1)],
         integrate_sigma2=True,
-        integrate_thetas=integrate_dims,
-        fixed_dims={arm_idx: ti_rule},
-        n_arms=n_arms,
+        fixed_arm_dim=arm_idx,
+        fixed_arm_values=ti_rule.pts,
         n_theta=15,
     )
     quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
 
-    # INLA marginal
     gaussian_pdf = scipy.stats.norm.pdf(
         ti_rule.pts[:, None],
         theta_mu[plot_idx, :, arm_idx],
@@ -85,73 +88,59 @@ for arm_idx, plot_idx in [(0, 48), (1, 84)]:
         gaussian_pdf * sigma2_post[plot_idx] * fi.sigma2_rule.wts[None, :], axis=1
     )
 
-    plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
-    plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+    # construct bin edges such that the bin midpoints correspond to ti_rule.pts
+    mcmc_arm = results_mcmc["x"][plot_idx]["theta"][0, :, arm_idx].to_py()
+    mcmc_p_ti_g_y = mcmc.calc_pdf(mcmc_arm, ti_rule.pts)
+
+    plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "k-", markersize=3, label="INLA")
+    plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "k--", markersize=3, label="Quadrature")
+    plt.plot(ti_rule.pts, mcmc_p_ti_g_y, "k.", label="MCMC")
+
+    plt.title()
+    plt.xlabel(r"$\theta_" + str(arm_idx) + "$")
+    plt.ylabel(r"p($\theta_" + str(arm_idx) + "$ | y)")
     plt.legend()
     plt.show()
 ```
 
 ```python
-import mcmc
-
-results_mcmc = mcmc.mcmc_berry(
-    data[plot_idx : (plot_idx + 1)],
-    b.logit_p1,
-    b.suc_thresh,
-    n_arms=n_arms,
-    dtype=np.float64,
-    n_samples=50000
-)
-
-sigma2_mcmc = results_mcmc["x"][0]["sigma2"][0]
-plt.title("numpyro mcmc results")
-plt.hist(np.log10(sigma2_mcmc.to_py()), bins=40)
-plt.xlabel("$\log_{10} (\sigma^2)$")
-plt.ylabel("sample count")
-plt.xlim([-7, 4])
-plt.show()
-
+for arm_idx, plot_idx in [(0, 48), (1, 84), (1, 8), (1, 1), (0,0)]:
+    compare_arm_marginals(y_i, n_i, arm_idx, plot_idx, results_mcmc=results_mcmc)
 ```
 
 ```python
-mcmc_cdf = (sigma2_mcmc[None, :] < b.sigma2_rule.pts[:, None]).sum(axis=1)
-mcmc_pdf = np.zeros(b.sigma2_rule.pts.shape[0])
-mcmc_pdf[1:] = (mcmc_cdf[1:] - mcmc_cdf[:-1]) / sigma2_mcmc.shape[0]
-```
-
-```python
-for arm_idx, plot_idx in [(1, 84)]:
-    print('y=', data[plot_idx,:,0])
-
-    # quadrature marginal
-    integrate_dims = list(range(n_arms))
-    # integrate_dims.remove(arm_idx)
+def compare_hyperparam_posterior(plot_idx):
     quad_p_s2_g_y = quadrature.integrate(
-        b,
-        data[
-            plot_idx:(plot_idx + 1),
-        ],
+        fi,
+        y_i[plot_idx:(plot_idx + 1)],
+        n_i[plot_idx:(plot_idx + 1)],
         integrate_sigma2=False,
-        integrate_thetas=integrate_dims,
-        n_arms=n_arms,
         n_theta=15,
     )
-    quad_p_s2_g_y /= np.sum(quad_p_s2_g_y * b.sigma2_rule.wts, axis=1)
+    quad_p_s2_g_y /= np.sum(quad_p_s2_g_y * fi.sigma2_rule.wts, axis=1)
 
-    plt.plot(np.log10(b.sigma2_rule.pts), sigma2_post[plot_idx], "r-o", markersize=3, label="INLA-Gaussian")
-    plt.plot(np.log10(b.sigma2_rule.pts), quad_p_s2_g_y[0], "b-o", markersize=3, label="Quad")
-    plt.plot(np.log10(b.sigma2_rule.pts), mcmc_pdf / b.sigma2_rule.wts, "k-o", markersize=3, label="MCMC")
+    mcmc_sigma2 = results_mcmc["x"][plot_idx]["sigma2"][0, :].to_py()
+    mcmc_p_s2_g_y = mcmc.calc_pdf(mcmc_sigma2, fi.sigma2_rule.pts, fi.sigma2_rule.wts)
+
+    plt.plot(np.log10(fi.sigma2_rule.pts), sigma2_post[plot_idx], "k-", markersize=3, label="INLA-Gaussian")
+    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y[0], "k--", markersize=3, label="Quad")
+    plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_p_s2_g_y, "ko", markersize=3, label="MCMC")
     plt.xlabel('$\log_{10} (\sigma^2)$')
     plt.ylabel('$p(\sigma^2 | y)$')
     plt.legend()
     plt.show()
 
-    plt.plot(np.log10(b.sigma2_rule.pts), sigma2_post[plot_idx] * b.sigma2_rule.wts, "r-o", markersize=3, label="INLA-Gaussian")
-    plt.title('compare y=[4,8], n=[35,35]')
-    plt.plot(np.log10(b.sigma2_rule.pts), quad_p_s2_g_y[0] * b.sigma2_rule.wts, "b-o", markersize=3, label="Quad")
-    plt.plot(np.log10(b.sigma2_rule.pts), mcmc_pdf, "k-o", markersize=3, label="MCMC")
+    plt.plot(np.log10(fi.sigma2_rule.pts), sigma2_post[plot_idx] * fi.sigma2_rule.wts, "k-", markersize=3, label="INLA-Gaussian")
+    plt.title(f'compare y=[{y_i[plot_idx,0]},{y_i[plot_idx,1]}], n=[35,35]')
+    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y[0] * fi.sigma2_rule.wts, "k--", markersize=3, label="Quad")
+    plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_p_s2_g_y * fi.sigma2_rule.wts, "ko", markersize=3, label="MCMC")
     plt.legend()
     plt.xlabel('$\log_{10} (\sigma^2)$')
     plt.ylabel('$p(\sigma^2 | y) * w$')
     plt.show()
+```
+
+```python
+for arm_idx, plot_idx in [(1, 0)]:
+    compare_hyperparam_posterior(plot_idx)
 ```

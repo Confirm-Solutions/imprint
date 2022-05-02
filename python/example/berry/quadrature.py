@@ -91,9 +91,11 @@ def build_grid(
        created for the INLA implementation.
     3. Decompose the variance into an orthogonal coordinate system using an
        eigendecomposition
-    4. Assume the rectangular eta grid is in this orthogonal coordinate system
-    5. Map from eta to theta via the eigenvectors/values
-    6. Don't forget to multiply the quadrature weights by the determinant of the
+    4. Explore the axes of the orthogonal coordinate system to determine how
+       much of the space to cover with our quadrature grid.
+    5. Assume the rectangular eta grid is in this orthogonal coordinate system
+    6. Map from eta to theta via the eigenvectors/values
+    7. Don't forget to multiply the quadrature weights by the determinant of the
        jacobian of the transformation.
     """
     N, R = y.shape
@@ -102,9 +104,7 @@ def build_grid(
     if fixed_arm_dim is not None:
         integrate_thetas.remove(fixed_arm_dim)
 
-    points, weights = np.polynomial.legendre.leggauss(n_theta)
-    etapts = w_theta * points
-    etawts = w_theta * weights
+    etapts, etawts = np.polynomial.legendre.leggauss(n_theta)
     grid_eta = np.stack(
         np.meshgrid(*[etapts for k in integrate_thetas], indexing="ij"), axis=-1
     )
@@ -120,23 +120,46 @@ def build_grid(
         mode, hess_inv = fi.optimize_mode(y, n)
     else:
         M = fixed_arm_values.shape[0]
-        y_tiled = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
-        n_tiled = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
+        y = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
+        n = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
         arm_values_tiled = np.tile(fixed_arm_values[None, :, None], (N, 1, S)).reshape(
             (-1, S)
         )
         mode, hess_inv = fi.optimize_mode(
-            y_tiled,
-            n_tiled,
+            y,
+            n,
             fixed_arm_dim=fixed_arm_dim,
             fixed_arm_values=arm_values_tiled,
         )
+        np.testing.assert_allclose(mode[..., fixed_arm_dim], arm_values_tiled)
 
     # Step 2: decorrelate our coordinate system.
     # the negative of hess_inv is the covariance matrix. We take the subset
     # corresponding to the dimensions we will be integrating over.
     w, v = np.linalg.eigh(-hess_inv)
     axis_half_len = np.sqrt(np.abs(w))
+
+    # Step 3: explore the coordinate system axis to determine the necessary
+    # domain scale.
+    mode_logjoint = fi.log_joint(y, n, mode)
+    log_tol = np.log(1e-10)
+    for eigen_idx in range(len(integrate_thetas)):
+        dir_steps = np.empty((2, *mode.shape[:2]))
+        for i, direction in enumerate([-1, 1]):
+            for j in range(1, 30)[::-1]:
+                probe = mode.copy()
+                probe[..., integrate_thetas] += (
+                    axis_half_len[..., eigen_idx, None]
+                    * v[..., :, eigen_idx]
+                    * j
+                    * direction
+                )
+                logjoint = fi.log_joint(y, n, probe)
+                delta = logjoint - mode_logjoint
+                good_steps = np.where(delta < log_tol)
+                dir_steps[i, good_steps[0], good_steps[1]] = j * direction
+        mult = np.max(np.abs(dir_steps), axis=0)
+        axis_half_len[..., eigen_idx] *= np.maximum(mult, 10)
 
     # Map the coordinates from eta to theta space.
     mode_subset = mode[..., integrate_thetas]
@@ -201,7 +224,10 @@ def integrate(
     )
 
     grids_ravel = grids[..., : fi.n_arms].reshape((-1, fi.sigma2_n, fi.n_arms))
-    joint = np.exp(fi.log_joint(y[None, :], n[None, :], grids_ravel)).reshape(
+    n_theta_pts = np.prod(grids.shape[1 : (1 + fi.n_arms)])
+    y_tiled = np.tile(y[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
+    n_tiled = np.tile(n[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
+    joint = np.exp(fi.log_joint(y_tiled, n_tiled, grids_ravel)).reshape(
         grids.shape[:-1]
     )
 

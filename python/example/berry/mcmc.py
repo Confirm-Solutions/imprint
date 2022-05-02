@@ -4,7 +4,7 @@ import os
 # TODO: this could be set more globally and in a flexible way, but for now, this seems fine.
 # I think we should have a jax_setup module that sets variables like this before
 # importing jax.
-n_requested_cores_mcmc = 6
+n_requested_cores_mcmc = 8
 os.environ[
     "XLA_FLAGS"
 ] = f"--xla_force_host_platform_device_count={n_requested_cores_mcmc}"
@@ -56,7 +56,7 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
     def do_mcmc(rng_key, y, n):
         # Small step_size is necessary for the sampler to notice the density lying
         # in [1e-6, 1e-3]. Without this, results are very wrong.
-        nuts_kwargs = dict(step_size=0.002, adapt_step_size=False)
+        nuts_kwargs = dict(step_size=0.001, adapt_step_size=False)
         nuts_kernel = numpyro.infer.NUTS(mcmc_berry_model, **nuts_kwargs)
         mcmc = numpyro.infer.MCMC(
             nuts_kernel,
@@ -108,6 +108,20 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
             mcmc_stats["x"][i + j] = x
             mcmc_stats["summary"][i + j] = summary
     return mcmc_stats
+
+
+def calc_pdf(x, bin_midpts, bin_wts):
+    bin_edges = np.empty(bin_midpts.shape[0] + 1)
+    bin_edges[1:-1] = (bin_midpts[:-1] + bin_midpts[1:]) * 0.5
+    bin_edges[0] = bin_midpts[0] - (bin_midpts[1] - bin_midpts[0]) / 2
+    bin_edges[-1] = bin_midpts[-1] - (bin_midpts[-2] - bin_midpts[-1]) / 2
+
+    pdf, _ = np.histogram(x, bin_edges)
+    pdf = pdf.astype(np.float64)
+    bin_width = bin_edges[1:] - bin_edges[:-1]
+    pdf /= bin_width
+    normalize = (bin_wts * pdf).sum()
+    return pdf / normalize
 
 
 if __name__ == "__main__":
