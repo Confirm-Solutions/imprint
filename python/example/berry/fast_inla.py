@@ -21,7 +21,9 @@ def fast_invert(S_in, d):
 
 
 class FastINLA:
-    def __init__(self, n_arms=4, sigma2_n=15, critical_value=0.85):
+    def __init__(
+        self, n_arms=4, sigma2_n=15, sigma2_bounds=(1e-6, 1e3), critical_value=0.85
+    ):
         self.n_arms = n_arms
         self.mu_0 = -1.34
         self.mu_sig_sq = 100.0
@@ -29,7 +31,7 @@ class FastINLA:
 
         # For numpy impl:
         self.sigma2_n = sigma2_n
-        self.sigma2_rule = util.log_gauss_rule(self.sigma2_n, 1e-6, 1e3)
+        self.sigma2_rule = util.log_gauss_rule(self.sigma2_n, *sigma2_bounds)
         self.arms = np.arange(self.n_arms)
         self.cov = np.full((self.sigma2_n, self.n_arms, self.n_arms), self.mu_sig_sq)
         self.cov[:, self.arms, self.arms] += self.sigma2_rule.pts[:, None]
@@ -73,38 +75,10 @@ class FastINLA:
         return fncs[method](y, n)[:4]
 
     def numpy_inference(self, y, n):
-        N = y.shape[0]
         # TODO: warm start with DB theta ?
         # Step 1) Compute the mode of p(theta, y, sigma^2) holding y and sigma^2 fixed.
         # This is a simple Newton's method implementation.
-        theta_max = np.zeros((N, self.sigma2_n, self.n_arms))
-        converged = False
-        for i in range(100):
-            theta_m0 = theta_max - self.mu_0
-            exp_theta_adj = np.exp(theta_max + self.logit_p1)
-            C = 1.0 / (exp_theta_adj + 1)
-            grad = (
-                np.matmul(self.neg_precQ[None], theta_m0[:, :, :, None])[..., 0]
-                + y[:, None]
-                - (n[:, None] * exp_theta_adj) * C
-            )
-
-            diag = n[:, None] * exp_theta_adj * (C**2)
-            hess_inv = fast_invert(-self.cov, -diag)
-            step = -np.matmul(hess_inv, grad[..., None])[..., 0]
-            theta_max += step
-            # hess = np.tile(self.neg_precQ, (N, 1, 1, 1))
-            # hess[:, :, self.arms, self.arms] -= (
-            #     n[:, None] * exp_theta_adj * (C ** 2)
-            # )
-            # step = -np.linalg.solve(hess, grad)
-            # theta_max += step2
-            # np.testing.assert_allclose(step, step2, atol=1e-12)
-
-            if np.max(np.linalg.norm(step, axis=-1)) < self.tol:
-                converged = True
-                break
-        assert converged
+        theta_max, hess_inv = self.optimize_mode(y, n)
 
         # Step 2) Calculate the joint distribution p(theta, y, sigma^2)
         logjoint = self.log_joint(y, n, theta_max)
@@ -150,6 +124,52 @@ class FastINLA:
             theta_sigma,
             hess_inv,
         )
+
+    def optimize_mode(self, y, n, fixed_arm_dim=None, fixed_arm_values=None):
+
+        # NOTE: If
+        # 1) fixed_arm_values is chosen without regard to the other theta values
+        # 2) sigma2 is very small
+        # then, the optimization problem will be poorly conditioned and ugly because the
+        # chances of t_{arm_idx} being very different from the other theta values is
+        # super small with small sigma2
+
+        N = y.shape[0]
+        arms_opt = list(range(self.n_arms))
+        theta_max = np.zeros((N, self.sigma2_n, self.n_arms))
+        na = np.arange(self.n_arms)
+        if fixed_arm_dim is not None:
+            na = np.arange(self.n_arms - 1)
+            arms_opt.remove(fixed_arm_dim)
+            theta_max[..., fixed_arm_dim] = fixed_arm_values
+
+        converged = False
+        for i in range(100):
+            theta_m0 = theta_max - self.mu_0
+            exp_theta_adj = np.exp(theta_max + self.logit_p1)
+            C = 1.0 / (exp_theta_adj + 1)
+            grad = (
+                np.matmul(self.neg_precQ[None], theta_m0[:, :, :, None])[..., 0]
+                + y[:, None]
+                - (n[:, None] * exp_theta_adj) * C
+            )[..., arms_opt]
+
+            diag = n[:, None] * exp_theta_adj * (C**2)
+            # cov_subset = self.cov[..., arms_opt, :][..., :, arms_opt]
+            # hess_inv = fast_invert(-cov_subset, -diag[..., arms_opt])
+            hess = np.tile(
+                self.neg_precQ[None, ..., arms_opt, :][..., :, arms_opt], (N, 1, 1, 1)
+            )
+            hess[..., na, na] -= diag[..., arms_opt]
+            hess_inv = np.linalg.inv(hess)
+            step = -np.matmul(hess_inv, grad[..., None])[..., 0]
+            theta_max[..., arms_opt] += step
+
+            if np.max(np.linalg.norm(step, axis=-1)) < self.tol:
+                converged = True
+                break
+        assert converged
+        return theta_max, hess_inv
 
     def log_joint(self, y, n, theta):
         """

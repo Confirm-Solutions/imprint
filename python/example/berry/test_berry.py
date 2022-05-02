@@ -12,6 +12,11 @@ import util
 from scipy.special import logit
 
 
+def test_broadcast():
+    assert util.broadcast(np.zeros(10), (4, 10, 5, 6), (1,)).shape == (1, 10, 1, 1)
+    assert util.broadcast(np.zeros((4, 5)), (3, 4, 6, 5), (1, 3)).shape == (1, 4, 1, 5)
+
+
 def test_binomial_hierarchical_grad_hess():
     nT = 50
     n_i = np.full((1, 4), nT)
@@ -195,13 +200,12 @@ def test_log_gauss_rule():
 def test_exact_integrate():
     n_i = np.full((1, 4), 10)
     y_i = np.array([[1, 6, 3, 3]])
-    data = np.stack((y_i, n_i), axis=2)
-    b = berry.Berry(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
+    fi = fast_inla.FastINLA(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
 
     p_sigma2_g_y = quadrature.integrate(
-        b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=11
+        fi, y_i, n_i, integrate_sigma2=False, n_theta=11
     )
-    p_sigma2_g_y /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
+    p_sigma2_g_y /= np.sum(p_sigma2_g_y * fi.sigma2_rule.wts, axis=1)[:, None]
     expected = [
         7.253775e-01,
         5.361246e-01,
@@ -253,7 +257,7 @@ def test_inla_properties(method):
     n_i = np.array([[35, 35], [35, 35]])
     y_i = np.array([[4, 7], [7, 4]])
     inla_model = fast_inla.FastINLA(n_arms=2)
-    sigma2_post, exceedances, theta_max, theta_sigma = inla_model.numpy_inference(
+    sigma2_post, exceedances, theta_max, theta_sigma, _ = inla_model.numpy_inference(
         y_i, n_i
     )
 
