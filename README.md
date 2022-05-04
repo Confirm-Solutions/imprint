@@ -43,5 +43,5 @@ To set up your bazel configuration for building C++:
 From here, we refer to the installation instructions
 for each of the sub-components:
 
-- [PyKevlar](./python/README.md): Kevlar Python package.
+- [pykevlar](./python/README.md): Kevlar Python package.
 - [kevlar](./kevlar/README.md): Kevlar C++ core engine.
