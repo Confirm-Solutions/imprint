@@ -1,4 +1,4 @@
-# PyKevlar
+# pykevlar
 
 ## Dependencies
 
