@@ -234,24 +234,6 @@ def build_grid(
             full_grid.shape[:-1]
         )
 
-        # theta_dims = list(range(1 + fi.n_arms - len(integrate_thetas), 1 + fi.n_arms))
-        # theta_dims = tuple(theta_dims)
-        # maxv = np.expand_dims(logjoint.max(axis=theta_dims), theta_dims[:-1])
-        # for dim in range(len(integrate_thetas)):
-        #     fail = np.ones(axis_half_len.shape[:2], dtype=np.bool_)
-        #     for dir in [-1, 1]:
-        #         idx = [np.s_[:]] * (2 + fi.n_arms)
-        #         idx[theta_dims[dim]] = dir
-        #         idx = tuple(idx)
-        #         fail = fail & np.any(logjoint[idx] - maxv > log_tol, axis=theta_dims[:-1])
-        #     if np.any(fail):
-        #         # TODO: because axis_half_len is missing the n_data dimension, index fail[0]
-        #         # see above for discussion about changing this.
-        #         if fixed_arm_dim is not None:
-        #             fail = fail[0]
-        #         axis_half_len[fail, dim] *= 1.5
-        #         retry = True
-
         if not retry:
             break
     return full_grid, full_wts, logjoint
