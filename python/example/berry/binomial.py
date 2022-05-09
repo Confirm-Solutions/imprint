@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 
 def binomial_accumulator(rejection_fnc):
@@ -41,7 +42,7 @@ def binomial_accumulator(rejection_fnc):
         # rejection_fnc expects inputs of shape (n, n_arms) so we must flatten
         # our 3D arrays. We reshape exceedance afterwards to bring it back to 3D
         # (n_tiles, sim_size, n_arms)
-        y_flat = y.reshape((-1, 2))
+        y_flat = y.reshape((-1, n_arms))
         n_flat = jnp.full_like(y_flat, n_arm_samples)
         did_reject = rejection_fnc(y_flat, n_flat).reshape(y.shape)
 
@@ -69,3 +70,34 @@ def binomial_accumulator(rejection_fnc):
         return typeI_sum, typeI_score
 
     return fnc
+
+
+def build_rejection_table(n_arms, n_arm_samples, rejection_fnc):
+    ys = np.arange(n_arm_samples + 1)
+    Ygrids = np.stack(np.meshgrid(*[ys] * n_arms, indexing="ij"), axis=-1)
+    Yravel = Ygrids.reshape((-1, n_arms))
+
+    colsortidx = np.argsort(Yravel, axis=-1)
+    inverse_colsortidx = np.zeros(Yravel.shape, dtype=np.int32)
+    axis0 = np.arange(Yravel.shape[0])[:, None]
+    inverse_colsortidx[axis0, colsortidx] = np.arange(n_arms)
+    Y_colsorted = Yravel[axis0, colsortidx]
+
+    Y_unique, inverse_unique = np.unique(Y_colsorted, axis=0, return_inverse=True)
+
+    N = np.full_like(Y_unique, n_arm_samples)
+    reject_unique = rejection_fnc(Y_unique, N)
+    reject = reject_unique[inverse_unique][axis0, inverse_colsortidx]
+    return reject
+
+
+@jax.jit
+def lookup_rejection(table, y, n):
+    y_index = (y * (36 ** jnp.arange(4)[::-1])[None, :]).sum(axis=-1)
+    return table[y_index, :]
+
+
+def cloudpickle_helper(fnc_pkl, *args):
+    import cloudpickle
+
+    return cloudpickle.loads(fnc_pkl)(*args)
