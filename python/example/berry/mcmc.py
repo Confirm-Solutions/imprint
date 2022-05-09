@@ -21,7 +21,11 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 
 
-def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples=10000):
+def mcmc_berry(
+    data, logit_p1, suc_thresh, dtype=np.float64, n_samples=10000, sigma2_val=None
+):
+    n_arms = data.shape[-2]
+
     def mcmc_berry_model(y, n):
         mu = numpyro.sample("mu", dist.Normal(-1.34, 10))
 
@@ -37,7 +41,10 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
         # log_sigma2 = numpyro.sample("log_sigma2", log_inverse_gamma)
         # sigma2 = numpyro.deterministic("sigma2", jnp.exp(log_sigma2))
 
-        sigma2 = numpyro.sample("sigma2", dist.InverseGamma(0.0005, 0.000005))
+        if sigma2_val is None:
+            sigma2 = numpyro.sample("sigma2", dist.InverseGamma(0.0005, 0.000005))
+        else:
+            sigma2 = sigma2_val
         with numpyro.plate("j", n_arms):
             theta = numpyro.sample(
                 "theta",
@@ -56,7 +63,10 @@ def mcmc_berry(data, logit_p1, suc_thresh, n_arms=4, dtype=np.float64, n_samples
     def do_mcmc(rng_key, y, n):
         # Small step_size is necessary for the sampler to notice the density lying
         # in [1e-6, 1e-3]. Without this, results are very wrong.
-        nuts_kwargs = dict(step_size=0.001, adapt_step_size=False)
+        if sigma2_val is None:
+            nuts_kwargs = dict(step_size=0.001, adapt_step_size=False)
+        else:
+            nuts_kwargs = dict()
         nuts_kernel = numpyro.infer.NUTS(mcmc_berry_model, **nuts_kwargs)
         mcmc = numpyro.infer.MCMC(
             nuts_kernel,

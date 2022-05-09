@@ -42,8 +42,8 @@ There are three sources of error:
   control by a user because it is very obvious when a PDF is still large at the
   edge of the domain. So, we ignore this source of error.
 """
-# import inla
 import numpy as np
+import scipy.optimize
 import util
 
 
@@ -56,7 +56,8 @@ def build_grid(
     fixed_arm_dim=None,
     fixed_arm_values=None,
     n_theta=11,
-    w_theta=6,
+    w_theta=5,
+    tol=1e-4
 ):
     """
     Build a theta integration grid for each value of sigma2.
@@ -117,17 +118,18 @@ def build_grid(
 
     # Compute mode and the inverse hessian at the mode via INLA!
     if fixed_arm_dim is None:
+        y_reshaped, n_reshaped = y, n
         mode, hess_inv = fi.optimize_mode(y, n)
     else:
         M = fixed_arm_values.shape[0]
-        y = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
-        n = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
+        y_reshaped = np.tile(y[:, None, :], (1, M, 1)).reshape((-1, R))
+        n_reshaped = np.tile(n[:, None, :], (1, M, 1)).reshape((-1, R))
         arm_values_tiled = np.tile(fixed_arm_values[None, :, None], (N, 1, S)).reshape(
             (-1, S)
         )
         mode, hess_inv = fi.optimize_mode(
-            y,
-            n,
+            y_reshaped,
+            n_reshaped,
             fixed_arm_dim=fixed_arm_dim,
             fixed_arm_values=arm_values_tiled,
         )
@@ -141,63 +143,118 @@ def build_grid(
 
     # Step 3: explore the coordinate system axis to determine the necessary
     # domain scale.
-    mode_logjoint = fi.log_joint(y, n, mode)
-    log_tol = np.log(1e-10)
-    for eigen_idx in range(len(integrate_thetas)):
-        dir_steps = np.empty((2, *mode.shape[:2]))
-        for i, direction in enumerate([-1, 1]):
-            for j in range(1, 30)[::-1]:
-                probe = mode.copy()
-                probe[..., integrate_thetas] += (
-                    axis_half_len[..., eigen_idx, None]
-                    * v[..., :, eigen_idx]
-                    * j
-                    * direction
-                )
-                logjoint = fi.log_joint(y, n, probe)
-                delta = logjoint - mode_logjoint
-                good_steps = np.where(delta < log_tol)
-                dir_steps[i, good_steps[0], good_steps[1]] = j * direction
+    # TODO: this is currently WRONG when more than one problem is passed at a time.
+    # the correct solution might be to just change this whole function to work
+    # on a single data point
+    mode_logjoint = fi.log_joint(y_reshaped, n_reshaped, mode)
+    log_tol = np.log(tol)
+    for sig_idx in range(fi.sigma2_n):
+        for eigen_idx in range(len(integrate_thetas)):
+            dir_steps = np.empty((2, *mode.shape[:2]))
+            for i, direction in enumerate([-1, 1]):
+
+                def f(x):
+                    probe = mode[0, sig_idx].copy()
+                    probe[..., integrate_thetas] += (
+                        axis_half_len[..., eigen_idx, None]
+                        * v[..., :, eigen_idx]
+                        * x
+                        * direction
+                    )
+                    return (
+                        fi.log_joint(y_reshaped, n_reshaped, probe)[0, sig_idx]
+                        - mode_logjoint[0, sig_idx]
+                        - log_tol
+                    )
+
+                scipy.optimize.bisect(f, 0, 100)
+            # for j in range(1, 30)[::-1]:
+            #     probe = mode.copy()
+            #     probe[..., integrate_thetas] += (
+            #         axis_half_len[..., eigen_idx, None]
+            #         * v[..., :, eigen_idx]
+            #         * j
+            #         * direction
+            #     )
+            #     logjoint = fi.log_joint(y_reshaped, n_reshaped, probe)
+            #     delta = logjoint - mode_logjoint
+            #     good_steps = np.where(delta < log_tol)
+            #     dir_steps[i, good_steps[0], good_steps[1]] = j * direction
         mult = np.max(np.abs(dir_steps), axis=0)
-        axis_half_len[..., eigen_idx] *= np.maximum(mult, 10)
+        axis_half_len[..., eigen_idx] *= np.maximum(mult, w_theta)
+        # axis_half_len[..., eigen_idx] *= w_theta
 
     # Map the coordinates from eta to theta space.
-    mode_subset = mode[..., integrate_thetas]
-    broadcast_shape = list(mode_subset.shape)
-    for i in range(len(integrate_thetas)):
-        broadcast_shape.insert(1, 1)
-    grid_theta = np.einsum(
-        "klij,...i,kli->k...lj", v, grid_eta, axis_half_len
-    ) + mode_subset.reshape(broadcast_shape)
+    for i in range(10):
+        retry = False
+        mode_subset = mode[..., integrate_thetas]
+        broadcast_shape = list(mode_subset.shape)
+        for i in range(len(integrate_thetas)):
+            broadcast_shape.insert(1, 1)
+        grid_theta = np.einsum(
+            "klij,...i,kli->k...lj", v, grid_eta, axis_half_len
+        ) + mode_subset.reshape(broadcast_shape)
 
-    # Map the quadrature weights from eta to theta space.
-    # We need to multiply by the absolute value of the determinant of the
-    # transformation. Because we have already computed a eigendecomposition, the
-    # determinant of matrix is just product of eigenvalues.
-    det_jacobian = axis_half_len.prod(axis=-1)
-    grid_theta_wts = np.einsum("kl,...->k...l", det_jacobian, grid_eta_wts)
+        # Map the quadrature weights from eta to theta space.
+        # We need to multiply by the absolute value of the determinant of the
+        # transformation. Because we have already computed a eigendecomposition, the
+        # determinant of matrix is just product of eigenvalues.
+        det_jacobian = axis_half_len.prod(axis=-1)
+        grid_theta_wts = np.einsum("kl,...->k...l", det_jacobian, grid_eta_wts)
 
-    # Reshape the final results to:
-    # (N, n_theta1, ..., n_thetaM, n_sigma2, n_arms + 1)
-    # The entries corresponding to theta_i will be full_grid[..., i]
-    # while the entries corresponding to sigma2 will be full_grid[..., -1]
-    full_grid = np.empty((*grid_theta.shape[:-1], R + 1))
-    full_grid[..., integrate_thetas] = grid_theta
-    full_grid[..., fi.n_arms] = util.broadcast(
-        fi.sigma2_rule.pts, full_grid.shape[:-1], [-1]
-    )
-    full_wts = grid_theta_wts
-    if fixed_arm_dim is not None:
-        final_shape = [N, M] + list(full_grid.shape[1:])
-        full_grid = full_grid.reshape(final_shape)
-        full_grid[..., fixed_arm_dim] = util.broadcast(
-            fixed_arm_values, full_grid.shape[:-1], [1]
+        # Reshape the final results to:
+        # (N, n_theta1, ..., n_thetaM, n_sigma2, n_arms + 1)
+        # The entries corresponding to theta_i will be full_grid[..., i]
+        # while the entries corresponding to sigma2 will be full_grid[..., -1]
+        full_grid = np.empty((*grid_theta.shape[:-1], R + 1))
+        full_grid[..., integrate_thetas] = grid_theta
+        full_grid[..., fi.n_arms] = util.broadcast(
+            fi.sigma2_rule.pts, full_grid.shape[:-1], [-1]
         )
-        full_wts = grid_theta_wts.reshape(final_shape[:-1])
+        full_wts = grid_theta_wts
+        if fixed_arm_dim is not None:
+            final_shape = [N, M] + list(full_grid.shape[1:])
+            full_grid = full_grid.reshape(final_shape)
+            full_grid[..., fixed_arm_dim] = util.broadcast(
+                fixed_arm_values, full_grid.shape[:-1], [1]
+            )
+            full_wts = grid_theta_wts.reshape(final_shape[:-1])
 
-    if integrate_sigma2:
-        full_wts *= util.broadcast(fi.sigma2_rule.wts, full_wts.shape, [-1])
-    return full_grid, full_wts
+        if integrate_sigma2:
+            full_wts *= util.broadcast(fi.sigma2_rule.wts, full_wts.shape, [-1])
+
+        # Do a final check along the surfaces of our hypercube to make sure that
+        # the integrand values are small enough
+        # TODO: faster to just calculate the surface values until the domain is correct.
+        grids_ravel = full_grid[..., : fi.n_arms].reshape((-1, fi.sigma2_n, fi.n_arms))
+        n_theta_pts = np.prod(full_grid.shape[1 : (1 + fi.n_arms)])
+        y_tiled = np.tile(y[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
+        n_tiled = np.tile(n[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
+        logjoint = fi.log_joint(y_tiled, n_tiled, grids_ravel).reshape(
+            full_grid.shape[:-1]
+        )
+
+        # theta_dims = list(range(1 + fi.n_arms - len(integrate_thetas), 1 + fi.n_arms))
+        # theta_dims = tuple(theta_dims)
+        # maxv = np.expand_dims(logjoint.max(axis=theta_dims), theta_dims[:-1])
+        # for dim in range(len(integrate_thetas)):
+        #     fail = np.ones(axis_half_len.shape[:2], dtype=np.bool_)
+        #     for dir in [-1, 1]:
+        #         idx = [np.s_[:]] * (2 + fi.n_arms)
+        #         idx[theta_dims[dim]] = dir
+        #         idx = tuple(idx)
+        #         fail = fail & np.any(logjoint[idx] - maxv > log_tol, axis=theta_dims[:-1])
+        #     if np.any(fail):
+        #         # TODO: because axis_half_len is missing the n_data dimension, index fail[0]
+        #         # see above for discussion about changing this.
+        #         if fixed_arm_dim is not None:
+        #             fail = fail[0]
+        #         axis_half_len[fail, dim] *= 1.5
+        #         retry = True
+
+        if not retry:
+            break
+    return full_grid, full_wts, logjoint
 
 
 def integrate(
@@ -211,8 +268,9 @@ def integrate(
     n_theta=11,
     w_theta=6,
     return_intermediates=False,
+    tol=1e-4
 ):
-    grids, wts = build_grid(
+    grids, wts, logjoint = build_grid(
         fi,
         y,
         n,
@@ -221,15 +279,10 @@ def integrate(
         fixed_arm_values=fixed_arm_values,
         n_theta=n_theta,
         w_theta=w_theta,
+        tol=tol,
     )
 
-    grids_ravel = grids[..., : fi.n_arms].reshape((-1, fi.sigma2_n, fi.n_arms))
-    n_theta_pts = np.prod(grids.shape[1 : (1 + fi.n_arms)])
-    y_tiled = np.tile(y[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
-    n_tiled = np.tile(n[:, None], (1, n_theta_pts)).reshape((-1, fi.n_arms))
-    joint = np.exp(fi.log_joint(y_tiled, n_tiled, grids_ravel)).reshape(
-        grids.shape[:-1]
-    )
+    joint = np.exp(logjoint)
 
     if fixed_arm_dim is None:
         sum_dims = list(range(1, fi.n_arms + 1))
