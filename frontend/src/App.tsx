@@ -2,7 +2,7 @@ import Canvas from './canvas';
 import { getTestMatrices, MatrixData, PlotType, parseCSV } from './data';
 import React from 'react';
 import './App.css';
-import { FormControl, FormLabel, FormControlLabel, Radio, RadioGroup, Checkbox, Button } from '@mui/material';
+import { FormControl, FormLabel, FormControlLabel, Radio, RadioGroup, Checkbox, Button, InputLabel, MenuItem, Select } from '@mui/material';
 
 const numLayers = 6;
 const layerNames = ["Monte Carlo Type I error estimates", "0th order upper bound", "Max gradient estimates", "1st order upper bound", "2nd order upper bound", "Total upper bound"]
@@ -10,6 +10,7 @@ const layerNames = ["Monte Carlo Type I error estimates", "0th order upper bound
 function App() {
   const [plotType, setPlotType] = React.useState<PlotType>("surface");
   const [data, setData] = React.useState<MatrixData>();
+  const [colorscale, setColormap] = React.useState<string>("Hot");
 
   function updateDataCallback(field: "pmat" | "bmat") {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +66,7 @@ function App() {
     }
   }
 
+  const colors = "Blackbody,Bluered,Blues,Cividis,Earth,Electric,Greens,Greys,Hot,Jet,Picnic,Portland,Rainbow,RdBu,Reds,Viridis,YlGnBu,YlOrRd".split(",")
   return (
     <div className="row">
       <div className="left">
@@ -83,6 +85,18 @@ function App() {
         <FormControl>
           <FormLabel id="demo-radio-buttons-group-label">Layers Shown</FormLabel>
           {checkboxes}
+        </FormControl>
+        <FormControl fullWidth>
+          <InputLabel id="demo-simple-select-label">Colorscale</InputLabel>
+          <Select
+            labelId="demo-simple-select-label"
+            id="demo-simple-select"
+            value={colorscale}
+            label="Colorscale"
+            onChange={e => setColormap(e.target.value)}
+          >
+            {colors.map(color => <MenuItem key={color} value={color}>{color}</MenuItem>)}
+          </Select>
         </FormControl>
         <div className='buttonContainer'>
           <Button
@@ -123,6 +137,7 @@ function App() {
                 plotType={plotType}
                 checkboxStates={checkboxStates}
                 layerNames={layerNames}
+                colorscale={colorscale}
               ></Canvas>
               : null}
           </main>
