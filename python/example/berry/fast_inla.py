@@ -22,12 +22,17 @@ def fast_invert(S_in, d):
 
 class FastINLA:
     def __init__(
-        self, n_arms=4, sigma2_n=15, sigma2_bounds=(1e-6, 1e3), critical_value=0.85
+        self,
+        n_arms=4,
+        sigma2_n=15,
+        sigma2_bounds=(1e-6, 1e3),
+        p1=0.3,
+        critical_value=0.85,
     ):
         self.n_arms = n_arms
         self.mu_0 = -1.34
         self.mu_sig_sq = 100.0
-        self.logit_p1 = logit(0.3)
+        self.logit_p1 = logit(p1)
 
         # For numpy impl:
         self.sigma2_n = sigma2_n
@@ -41,7 +46,7 @@ class FastINLA:
             self.sigma2_rule.pts, 0.0005, scale=0.000005
         )
         self.tol = 1e-3
-        self.thresh_theta = logit(0.1) - logit(0.3)
+        self.thresh_theta = np.full(self.n_arms, logit(0.1) - self.logit_p1)
         self.critical_value = critical_value
 
         # For JAX impl:
@@ -74,7 +79,10 @@ class FastINLA:
         )
         return fncs[method](y, n)[:4]
 
-    def numpy_inference(self, y, n):
+    def numpy_inference(self, y, n, thresh_theta=None):
+        if thresh_theta is None:
+            thresh_theta = self.thresh_theta
+
         # TODO: warm start with DB theta ?
         # Step 1) Compute the mode of p(theta, y, sigma^2) holding y and sigma^2 fixed.
         # This is a simple Newton's method implementation.
@@ -109,7 +117,7 @@ class FastINLA:
         exceedances = []
         for i in range(self.n_arms):
             exc_sigma2 = 1.0 - scipy.stats.norm.cdf(
-                self.thresh_theta,
+                thresh_theta[..., i],
                 theta_mu[..., i],
                 theta_sigma[..., i],
             )

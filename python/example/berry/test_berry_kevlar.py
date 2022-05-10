@@ -1,11 +1,11 @@
 import fast_inla
 import numpy as np
-import pykevlar
-from binomial_accumulate import binomial_accumulator
+from binomial import binomial_accumulator
 from pykevlar.driver import accumulate_process
 from pykevlar.grid import HyperPlane, make_cartesian_grid_range
-from pykevlar.model.binomial import BerryINLA2
 from scipy.special import logit
+
+from kevlar import BerryKevlarModel
 
 
 def test_kevlar_and_py_binomial_accumulate():
@@ -39,38 +39,40 @@ def test_kevlar_and_py_binomial_accumulate():
     fi = fast_inla.FastINLA(2)
 
     # Run the C++ INLA Berry inference/rejection via accumulate_process.
-    b = BerryINLA2(
-        n_arm_samples,
-        [0.85],
-        np.full(2, fi.thresh_theta),
-        fi.sigma2_rule.wts.copy(),
-        fi.cov.reshape((-1, 4)).T.copy(),
-        fi.neg_precQ.reshape((-1, 4)).T.copy(),
-        fi.logprecQdet.copy(),
-        fi.log_prior.copy(),
-        fi.tol,
-        fi.logit_p1,
-    )
+    # b = BerryINLA2(
+    #     n_arm_samples,
+    #     [0.85],
+    #     np.full(2, fi.thresh_theta),
+    #     fi.sigma2_rule.wts.copy(),
+    #     fi.cov.reshape((-1, 4)).T.copy(),
+    #     fi.neg_precQ.reshape((-1, 4)).T.copy(),
+    #     fi.logprecQdet.copy(),
+    #     fi.log_prior.copy(),
+    #     fi.tol,
+    #     fi.logit_p1,
+    # )
+    b = BerryKevlarModel(fi, n_arm_samples, [0.85])
     out = accumulate_process(b, gr, sim_size, seed, n_threads)
 
     # Use the mt19937 object exported from C++ so that we can match the C++ random
     # sequence exactly. This is not necessary in the long term but is temporarily
     # useful to ensure that this code is producing identical output to the C++
     # version.
-    n_arm_samples = 35
-    gen = pykevlar.mt19937(seed)
+    # n_arm_samples = 35
+    # gen = pykevlar.mt19937(seed)
 
-    # We flip the order of n_arms and n_arm_samples here so the random number
-    # generator produces the same sequence of uniforms as are used in the C++ kevlar
-    # internals. The Kevlar function operates in column-major/Fortran order. Whereas
-    # here, numpy operates in row-major/C ordering b
-    samples = np.empty((sim_size, n_arms, n_arm_samples))
-    gen.uniform_sample(samples.ravel())
-    # after transposing, samples will have shape (sim_size, n_arm_samples, n_arms)
-    samples = np.transpose(samples, (0, 2, 1))
+    # # We flip the order of n_arms and n_arm_samples here so the random number
+    # # generator produces the same sequence of uniforms as are used in the C++ kevlar
+    # # internals. The Kevlar function operates in column-major/Fortran order. Whereas
+    # # here, numpy operates in row-major/C ordering b
+    # samples = np.empty((sim_size, n_arms, n_arm_samples))
+    # gen.uniform_sample(samples.ravel())
+    # # after transposing, samples will have shape (sim_size, n_arm_samples, n_arms)
+    # samples = np.transpose(samples, (0, 2, 1))
+    np.random.seed(seed)
+    samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
 
     theta = gr.thetas().T.copy()
-    # TODO: it'd be nice to add theta_tiles and is_null_per_arm to the GridRange object!
     cum_n_tiles = np.array(gr.cum_n_tiles())
     n_tiles_per_pt = cum_n_tiles[1:] - cum_n_tiles[:-1]
     theta_tiles = np.repeat(theta, n_tiles_per_pt, axis=0)
@@ -83,7 +85,8 @@ def test_kevlar_and_py_binomial_accumulate():
 
     accumulator = binomial_accumulator(fi.rejection_inference)
     typeI_sum, typeI_score = accumulator(theta_tiles, is_null_per_arm, samples)
-    print(typeI_score.dtype)
+    print(typeI_sum)
+    print(out.typeI_sum()[0])
     assert np.all(typeI_sum.to_py() == out.typeI_sum()[0])
     np.testing.assert_allclose(
         typeI_score.to_py(), out.score_sum().reshape(n_tiles, 2), 1e-13

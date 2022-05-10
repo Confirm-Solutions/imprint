@@ -553,14 +553,26 @@ import binomial
 import util
 import fast_inla
 
-name = 'berry1'
+name = 'berry2'
 fi = fast_inla.FastINLA(4)
 seed = 10
 n_arm_samples = 35
-n_theta_1d = 32
+n_theta_1d = 64
 sim_size = 10000
+```
 
+```python
+loaded = np.load(f"{name}_{n_theta_1d}_{sim_size}.npy", allow_pickle=True).tolist()
+gr = loaded['gr']
+typeI_sum = loaded["sum"]
+typeI_score = loaded["score"]
+table = loaded["table"]
+theta_tiles = loaded["theta_tiles"]
+is_null_per_arm = loaded["is_null_per_arm"]
+```
 
+```python
+%%time
 # define null hypos
 null_hypos = []
 for i in range(fi.n_arms):
@@ -572,19 +584,6 @@ for i in range(fi.n_arms):
     n[i] = -1
     null_hypos.append(grid.HyperPlane(n, -logit(0.1)))
 
-```
-
-```python
-loaded = np.load(f"{name}_{n_theta_1d}_{sim_size}.npy", allow_pickle=True).tolist()
-typeI_sum = loaded["sum"]
-typeI_score = loaded["score"]
-table = loaded["table"]
-theta_tiles = loaded["theta_tiles"]
-is_null_per_arm = loaded["is_null_per_arm"]
-```
-
-```python
-%%time
 gr = grid.make_cartesian_grid_range(n_theta_1d, np.full(fi.n_arms, -3.5), np.full(fi.n_arms, 1.0), sim_size)
 gr.create_tiles(null_hypos)
 gr.prune()
@@ -597,7 +596,7 @@ is_null_per_arm = grid.is_null_per_arm(gr)
 table = binomial.build_rejection_table(fi.n_arms, n_arm_samples, fi.rejection_inference)
 ```
 
-# Playing with parallelizing JAX
+# Parallel Jax accumulation
 
 ```python
 import time
@@ -613,7 +612,7 @@ paccum = jax.pmap(accum, in_axes=(None, None, 0), out_axes=(0, 0), axis_name='i'
 ```python
 %%time
 np.random.seed(seed)
-typeI_sum = np.zeros(theta_tiles.shape[0])
+typeI_sum = np.zeros(theta_tiles.shape[0], dtype=np.uint32)
 typeI_score = np.zeros(theta_tiles.shape)
 n_cores = jax.local_device_count()
 for i in range(int(np.ceil(sim_size / n_cores))):
@@ -625,11 +624,20 @@ for i in range(int(np.ceil(sim_size / n_cores))):
 ```
 
 ```python
+i * n_cores, sim_size
+```
+
+```python
+sim_size = 8160
+```
+
+```python
 np.save(
     f"{name}_{n_theta_1d}_{sim_size}.npy",
     dict(
         sum=typeI_sum,
         score=typeI_score,
+        gr=gr,
         table=table,
         theta_tiles=theta_tiles,
         is_null_per_arm=is_null_per_arm,
@@ -697,10 +705,6 @@ results = p.starmap(binomial.cloudpickle_helper, args)
 # Making some figures!
 
 ```python
-typeI_sum.shape
-```
-
-```python
 %config InlineBackend.figure_format='retina'
 factor = 0.75
 plt.rcParams["text.usetex"] = True
@@ -738,13 +742,60 @@ for t2_idx, t3_idx in [(16, 16), (8, 8)]:
 ```
 
 ```python
-np.sum(selection)
+from pykevlar.model.binomial import SimpleSelection
+sys.path.append('../')
+import utils
+delta = 0.025
+simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
+simple_selection_model.critical_values([fi.critical_value])
 ```
 
 ```python
-np.unique(theta_tiles[:,2])
+gr.sim_sizes()[:] = sim_size
+```
+
+```python
+from pykevlar.bound import TypeIErrorAccum
+acc_o = TypeIErrorAccum(simple_selection_model.n_models(), gr.n_tiles(), gr.n_params())
+typeI_sum = typeI_sum.astype(np.uint32).reshape((1, -1))
+score_sum = typeI_score.flatten()
+acc_o.pool_raw(typeI_sum, score_sum)
+print(np.all(acc_o.typeI_sum() == typeI_sum))
+print(np.all(acc_o.score_sum() == score_sum))
+```
+
+```python
+P, B = utils.create_ub_plot_inputs(simple_selection_model, acc_o, gr, delta)
+```
+
+```python
+n_theta_1d
+```
+
+```python
+np.save(
+    f"{name}_{n_theta_1d}_{sim_size}.npy",
+    dict(
+        P=P,
+        B=B,
+        sum=typeI_sum,
+        score=typeI_score,
+        gr=gr,
+        table=table,
+        theta_tiles=theta_tiles,
+        is_null_per_arm=is_null_per_arm,
+    ),
+    allow_pickle=True,
+)
 ```
 
 ```python
 
+for t2_idx, t3_idx in [(40, 40), (32, 32), (24, 24), (16, 16), (8, 8)]:
+    t2 = np.unique(theta_tiles[:, 2])[t2_idx]
+    t3 = np.unique(theta_tiles[:, 2])[t3_idx]
+    selection = (theta_tiles[:,2] == t2) & (theta_tiles[:,3] == t3)
+    Pselect = P[:, selection]
+    Bselect = B[selection, :]
+    utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}-{t2_idx}.csv", f"B-{name}-{n_theta_1d}-{sim_size}-{t3_idx}.csv", Pselect, Bselect)
 ```

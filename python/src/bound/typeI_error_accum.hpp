@@ -24,6 +24,8 @@ void add_typeI_error_accum(pybind11::module_& m) {
                                      ss_t, grid_range_t>,
              py::arg("rej_len"), py::arg("sim_state"), py::arg("grid_range"))
         .def("pool", &acc_t::pool, py::arg("other"))
+        .def("pool_raw", &acc_t::pool_raw, py::arg("typeI_sum"),
+             py::arg("typeI_score"))
         .def("reset", &acc_t::reset, py::arg("n_models"), py::arg("n_tiles"),
              py::arg("n_params"))
         .def("typeI_sum", py::overload_cast<>(&acc_t::typeI_sum, py::const_),
