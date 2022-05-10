@@ -18,7 +18,7 @@ Please follow the directions in the [main repo README](../README.md) for setting
 See [Dependencies](#dependencies) for the full list of dependencies. These should already be installed via the conda environment you have set up.
 
 ```
-bazel build --config clang //python:pykevlar_wheel
+bazel build //python:pykevlar_wheel
 pip install bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
 ```
 
