@@ -80,6 +80,18 @@ class FastINLA:
         return fncs[method](y, n)[:4]
 
     def numpy_inference(self, y, n, thresh_theta=None):
+        """
+        Bayesian inference of the Berry model given data (y, n) with n_arms.
+
+        Returns:
+            sigma2_post: The posterior density for each value of the sigma2
+                quadrature rule.
+            exceedances: The probability of exceeding the threshold for each arm.
+            theta_max: the mode of p(theta_i, y, sigma^2)
+            theta_sigma: the std dev of a gaussian distribution centered at the
+                mode of p(theta_i, y, sigma^2)
+            hess_inv: the inverse hessian at the mode of p(theta_i, y, sigma^2)
+        """
         if thresh_theta is None:
             thresh_theta = self.thresh_theta
 
@@ -134,6 +146,13 @@ class FastINLA:
         )
 
     def optimize_mode(self, y, n, fixed_arm_dim=None, fixed_arm_values=None):
+        """
+        Find the mode with respect to theta of the model log joint density.
+
+        fixed_arm_dim: we permit one of the theta arms to not be optimized: to
+            be "fixed".
+        fixed_arm_values: the values of the fixed arm.
+        """
 
         # NOTE: If
         # 1) fixed_arm_values is chosen without regard to the other theta values
@@ -141,18 +160,31 @@ class FastINLA:
         # then, the optimization problem will be poorly conditioned and ugly because the
         # chances of t_{arm_idx} being very different from the other theta values is
         # super small with small sigma2
+        # I am unsure how severe this problem is. So far, it does not appear to
+        # have caused problems, but I left this comment here as a guide in case
+        # the problem arises in the future.
 
         N = y.shape[0]
         arms_opt = list(range(self.n_arms))
         theta_max = np.zeros((N, self.sigma2_n, self.n_arms))
         na = np.arange(self.n_arms)
+
         if fixed_arm_dim is not None:
             na = np.arange(self.n_arms - 1)
             arms_opt.remove(fixed_arm_dim)
             theta_max[..., fixed_arm_dim] = fixed_arm_values
 
         converged = False
+        # The joint density is composed of:
+        # 1) a quadratic term coming from the theta likelihood
+        # 2) a binomial term coming from the data likelihood.
+        # We ignore the terms that don't depend on theta since we are
+        # optimizing here and constant offsets are irrelevant.
         for i in range(100):
+
+            # Calculate the gradient and hessian. These formulas are
+            # straightforward derivatives from the Berry log joint density
+            # see the log_joint method below
             theta_m0 = theta_max - self.mu_0
             exp_theta_adj = np.exp(theta_max + self.logit_p1)
             C = 1.0 / (exp_theta_adj + 1)
@@ -162,21 +194,27 @@ class FastINLA:
                 - (n[:, None] * exp_theta_adj) * C
             )[..., arms_opt]
 
-            diag = n[:, None] * exp_theta_adj * (C**2)
-            # cov_subset = self.cov[..., arms_opt, :][..., :, arms_opt]
-            # hess_inv = fast_invert(-cov_subset, -diag[..., arms_opt])
             hess = np.tile(
                 self.neg_precQ[None, ..., arms_opt, :][..., :, arms_opt], (N, 1, 1, 1)
             )
-            hess[..., na, na] -= diag[..., arms_opt]
+            hess[..., na, na] -= (n[:, None] * exp_theta_adj * (C**2))[..., arms_opt]
             hess_inv = np.linalg.inv(hess)
+
+            # Take the full Newton step. The negative sign comes here because we
+            # are finding a maximum, not a minimum.
             step = -np.matmul(hess_inv, grad[..., None])[..., 0]
             theta_max[..., arms_opt] += step
 
+            # We use a step size convergence criterion. This seems empirically
+            # sufficient. But, it would be possible to also check gradient norms
+            # or other common convergence criteria.
             if np.max(np.linalg.norm(step, axis=-1)) < self.tol:
                 converged = True
                 break
-        assert converged
+
+        if not converged:
+            raise RuntimeError("Failed to identify the mode of the joint density.")
+
         return theta_max, hess_inv
 
     def log_joint(self, y, n, theta):
@@ -197,6 +235,10 @@ class FastINLA:
         )
 
     def jax_inference(self, y, n):
+        """
+        See the numpy implementation for comments explaining the steps. The
+        series of operations is almost identical in the JAX implementation.
+        """
         y = jnp.asarray(y)
         n = jnp.asarray(n)
         theta_max, hess_inv = self.jax_opt_vec(
@@ -227,6 +269,10 @@ class FastINLA:
         return sigma2_post, exceedances, theta_max, theta_sigma
 
     def cpp_inference(self, y, n):
+        """
+        See the numpy implementation for comments explaining the steps. The
+        series of operations is almost identical in the C++ implementation.
+        """
         import cppimport
 
         ext = cppimport.imp("fast_inla_ext")

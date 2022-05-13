@@ -73,31 +73,55 @@ def binomial_accumulator(rejection_fnc):
 
 
 def build_rejection_table(n_arms, n_arm_samples, rejection_fnc):
+    """
+    The Berry model generally deals with n_arm_samples <= 35. This means it is
+    tractable to pre-calculate whether each dataset will reject the null because
+    35^4 is a fairly manageable number. We can actually reduce the number of
+    calculations because the arms are symmetric and we can run only for sorted
+    datasets and then extrapolate to unsorted datasets.
+    """
+
+    # 1. Construct the n_arms-dimensional grid.
     ys = np.arange(n_arm_samples + 1)
     Ygrids = np.stack(np.meshgrid(*[ys] * n_arms, indexing="ij"), axis=-1)
     Yravel = Ygrids.reshape((-1, n_arms))
 
+    # 2. Sort the grid arms while tracking the sorting order so that we can
+    # unsort later.
     colsortidx = np.argsort(Yravel, axis=-1)
     inverse_colsortidx = np.zeros(Yravel.shape, dtype=np.int32)
     axis0 = np.arange(Yravel.shape[0])[:, None]
     inverse_colsortidx[axis0, colsortidx] = np.arange(n_arms)
     Y_colsorted = Yravel[axis0, colsortidx]
 
+    # 3. Identify the unique datasets. In a 35^4 grid, this will be about 80k
+    # datasets instead of 1.7m.
     Y_unique, inverse_unique = np.unique(Y_colsorted, axis=0, return_inverse=True)
 
+    # 4. Compute the rejections for each unique dataset.
     N = np.full_like(Y_unique, n_arm_samples)
     reject_unique = rejection_fnc(Y_unique, N)
+
+    # 5. Invert the unique and the sort operations so that we know the rejection
+    # value for every possible dataset.
     reject = reject_unique[inverse_unique][axis0, inverse_colsortidx]
     return reject
 
 
 @jax.jit
-def lookup_rejection(table, y, n):
-    y_index = (y * (36 ** jnp.arange(4)[::-1])[None, :]).sum(axis=-1)
+def lookup_rejection(table, y, n_arm_samples=35):
+    """
+    Convert the y tuple datasets into indices and lookup from the table
+    constructed by `build_rejection_table`.
+
+    This assumes n_arm_samples is constant across arms.
+    """
+    n_arms = y.shape[-1]
+    # Compute the strided array access. For example in 3D for y = [4,8,3], and
+    # n_arm_samples=35, we'd have:
+    # y_index = 4 * (36 ** 2) + 8 * (36 ** 1) + 3 * (36 ** 0)
+    #         = 4 * (36 ** 2) + 8 * 36 + 3
+    y_index = (y * ((n_arm_samples + 1) ** jnp.arange(n_arms)[::-1])[None, :]).sum(
+        axis=-1
+    )
     return table[y_index, :]
-
-
-def cloudpickle_helper(fnc_pkl, *args):
-    import cloudpickle
-
-    return cloudpickle.loads(fnc_pkl)(*args)
