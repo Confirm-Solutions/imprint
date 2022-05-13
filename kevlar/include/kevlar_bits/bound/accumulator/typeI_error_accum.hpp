@@ -114,7 +114,7 @@ struct TypeIErrorAccum {
     }
 
     /*
-     * Pools with another the sum and score from another accumulation. as if the
+     * Pools with the raw sum and score from another accumulation. as if the
      * current object were additionally updated in the same way as in other.
      *
      * @param   other_typeI_sum       the other type I sum

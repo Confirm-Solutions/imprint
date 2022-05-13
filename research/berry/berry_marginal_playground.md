@@ -231,6 +231,13 @@ plt.rcParams["image.cmap"] = "plasma"
 ```
 
 ```python
+plt.plot(np.log10(fi.sigma2_rule.pts), sigma2_post[0] * fi.sigma2_rule.wts, 'k-', linewidth=2.5)
+plt.xlabel('$\log_{10} \sigma^2$')
+plt.ylabel('$p(\sigma^2 | y) * w$')
+plt.show()
+```
+
+```python
 cntf = plt.contourf(T, np.log10(S), gaussian_pdf)# * sigma2_post * fi.sigma2_rule.wts)
 plt.contour(
     T,
@@ -246,30 +253,37 @@ cbar = plt.colorbar(cntf)
 plt.xlabel(f'$\\theta_{arm_idx}$')
 plt.ylabel('$\log_{10} \sigma^2$')
 cbar.set_label('$p(\\theta_0 | \sigma^2, y)$')
+plt.savefig('ptheta_given_sig_cntf.jpg', dpi=300, bbox_inches='tight')
 plt.show()
 ```
 
 ```python
 sigs = fi.sigma2_rule.pts
 
-mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, np.full(1, fi.thresh_theta), sigma2_val=sigs[0], n_samples=30000)
+mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, fi.thresh_theta, sigma2_val=sigs[0], n_samples=300000)
 pdf0 = mcmc.calc_pdf(mcmc_results['x'][0]['theta'][0,:,0], ti_rule.pts, ti_rule.wts)
-mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, np.full(1, fi.thresh_theta), sigma2_val=sigs[50], n_samples=30000)
+mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, fi.thresh_theta, sigma2_val=sigs[50], n_samples=300000)
 pdf50 = mcmc.calc_pdf(mcmc_results['x'][0]['theta'][0,:,0], ti_rule.pts, ti_rule.wts)
-mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, np.full(1, fi.thresh_theta), sigma2_val=sigs[89], n_samples=30000)
+mcmc_results = mcmc.mcmc_berry(np.stack((y, n), axis=-1), fi.logit_p1, fi.thresh_theta, sigma2_val=sigs[89], n_samples=300000)
 pdf89 = mcmc.calc_pdf(mcmc_results['x'][0]['theta'][0,:,0], ti_rule.pts, ti_rule.wts)
+```
 
+```python
 # for i in [0, 50, 89]:# range(0, fi.sigma2_rule.pts.shape[0], 10):
-plt.plot(ti_rule.pts, gaussian_pdf[:, 0], 'b-', label='$\sigma^2 = 10^{-6}$')
-plt.plot(ti_rule.pts, gaussian_pdf[:, 50], 'b--', label='$\sigma^2 = 10^{-1}$')
-plt.plot(ti_rule.pts, gaussian_pdf[:, 89], 'b:', label='$\sigma^2 = 10^3$')
-plt.plot(ti_rule.pts, pdf0, 'r-')
-plt.plot(ti_rule.pts, pdf50, 'r--')
-plt.plot(ti_rule.pts, pdf89, 'r:')
-plt.legend()
+plt.figure(figsize=(6,6))
+lw = 2.5
+plt.plot(ti_rule.pts, gaussian_pdf[:, 0], 'b-',   linewidth=lw, label='$\sigma^2 = 10^{-6}$')
+plt.plot(ti_rule.pts, gaussian_pdf[:, 50], 'b--', linewidth=lw, label='$\sigma^2 = 10^{-1}$')
+plt.plot(ti_rule.pts, gaussian_pdf[:, 89], 'b:',  linewidth=lw, label='$\sigma^2 = 10^3$')
+plt.plot(ti_rule.pts, pdf0,  'r-' ,linewidth=lw)
+plt.plot(ti_rule.pts, pdf50, 'r--',linewidth=lw)
+plt.plot(ti_rule.pts, pdf89, 'r:' ,linewidth=lw)
+plt.plot([],[], 'b', label='Gaussian')
+plt.plot([],[], 'r', label='MCMC')
+plt.legend(loc='upper left')
 plt.xlabel(r'$\theta_0$')
 plt.ylabel(r'$p(\theta_0 | \sigma^2, y)$')
-plt.savefig('ptheta_given_sig.png', dpi=300, bbox_inches='tight')
+plt.savefig('ptheta_given_sig.jpg', dpi=300, bbox_inches='tight')
 plt.show()
 ```
 
@@ -328,6 +342,15 @@ plt.show()
 ```python
 for arm_idx, plot_idx in [(0, 48), (1, 84), (0, 27), (0, 35), (0, 22), (1, 8), (1, 1), (0,0)]:
     compare_arm_marginals(fi, ygrid, ngrid, arm_idx, plot_idx, results_mcmc=results_mcmc, n_samples=20000)
+```
+
+```python
+plt.figure(figsize = (8, 12), constrained_layout=True)
+for i, (arm_idx, plot_idx) in enumerate([(1, 88), (1, 78), (1, 68), (1, 58), (1, 48), (1, 38), (1, 28), (1, 18), (1, 8)]):
+    plt.subplot(2, 3, 1 + i)
+    compare_arm_marginals(fi, ygrid, ngrid, arm_idx, plot_idx, results_mcmc=results_mcmc, n_samples=20000, show=False)
+plt.savefig('small_y_grid.png', dpi=300, bbox_inches='tight')
+plt.show()
 ```
 
 ```python

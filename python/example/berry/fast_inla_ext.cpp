@@ -27,7 +27,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
                    Arr theta_sigma_out, Arr y_in, Arr n_in, Arr sigma2_pts_in,
                    Arr sigma2_wts_in, Arr log_prior_in, Arr neg_precQ_in,
                    Arr cov_in, Arr logprecQdet_in, double mu_0, double logit_p1,
-                   double tol, double thresh_theta) {
+                   double tol, Arr thresh_theta_in) {
     auto sigma2_post = get<double, 2>(sigma2_post_out);
     auto exceedances = get<double, 2>(exceedances_out);
     auto theta_max = get<double, 3>(theta_max_out);
@@ -42,9 +42,11 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
 
     auto cov = get<double, 3>(cov_in);
     auto logprecQdet = get<double, 1>(logprecQdet_in);
+
     int N = y.buf.shape[0];
     int nsig2 = theta_max.buf.shape[1];
     double tol2 = tol * tol;
+    auto thresh_theta = get<double, 1>(thresh_theta_in);
 
 #pragma omp parallel for
     for (int p = 0; p < N; p++) {
@@ -175,7 +177,7 @@ int inla_inference(Arr sigma2_post_out, Arr exceedances_out, Arr theta_max_out,
             for (int s = 0; s < nsig2; s++) {
                 double mu = theta_max.get(p, s, i);
                 double normalized =
-                    (thresh_theta - mu) / theta_sigma.get(p, s, i);
+                    (thresh_theta.get(i) - mu) / theta_sigma.get(p, s, i);
                 double exc_sigma2 = 0.5 * (erf(-normalized * M_SQRT1_2) + 1);
                 exceedances.get(p, i) +=
                     exc_sigma2 * sigma2_post.get(p, s) * sigma2_wts.get(s);
