@@ -1,3 +1,5 @@
 *.png
 .ipynb_checkpoints
 *.pkl
+*.rendered.*.cpp
+*.npy

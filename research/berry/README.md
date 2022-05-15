@@ -19,9 +19,3 @@ List of notebooks for the Berry work:
 - berry_part3_simulation.ipynb
 	- reproduce the later figures from the berry paper where they simulate for various sets of known parameter values and determine the type I error rate.
 - intro_to_inla: building inla from scratch, implementing the method entirely in this notebook. demonstrating some of the ideas and features. 
-
-Remaining problems with the quadrature method:
-- in 2D, it seems to work well.
-- in 4D, it fails regularly for seemingly reasonable problems.
-- I think one issue is that the ordering of the eigenvectors is not smooth with respect to sigma2.
-- another issue is that there are cases (demonstrated in berry_marginal_playground) where the domain is much too large. the minimum domain size is problematic. we need to be able to shrink the domain size in some cases and we need to be able to
