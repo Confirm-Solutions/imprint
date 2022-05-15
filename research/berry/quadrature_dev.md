@@ -13,8 +13,10 @@ jupyter:
 ---
 
 ```python
-%load_ext autoreload
-%autoreload 2
+import sys
+sys.path.append('../../python/example/berry')
+import nb_config
+nb_config.setup()
 ```
 
 ```python
@@ -23,16 +25,20 @@ import scipy.stats
 from scipy.special import logit, expit
 import matplotlib.pyplot as plt
 
-import sys
-sys.path.append('../../python/example/berry')
 import util
+import quadrature
+import fast_inla
 
-sigma2_n = 90
+import mcmc
+
+
+sigma2_n = 20
 n_arms = 2
 mu_sig_sq = 100.0
 mu_0 = -1.34
 logit_p1 = logit(0.3)
 n = np.full((1, 2), 35)
+# y = np.array([[2, 2]])
 y = np.array([[0, 1]])
 n.shape, y.shape
 ```
@@ -83,25 +89,20 @@ plt.show()
 ```
 
 ```python
-import berry
-import inla
-import quadrature
-import fast_inla
-
 fi = fast_inla.FastINLA(n_arms, sigma2_n=sigma2_n)
 ```
 
 ```python
-import mcmc
-
 results_mcmc = mcmc.mcmc_berry(
     np.stack((y,n), axis=-1),
     fi.logit_p1,
-    np.full(y.shape[0], fi.thresh_theta),
-    n_arms=n_arms,
+    fi.thresh_theta,
     dtype=np.float64,
-    n_samples=10000
+    n_samples=100000
 )
+```
+
+```python
 
 sigma2_mcmc = results_mcmc["x"][0]["sigma2"][0]
 plt.title("numpyro mcmc results")
@@ -111,10 +112,153 @@ plt.ylabel("sample count")
 plt.xlim([-7, 4])
 plt.show()
 
-mcmc_cdf = (sigma2_mcmc[None, :] < fi.sigma2_rule.pts[:, None]).sum(axis=1)
-mcmc_pdf = np.zeros(fi.sigma2_rule.pts.shape[0])
-mcmc_pdf[1:] = (mcmc_cdf[1:] - mcmc_cdf[:-1]) / sigma2_mcmc.shape[0]
+mcmc_pdf = mcmc.calc_pdf(sigma2_mcmc, fi.sigma2_rule.pts, fi.sigma2_rule.wts)
+plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_pdf * fi.sigma2_rule.wts)
+plt.show()
 ```
+
+```python
+for n_theta in [5, 11, 16, 21]:
+    integral = quadrature.integrate(fi, y[0], n[0], integrate_sigma2=False, n_theta=n_theta, tol=1e-7)
+    integral_scaled = integral / np.sum(integral * fi.sigma2_rule.wts)
+    plt.plot(np.log10(fi.sigma2_rule.pts), integral_scaled * fi.sigma2_rule.wts, label='quad-'+str(n_theta))
+plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_pdf * fi.sigma2_rule.wts, 'k-.', label='mcmc')
+plt.legend()
+plt.show()
+```
+
+```python
+ti_rule = util.simpson_rule(51, -6, 2)
+
+for arm_idx in range(2):
+    mcmc_arm = results_mcmc["x"][0]['theta'][0,:,arm_idx].to_py() 
+    mcmc_arm_pdf = mcmc.calc_pdf(mcmc_arm, ti_rule.pts, ti_rule.wts)
+
+    quad_p_ti_g_y = quadrature.integrate(
+        fi, y[0], n[0], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+        n_theta=11
+    )
+    quad_scaled = quad_p_ti_g_y / np.sum(quad_p_ti_g_y * ti_rule.wts, axis=0)
+    plt.plot(ti_rule.pts, quad_scaled, 'b-')
+    plt.plot(ti_rule.pts, mcmc_arm_pdf, 'k.')
+    plt.ylim([0, 1.0])
+    plt.show()
+```
+
+```python
+ti_rule = util.simpson_rule(51, -6, 2)
+grids, wts, logjt = quadrature.build_grid(
+    fi, y[0], n[0], n_theta=100, tol=1e-6
+)
+for sig_idx in [12, 18]:#range(0, 20, 5):
+    plt.figure(figsize=(10,10))
+    f = logjt[:, :, sig_idx]
+    vmax = np.max(f)
+    vmin = vmax - 20
+    plt.scatter(
+        grids[:, :, sig_idx, 0],
+        grids[:, :, sig_idx, 1],
+        c=f, vmin=vmin, vmax=vmax
+    )
+    plt.xlabel(r"$\theta_0$")
+    plt.ylabel(r"$\theta_1$")
+    plt.colorbar()
+    plt.show()
+```
+
+# 4D
+
+```python
+fi4 = fast_inla.FastINLA(n_arms=4, sigma2_n=30)
+n4 = np.array([20, 20, 35, 35])
+y4 = np.array([0, 1, 9, 10], dtype=np.float64)
+```
+
+```python
+
+mcmc4 = mcmc.mcmc_berry(
+    np.stack((y4[None],n4[None]), axis=-1),
+    fi4.logit_p1,
+    fi4.thresh_theta,
+    dtype=np.float64,
+    n_samples=500000
+)
+```
+
+```python
+sigma2_mcmc4 = mcmc4["x"][0]["sigma2"][0]
+mcmc4_pdf = mcmc.calc_pdf(sigma2_mcmc4, fi4.sigma2_rule.pts, fi4.sigma2_rule.wts)
+plt.plot(np.log10(fi4.sigma2_rule.pts), mcmc4_pdf * fi4.sigma2_rule.wts)
+plt.show()
+```
+
+```python
+integral = quadrature.integrate(fi4, y4, n4, integrate_sigma2=False, n_theta=15, tol=1e-7)
+integral_scaled = integral / np.sum(integral * fi4.sigma2_rule.wts)
+plt.plot(np.log10(fi4.sigma2_rule.pts), integral_scaled * fi4.sigma2_rule.wts, label='quad-$\mathrm{15^4}$')
+plt.plot(np.log10(fi4.sigma2_rule.pts), mcmc4_pdf * fi4.sigma2_rule.wts, 'k-.', label='mcmc')
+plt.xlabel(r'$\log_{10} \sigma^2$')
+plt.ylabel(r'$p(\sigma^2 | y)$')
+plt.legend()
+plt.show()
+```
+
+```python
+ti_rule = util.simpson_rule(31, -6, 2)
+
+plt.figure(figsize=(10,10), constrained_layout=True)
+for arm_idx in range(4):
+    mcmc_arm = mcmc4["x"][0]['theta'][0,:,arm_idx].to_py() 
+    mcmc_arm_pdf = mcmc.calc_pdf(mcmc_arm, ti_rule.pts, ti_rule.wts)
+
+    quad_p_ti_g_y = quadrature.integrate(
+        fi4, y4, n4, fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+        n_theta=15
+    )
+    quad_scaled = quad_p_ti_g_y / np.sum(quad_p_ti_g_y * ti_rule.wts, axis=0)
+    plt.subplot(2,2,arm_idx + 1)
+    plt.plot(ti_rule.pts, quad_scaled, 'b-', label='quad-$\mathrm{15^4}$')
+    plt.plot(ti_rule.pts, mcmc_arm_pdf, 'k.', label='mcmc')
+    plt.xlabel(r'$\theta_' + str(arm_idx) + '$')
+    plt.ylabel(r'$p(\theta_' + str(arm_idx) + ' | y)$')
+    plt.legend(loc='upper left')
+plt.show()
+```
+
+```python
+grids, wts, logjt = quadrature.build_grid(
+    fi4, y4, n4, integrate_sigma2=False, n_theta=11, tol=1e-3
+)
+for si in [15]:#range(20, 50, 5):
+    for ti_slice1 in range(0, 11, 3):
+        for ti_slice2 in range(0, 11, 3):
+            print(ti_slice1, ti_slice2, np.log10(fi4.sigma2_rule.pts[si]))
+            max_idxer = np.s_[:,:,:,:,si]
+            idxer = np.s_[ti_slice1,ti_slice2,:,:,si]
+            f = logjt[idxer].ravel()
+            vmax = np.max(logjt[max_idxer])
+            vmin = vmax - 20
+            if not (np.any(f) > vmax - 10):
+                print('skip')
+                continue
+            selection = f > vmin
+            plt.scatter(grids[idxer][..., 0].ravel(), grids[idxer][...,3].ravel(), c=f, vmin=vmin, vmax=vmax)
+            plt.colorbar()
+            plt.show()
+```
+
+```python
+for si in range(5, 25, 1):
+    print(np.log10(fi4.sigma2_rule.pts[si]))
+    plt.scatter(grids[:,:,:,:,si,0].ravel(), grids[:,:,:,:,si,3].ravel(), c=logjt[:,:,:,:,si], s=1)
+    cbar = plt.colorbar()
+    plt.xlabel(r'$\theta_0$')
+    plt.ylabel(r'$\theta_3$')
+    cbar.set_label(r'$\ln p(\theta, \sigma^2, y)$')
+    plt.show()
+```
+
+# Old
 
 ```python
 n_theta = 11
@@ -376,6 +520,199 @@ for arm_idx in range(2):
     plt.plot(ti_rule.pts, mcmc_arm_pdf, 'k.')
     plt.ylim([0, 1.0])
     plt.show()
+```
+
+## A different quadrature 4d approach
+
+```python
+n_theta = 11
+integrate_thetas = list(range(fi.n_arms))
+etapts, etawts = np.polynomial.legendre.leggauss(n_theta)
+grid_eta = np.stack(
+    np.meshgrid(*[etapts for k in integrate_thetas], indexing="ij"), axis=-1
+)
+grid_eta_wts = np.prod(
+    np.stack(
+        np.meshgrid(*[etawts for k in integrate_thetas], indexing="ij"), axis=-1
+    ),
+    axis=-1,
+)
+mode, hess_inv = fi.optimize_mode(y, n)
+log_tol = np.log(1e-3)
+```
+
+```python
+n
+```
+
+```python
+w, v = np.linalg.eigh(-hess_inv[0,sig_idx])
+axis_half_len = np.sqrt(np.abs(w))
+mode_logjoint = fi.log_joint(y, n, mode)[0,sig_idx]
+print('')
+print(sig_idx)
+
+for eigen_idx in range(len(integrate_thetas)):
+    for direction in [-1, 1]:
+        def f(x):
+            probe = mode[0,sig_idx].copy()
+            probe[..., integrate_thetas] += (
+                axis_half_len[..., eigen_idx, None]
+                * v[..., :, eigen_idx]
+                * x
+                * direction
+            )
+            return fi.log_joint(y, n, probe)[0,sig_idx] - mode_logjoint - log_tol
+        print(eigen_idx, direction, scipy.optimize.bisect(f, 0, 100))
+```
+
+```python
+for eigen_idx in range(len(integrate_thetas)):
+    for i, direction in enumerate([-1, 1]):
+        for j in range(1, 30)[::-1]:
+            probe = mode[0,sig_idx].copy()
+            probe[..., integrate_thetas] += (
+                axis_half_len[..., eigen_idx, None]
+                * v[..., :, eigen_idx]
+                * j
+                * direction
+            )
+            logjoint = fi.log_joint(y, n, probe)[0,sig_idx]
+            delta = logjoint - mode_logjoint
+            print(delta)
+```
+
+## Explore 4D quadrature bug 2
+
+```python
+def explore_slice(select_dim, sig_idxs, slice='max_idx', exp=False):
+    plt.figure(figsize = (12, 8), constrained_layout=True)
+    for i, sig_i in enumerate(sig_idxs):
+        plt.subplot(2, 3, i + 1)
+        sig_slice = logjt[0, :, :, :, :, sig_i]
+
+        if slice == 'max_idx':
+            max_ravel_idx = np.argmax(sig_slice.ravel())
+            max_idx = np.unravel_index(max_ravel_idx, sig_slice.shape)
+            idx = [0, np.s_[:], np.s_[:], np.s_[:], np.s_[:], sig_i]
+            for j in range(4):
+                if j not in select_dim:
+                    idx[1 + j] = max_idx[j]
+        elif isinstance(slice, tuple):
+            idx = [0, np.s_[:], np.s_[:], np.s_[:], np.s_[:], sig_i]
+            set_dim = list(range(4))
+            for d in select_dim:
+                set_dim.remove(d)
+            for j, d in enumerate(set_dim):
+                idx[1 + d] = slice[j]
+
+        idx = tuple(idx)
+        f = logjt[idx]
+        pts = grids[idx] 
+
+        # Identify the two dimensions with the most remaining spatial variation.
+        # These will be the two dimensions that we plot.
+        dim_width = np.max(pts, axis=(0,1)) - np.min(pts, axis=(0,1))
+        plot_dims = dim_width.argsort()[-2:]
+        plot_dims.sort()
+
+        x = pts[..., plot_dims[0]]
+        y = pts[..., plot_dims[1]]
+
+        if exp:
+            f = np.exp(f)
+            vmax = np.max(f)
+            vmin = 0
+        else:
+            vmax = np.max(f)
+            vmin = vmax - 30
+        plt.scatter(x, y, c=f, vmin=vmin, vmax=vmax)
+        plt.xlabel(r'$\theta_' + str(plot_dims[0]) + '$')
+        plt.ylabel(r'$\theta_' + str(plot_dims[1]) + '$')
+        plt.colorbar()
+    plt.show()
+```
+
+```python
+ti_rule = util.simpson_rule(51, -6, 2)
+grids, wts, logjt = quadrature.build_grid(
+    fi4, y4, n4, fixed_arm_dim=0, fixed_arm_values=ti_rule.pts, n_theta=13, tol=1e-6
+)
+```
+
+```python
+slice = logjt[0,:,:,:,:,:]
+integrate_dims = list(range(1, 4))
+maxv = slice.max(axis=tuple(integrate_dims)) 
+plt.scatter(grids[0,:,0,0,0,:,0], np.log10(grids[0,:,0,0,0,:,4]), c=maxv)
+plt.colorbar()
+plt.show()
+```
+
+```python
+maxv = np.expand_dims(maxv, (1, 2))
+```
+
+```python
+log_tol = -4.5
+for dim in range(3): 
+    for dir in [-1, 1]:
+        idx = [np.s_[:]] * 5
+        idx[1 + dim] = dir
+        idx = tuple(idx)
+        print(slice[idx].shape)
+        fail = np.any(slice[idx] - maxv > log_tol, axis=(1,2))
+        print(np.sum(fail))
+        plt.scatter(grids[0,:,0,0,0,:,0], np.log10(grids[0,:,0,0,0,:,4]), c=fail)
+        plt.colorbar()
+        plt.show()
+```
+
+```python
+for i in range(1):
+    explore_slice([1,3], [3], slice=(33, i), exp=True)
+# explore_slice([0,1], [38], slice=(12, 12))
+# explore_slice([0,1], [38], slice='max_idx')
+```
+
+```python
+for i in range(1):
+    explore_slice([1,3], [3], slice=(33, i), exp=True)
+# explore_slice([0,1], [38], slice=(12, 12))
+# explore_slice([0,1], [38], slice='max_idx')
+```
+
+## Explore 4D quadrature bug 1
+
+```python
+fi4.sigma2_rule.pts[38]
+```
+
+```python
+explore_slice([0,1], [40,50, 89], slice=(12, 12))
+explore_slice([0,1], [40,50, 89], slice='max_idx')
+```
+
+```python
+# 33 -0.7199999999999998
+explore_max_slice([1,2], [30, 40,50, 89], slice=(33, 12))
+explore_max_slice([1,2], [30, 40,50, 89], slice=(33, 12))
+[print('done') for i in range(5)]
+explore_max_slice([1,3], [30, 40,50, 89], slice=(33, 12))
+explore_max_slice([1,3], [30, 40,50, 89], slice=(33, 12))
+[print('done') for i in range(5)]
+```
+
+```python
+explore_max_slice([2,3], [0,40,45,50,55,89])
+```
+
+```python
+explore_max_slice([0,1], [0,40,45,50,55,89])
+```
+
+```python
+
 ```
 
 ```python
