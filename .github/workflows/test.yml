@@ -26,9 +26,15 @@ jobs:
     - name: Run all pre-commit checks on the full repo!
       run: |
         pre-commit run --all-files
+    - name: Install Bazel
+      run: |
+        sudo apt install apt-transport-https curl gnupg
+        curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
+        sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
+        echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+        sudo apt update && sudo apt install bazel
     - name: Build and install pykevlar
       run: |
-        mamba install bazel
         ./generate_bazelrc
         bazel build -c dbg //python:pykevlar_wheel
         pip install --force-reinstall bazel-bin/python/dist/*.whl
