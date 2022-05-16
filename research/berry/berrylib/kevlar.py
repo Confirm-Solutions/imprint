@@ -9,18 +9,18 @@ class SimState(SimStateBase):
         SimStateBase.__init__(self)
         self.outer = outer
         self.n_arm_samples = self.outer.outer.n_arm_samples
-        self.fi = self.outer.outer.fi
+        self.fast_inla_obj = self.outer.outer.fast_inla_obj
         self.p_tiles = scipy.special.expit(self.outer.theta_tiles)
         self.p = scipy.special.expit(self.outer.theta)
         np.random.seed(seed)
 
     def simulate(self, rej_len):
         self.uniform_samples = np.random.uniform(
-            size=(self.n_arm_samples, self.fi.n_arms)
+            size=(self.n_arm_samples, self.fast_inla_obj.n_arms)
         )
         y = np.sum(self.uniform_samples[None] < self.p_tiles[:, None, :], axis=1)
         n = np.full_like(y, self.n_arm_samples)
-        did_reject = self.fi.rejection_inference(y, n)
+        did_reject = self.fast_inla_obj.rejection_inference(y, n)
 
         rej_len[...] = np.any(self.outer.nulls & did_reject, axis=-1)
 
@@ -41,12 +41,12 @@ class SimGlobalState:
 
 
 class BerryKevlarModel(ModelBase):
-    def __init__(self, fi, n_arm_samples, cvs):
+    def __init__(self, fast_inla_obj, n_arm_samples, cvs):
         """
         cvs:    critical values (descending order)
         """
         ModelBase.__init__(self, cvs)
-        self.fi = fi
+        self.fast_inla_obj = fast_inla_obj
         self.n_arm_samples = n_arm_samples
 
     def make_sim_global_state(self, gr):
