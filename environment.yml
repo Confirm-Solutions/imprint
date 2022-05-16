@@ -33,7 +33,8 @@ dependencies:
   - seaborn
 
 # numerical tools
-  - jax
+  - jax==0.3.7
+  - jaxlib==0.3.7
   - numpyro
 
 # dependencies only available from pip.
