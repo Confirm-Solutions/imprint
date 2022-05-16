@@ -14,20 +14,18 @@ jupyter:
 ---
 
 ```python
-import sys
-sys.path.append('../../python/example/berry')
+import berrylib.util as util
+util.setup_nb()
+```
+
+```python
+
 import matplotlib.pyplot as plt
-
-%matplotlib inline
-%config InlineBackend.figure_format='retina'
-
-%load_ext autoreload
-%autoreload 2
-
 import scipy.stats
 import numpy as np
-import fast_inla
 from scipy.special import logit
+
+import berrylib.fast_inla as fast_inla
 ```
 
 # Simulation
@@ -49,8 +47,11 @@ pmid_theta = logit(pmid) - logit(p1)
 
 # final evaluation criterion
 # accept the alternative hypo if Pr(p[i] > p0|data) > pfinal_thresh[i]
-# pfinal_thresh = np.array([0.82, 0.82, 0.85, 0.9])
-pfinal_thresh = np.array([0.96, 0.96, 0.95, 0.9])
+pfinal_thresh = np.array([0.82, 0.82, 0.85, 0.9])
+
+# NOTE: choosing these slightly higher thresholds for arms 0,1,2 results in
+# simulation results that look very similar to the Berry paper.
+# pfinal_thresh = np.array([0.96, 0.96, 0.95, 0.9])
 
 # early stopping criteria
 # succeed early if Pr(p[i] > pmid|data) > pmid_accept
@@ -130,10 +131,6 @@ for k in scenarios:
 ```
 
 ```python
-2 * 16
-```
-
-```python
 plt.figure(figsize=(8, 6), constrained_layout=True)
 for i, k in enumerate(results):
     success = results[k]["success"]
@@ -184,8 +181,4 @@ for i, k in enumerate(scenarios):
     plt.gca().spines["top"].set_visible(False)
     plt.gca().spines["right"].set_visible(False)
 plt.show()
-```
-
-```python
-
 ```

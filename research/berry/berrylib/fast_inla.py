@@ -1,9 +1,9 @@
+import berrylib.util as util
 import jax
 import jax.numpy as jnp
 import numpy as np
 import scipy.linalg
 import scipy.stats
-import util
 from jax.config import config
 from scipy.special import logit
 
@@ -129,7 +129,7 @@ class FastINLA:
         exceedances = []
         for i in range(self.n_arms):
             exc_sigma2 = 1.0 - scipy.stats.norm.cdf(
-                thresh_theta[..., i],
+                thresh_theta[..., None, i],
                 theta_mu[..., i],
                 theta_sigma[..., i],
             )
@@ -275,7 +275,7 @@ class FastINLA:
         """
         import cppimport
 
-        ext = cppimport.imp("fast_inla_ext")
+        ext = cppimport.imp("berrylib.fast_inla_ext")
         sigma2_post = np.empty((y.shape[0], self.sigma2_n))
         exceedances = np.empty((y.shape[0], self.n_arms))
         theta_max = np.empty((y.shape[0], self.sigma2_n, self.n_arms))

@@ -53,9 +53,8 @@ The procedure here is as follows:
 7. Don't forget to multiply the quadrature weights by the determinant of the
     jacobian of the transformation.
 """
+import berrylib.util as util
 import numpy as np
-import scipy.optimize
-import util
 
 
 def build_grid(
@@ -148,38 +147,32 @@ def build_grid(
     # domain scale.
     # TODO: this is the slow part of the calculation because:
     #   1) all the for loops
-    #   2) the fi.log_joint call calculates for all sigma2 values currently. so
-    #      we're throwing out a ton of results.
     log_tol = np.log(tol)
-    widths = np.empty((y.shape[0], fi.sigma2_n, len(integrate_thetas)))
     mode_logjoint = fi.log_joint(y, n, mode)
-    for t_idx in range(y.shape[0]):
-        for sig_idx in range(fi.sigma2_n):
-            for eigen_idx in range(len(integrate_thetas)):
-                steps = [0, 0]
-                scaled_eigenvec = (
-                    axis_half_len[t_idx, sig_idx, eigen_idx]
-                    * eigenvecs[t_idx, sig_idx, :, eigen_idx]
+
+    for eigen_idx in range(len(integrate_thetas)):
+        scaled_eigenvecs = (
+            axis_half_len[:, :, None, eigen_idx] * eigenvecs[:, :, :, eigen_idx]
+        )
+        steps = np.empty((y.shape[0], fi.sigma2_n, 2))
+        for i, direction in enumerate([-1, 1]):
+
+            def f(x):
+                probe = mode.copy()
+                probe[..., integrate_thetas] += (
+                    scaled_eigenvecs * x[..., None] * direction
                 )
-                for i, direction in enumerate([-1, 1]):
+                return fi.log_joint(y, n, probe) - mode_logjoint - log_tol
 
-                    def f(x):
-                        probe = mode[t_idx, sig_idx].copy()
-                        probe[integrate_thetas] += scaled_eigenvec * x * direction
-                        return (
-                            fi.log_joint(y, n, probe)[t_idx, sig_idx]
-                            - mode_logjoint[t_idx, sig_idx]
-                            - log_tol
-                        )
-
-                    step, r = scipy.optimize.bisect(f, 0, 100, full_output=True)
-                    steps[i] = direction * step
-                mode_shift = np.mean(steps)
-                mode[t_idx, sig_idx, integrate_thetas] += scaled_eigenvec * mode_shift
-                width = steps[1] - mode_shift
-                widths[t_idx, sig_idx, eigen_idx] = width
-                assert width > 0
-                axis_half_len[t_idx, sig_idx, eigen_idx] *= width
+            left = np.zeros((y.shape[0], fi.sigma2_n))
+            right = np.full((y.shape[0], fi.sigma2_n), 100.0)
+            soln, _, _ = vectorized_bisection(f, left, right)
+            steps[:, :, i] = direction * soln
+        mode_shift = np.mean(steps, axis=-1)
+        mode[:, :, integrate_thetas] += scaled_eigenvecs * mode_shift[..., None]
+        widths = steps[..., 1] - mode_shift
+        assert np.all(widths > 0)
+        axis_half_len[:, :, eigen_idx] *= widths
 
     # Map the coordinates from eta to theta space.
     mode_subset = mode[..., integrate_thetas]
@@ -232,6 +225,26 @@ def build_grid(
     return full_grid, full_wts, logjoint
 
 
+def vectorized_bisection(f, left, right, max_iter=100, tol=1e-4):
+    A = f(left)
+    B = f(right)
+    assert np.all(A > 0)
+    assert np.all(B < 0)
+    for j in range(max_iter):
+        new = (left + right) * 0.5
+        F = f(new)
+        if np.all(np.abs(F) < tol):
+            break
+        greater_idxs = np.where(F > 0)
+        left[greater_idxs] = new[greater_idxs]
+        A[greater_idxs] = F[greater_idxs]
+
+        lesser_idxs = np.where(F <= 0)
+        right[lesser_idxs] = new[lesser_idxs]
+        B[lesser_idxs] = F[lesser_idxs]
+    return new, F, j
+
+
 def integrate(
     fi,
     y,
@@ -273,50 +286,51 @@ def integrate(
         return np.sum(joint * wts, tuple(sum_dims))
 
 
-def quadrature_posterior_theta(model, data, thresh):
+def quadrature_posterior_theta(fi, y, n, thresh):
     theta_map = np.empty_like(thresh)
     cilow = np.empty_like(thresh)
     cihi = np.empty_like(thresh)
     exceedance = np.empty_like(thresh)
     t_rule = util.simpson_rule(61, -6.0, 1.0)
-    for i in range(4):
-        integrate_dims = list(range(4))
-        integrate_dims.remove(i)
-        p_ti_g_y = integrate(
-            model,
-            data,
-            integrate_sigma2=True,
-            integrate_thetas=integrate_dims,
-            fixed_dims={i: t_rule},
-        )
-        p_ti_g_y /= np.sum(p_ti_g_y * t_rule.wts, axis=1)[:, None]
+    for j in range(thresh.shape[0]):
+        for i in range(4):
+            integrate_dims = list(range(4))
+            integrate_dims.remove(i)
+            p_ti_g_y = integrate(
+                fi,
+                y[j],
+                n[j],
+                integrate_sigma2=True,
+                fixed_arm_dim=i,
+                fixed_arm_values=t_rule.pts,
+            )
+            p_ti_g_y /= np.sum(p_ti_g_y * t_rule.wts)
 
-        cdf = []
-        cdf_pts = []
-        # TODO: build custom product rule for each step! That would be much more
-        # accurate.
-        for j in range(3, t_rule.pts.shape[0], 2):
-            # Note that t0_rule.wts[:i] will be different from cdf_rule.wts!!
-            cdf_rule = util.simpson_rule(j, t_rule.pts[0], t_rule.pts[j - 1])
-            cdf.append(np.sum(p_ti_g_y[:, :j] * cdf_rule.wts[:j], axis=1))
-            cdf_pts.append(t_rule.pts[j - 1])
-        cdf = np.array(cdf).T
-        cdf_pts = np.array(cdf_pts)
+            cdf = []
+            cdf_pts = []
+            # TODO: build custom product rule for each step! That would be much more
+            # accurate.
+            for k in range(3, t_rule.pts.shape[0], 2):
+                # Note that t0_rule.wts[:i] will be different from cdf_rule.wts!!
+                cdf_rule = util.simpson_rule(k, t_rule.pts[0], t_rule.pts[k - 1])
+                cdf.append(np.sum(p_ti_g_y[:k] * cdf_rule.wts[:k]))
+                cdf_pts.append(t_rule.pts[k - 1])
+            cdf = np.array(cdf).T
+            cdf_pts = np.array(cdf_pts)
 
-        # TODO: I should do a linear interpolation here too.
-        cilow[:, i] = cdf_pts[np.argmax(cdf > 0.025, axis=1)]
-        cihi[:, i] = cdf_pts[np.argmax(cdf > 0.975, axis=1)]
-        theta_map[:, i] = t_rule.pts[np.argmax(p_ti_g_y, axis=1)]
+            # TODO: I should do a linear interpolation here too.
+            cilow[j, i] = cdf_pts[np.argmax(cdf > 0.025)]
+            cihi[j, i] = cdf_pts[np.argmax(cdf > 0.975)]
+            theta_map[j, i] = t_rule.pts[np.argmax(p_ti_g_y)]
 
-        above_idx = np.argmax(cdf_pts > thresh[:, i, None], axis=1)
-        below_idx = above_idx - 1
-        a = cdf_pts[below_idx]
-        b = cdf_pts[above_idx]
-        b_mult = (thresh[:, i] - a) / (b - a)
-        a_mult = 1 - b_mult
+            above_idx = np.argmax(cdf_pts > thresh[j, i, None])
+            below_idx = above_idx - 1
+            a = cdf_pts[below_idx]
+            b = cdf_pts[above_idx]
+            b_mult = (thresh[j, i] - a) / (b - a)
+            a_mult = 1 - b_mult
 
-        idxs = np.arange(below_idx.shape[0])
-        interp_cdf = a_mult * cdf[idxs, below_idx] + b_mult * cdf[idxs, above_idx]
-        exceedance[:, i] = 1.0 - interp_cdf
+            interp_cdf = a_mult * cdf[below_idx] + b_mult * cdf[above_idx]
+            exceedance[j, i] = 1.0 - interp_cdf
 
     return dict(cilow=cilow, cihi=cihi, theta_map=theta_map, exceedance=exceedance)

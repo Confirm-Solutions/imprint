@@ -132,15 +132,3 @@ def calc_pdf(x, bin_midpts, bin_wts):
     pdf /= bin_width
     normalize = (bin_wts * pdf).sum()
     return pdf / normalize
-
-
-if __name__ == "__main__":
-    import berry
-    from constants import DATA2
-
-    b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-6, 1e3), n_arms=2)
-    N = 10
-    n_i = np.full((N, 2), 35)
-    y_i = np.full_like(n_i, 5)
-    data = np.stack((y_i, n_i), axis=-1)
-    results = mcmc_berry(data, b.logit_p1, np.full(N, b.suc_thresh[0, 0]), n_arms=2)

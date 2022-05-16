@@ -14,25 +14,21 @@ jupyter:
 ---
 
 ```python
-%load_ext autoreload
-%autoreload 2
+import berrylib.util as util
+util.setup_nb()
 ```
 
 ```python
 # Import MCMC first so that JAX gets set up with 8 cores.
-import sys
-sys.path.append('../../python/example/berry')
-import mcmc
+import berrylib.mcmc as mcmc
 
 import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
-%config InlineBackend.figure_format='retina'
 from scipy.special import logit
 
-import util
-import fast_inla
-import quadrature
+import berrylib.fast_inla as fast_inla
+import berrylib.quadrature as quadrature
 ```
 
 ## Setting up some tools for plotting
@@ -46,14 +42,14 @@ def run_mcmc(fi, y, n, n_samples=20000):
     return mcmc.mcmc_berry(
         np.stack((y, n), axis=-1),
         fi.logit_p1,
-        np.full(y.shape[0], fi.thresh_theta),
+        fi.thresh_theta,
         dtype=np.float64,
         n_samples=n_samples
     )
 ```
 
 ```python
-def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=None, n_theta=15, n_samples=20000, show=True):
+def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=None, n_theta=15, n_samples=20000, include_laplace=False, show=True):
     if results_mcmc is None:
         results_mcmc = run_mcmc(
             fi, y[plot_idx : (plot_idx + 1)], n[plot_idx : (plot_idx + 1)],
@@ -74,14 +70,14 @@ def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=Non
     integrate_dims.remove(arm_idx)
     quad_p_ti_g_y = quadrature.integrate(
         fi,
-        y[plot_idx : (plot_idx + 1)],
-        n[plot_idx : (plot_idx + 1)],
+        y[plot_idx],
+        n[plot_idx],
         integrate_sigma2=True,
         fixed_arm_dim=arm_idx,
         fixed_arm_values=ti_rule.pts,
         n_theta=n_theta,
     )
-    quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
+    quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts)
 
     gaussian_pdf = scipy.stats.norm.pdf(
         ti_rule.pts[:, None],
@@ -95,8 +91,22 @@ def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=Non
     # construct bin edges such that the bin midpoints correspond to ti_rule.pts
     mcmc_p_ti_g_y = mcmc.calc_pdf(mcmc_arm, ti_rule.pts, ti_rule.wts)
 
+    if include_laplace:
+        y_tiled = np.tile(y, (ti_rule.pts.shape[0], 1))
+        n_tiled = np.tile(n, (ti_rule.pts.shape[0], 1))
+        ti_pts_tiled = np.tile(ti_rule.pts[:, None], (1, fi.sigma2_n)) 
+
+        ti_max, ti_hess_inv = fi.optimize_mode(y_tiled, n_tiled, fixed_arm_dim=arm_idx, fixed_arm_values=ti_pts_tiled)
+        ti_logjoint = fi.log_joint(y_tiled, n_tiled, ti_max)
+
+        ti_post = np.exp(ti_logjoint + 0.5 * np.log(np.linalg.det(-ti_hess_inv)))
+        ti_post /= np.sum(ti_post * ti_rule.wts[:, None], axis=0)
+        laplace_p_ti_g_y = np.sum(ti_post * sigma2_post * fi.sigma2_rule.wts, axis=1)
+        plt.plot(ti_rule.pts, laplace_p_ti_g_y, "k-x", markersize=7, label="INLA-Laplace")
+
+
     plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "k-", markersize=3, label="INLA")
-    plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "k--", markersize=3, label="Quadrature")
+    plt.plot(ti_rule.pts, quad_p_ti_g_y, "k--", markersize=3, label="Quadrature")
     plt.plot(ti_rule.pts, mcmc_p_ti_g_y, "k.", label="MCMC")
 
     y_str = ', '.join([str(v) for v in y.astype(np.int32)[plot_idx]])
@@ -104,7 +114,7 @@ def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=Non
     plt.title(f'y=[{y_str}]  n=[{n_str}]')
 
     plt.xlabel(r"$\theta_" + str(arm_idx) + "$")
-    plt.ylabel(r"p($\theta_" + str(arm_idx) + "$ \| y)")
+    plt.ylabel(r"$p(\theta_" + str(arm_idx) + " \| y)$")
     plt.legend()
     if show:
         plt.show()
@@ -127,19 +137,17 @@ def compare_hyperparam_posterior(fi, y, n, plot_idx, results_mcmc=None, n_theta=
 
     quad_p_s2_g_y = quadrature.integrate(
         fi,
-        y[plot_idx:(plot_idx + 1)],
-        n[plot_idx:(plot_idx + 1)],
+        y[plot_idx],
+        n[plot_idx],
         integrate_sigma2=False,
         n_theta=n_theta,
     )
-    quad_p_s2_g_y /= np.sum(quad_p_s2_g_y * fi.sigma2_rule.wts, axis=1)
+    quad_p_s2_g_y /= np.sum(quad_p_s2_g_y * fi.sigma2_rule.wts)
 
     mcmc_p_s2_g_y = mcmc.calc_pdf(mcmc_sigma2, fi.sigma2_rule.pts, fi.sigma2_rule.wts)
 
-    print(np.argmax((quad_p_s2_g_y - mcmc_p_s2_g_y) * fi.sigma2_rule.wts))
-
     plt.plot(np.log10(fi.sigma2_rule.pts), sigma2_post[plot_idx], "k-", markersize=3, label="INLA-Gaussian")
-    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y[0], "k--", markersize=3, label="Quad")
+    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y, "k--", markersize=3, label="Quad")
     plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_p_s2_g_y, "ko", markersize=3, label="MCMC")
     plt.xlabel('$\log_{10} (\sigma^2)$')
     plt.ylabel('$p(\sigma^2 \| y)$')
@@ -152,7 +160,7 @@ def compare_hyperparam_posterior(fi, y, n, plot_idx, results_mcmc=None, n_theta=
     n_str = ', '.join([str(v) for v in n.astype(np.int32)[plot_idx]])
     plt.title(f'y=[{y_str}]  n=[{n_str}]')
 
-    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y[0] * fi.sigma2_rule.wts, "k--", markersize=3, label="Quad")
+    plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y * fi.sigma2_rule.wts, "k--", markersize=3, label="Quad")
     plt.plot(np.log10(fi.sigma2_rule.pts), mcmc_p_s2_g_y * fi.sigma2_rule.wts, "ko", markersize=3, label="MCMC")
     plt.legend()
     plt.xlabel('$\log_{10} (\sigma^2)$')
@@ -196,10 +204,6 @@ sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(y, n)
 ```
 
 ```python
-theta_mu.shape
-```
-
-```python
 ti_rule = util.simpson_rule(51, -3.0, 1.0)
 gaussian_pdf = scipy.stats.norm.pdf(
     ti_rule.pts[:, None],
@@ -210,24 +214,6 @@ gaussian_pdf = scipy.stats.norm.pdf(
 
 ```python
 T, S = np.meshgrid(ti_rule.pts, fi.sigma2_rule.pts, indexing='ij')
-```
-
-```python
-%config InlineBackend.figure_format='retina'
-factor = 0.75
-plt.rcParams["text.usetex"] = True
-plt.rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"
-plt.rcParams["font.size"] = 20 * factor
-plt.rcParams["axes.labelsize"] = 18 * factor
-plt.rcParams["axes.titlesize"] = 20 * factor
-plt.rcParams["xtick.labelsize"] = 16 * factor
-plt.rcParams["ytick.labelsize"] = 16 * factor
-plt.rcParams["legend.fontsize"] = 20 * factor
-plt.rcParams["figure.titlesize"] = 22 * factor
-plt.rcParams["axes.facecolor"] = (1.0, 1.0, 1.0, 1.0)
-plt.rcParams["figure.facecolor"] = (1.0, 1.0, 1.0, 1.0)
-plt.rcParams["savefig.transparent"] = False
-plt.rcParams["image.cmap"] = "plasma"
 ```
 
 ```python
@@ -304,53 +290,8 @@ plt.show()
 ```
 
 ```python
-quad_p_ti_g_sigy = quadrature.integrate(
-    fi,
-    y,
-    n,
-    integrate_sigma2=False,
-    n_theta=15,
-    fixed_arm_dim=0,
-    fixed_arm_values=ti_rule.pts
-)
-quad_p_ti_g_sigy.shape
-```
-
-```python
-Q = quad_p_ti_g_sigy[0] / (quad_p_ti_g_sigy[0] * fi.sigma2_rule.wts).sum(axis=1)[:, None]
-```
-
-```python
-cntf = plt.contourf(T, np.log10(S), Q)# * sigma2_post * fi.sigma2_rule.wts)
-plt.contour(
-    T,
-    np.log10(S),
-    Q,
-    colors="k",
-    linestyles="-",
-    linewidths=0.5,
-    # levels=levels,
-    extend="both",
-)
-cbar = plt.colorbar(cntf)
-plt.xlabel(f'$\\theta_{arm_idx}$')
-plt.ylabel('$\log_{10} \sigma^2$')
-cbar.set_label('$p(\\theta_0 | \sigma^2, y)$')
-plt.show()
-```
-
-```python
 for arm_idx, plot_idx in [(0, 48), (1, 84), (0, 27), (0, 35), (0, 22), (1, 8), (1, 1), (0,0)]:
     compare_arm_marginals(fi, ygrid, ngrid, arm_idx, plot_idx, results_mcmc=results_mcmc, n_samples=20000)
-```
-
-```python
-plt.figure(figsize = (8, 12), constrained_layout=True)
-for i, (arm_idx, plot_idx) in enumerate([(1, 88), (1, 78), (1, 68), (1, 58), (1, 48), (1, 38), (1, 28), (1, 18), (1, 8)]):
-    plt.subplot(2, 3, 1 + i)
-    compare_arm_marginals(fi, ygrid, ngrid, arm_idx, plot_idx, results_mcmc=results_mcmc, n_samples=20000, show=False)
-plt.savefig('small_y_grid.png', dpi=300, bbox_inches='tight')
-plt.show()
 ```
 
 ```python
@@ -367,43 +308,23 @@ for arm_idx, plot_idx in [(1, 0)]:
     compare_hyperparam_posterior(fi, ygrid, ngrid, plot_idx, results_mcmc=results_mcmc)
 ```
 
-## A 4d problem
+## A 4d problem, Berry figure 2 final analysis
 
 ```python
 fi4 = fast_inla.FastINLA(n_arms=4, sigma2_n=90)
 n4 = np.array([[20, 20, 35, 35]])
-y4 = np.array([[1, 2, 9, 10]], dtype=np.float64)
+y4 = np.array([[0, 1, 9, 10]], dtype=np.float64)
 ```
 
 ```python
-for arm_idx in [0]:#range(4):
-    compare_arm_marginals(fi4, y4, n4, arm_idx, 0, n_theta=11)
+results_mcmc4 = run_mcmc(fi4, y4, n4, n_samples=500000)
 ```
 
 ```python
-compare_hyperparam_posterior(fi4, y4, n4, 0, n_theta=11)
+for arm_idx in range(4):
+    compare_arm_marginals(fi4, y4, n4, arm_idx, 0, results_mcmc=results_mcmc4, n_theta=11, include_laplace=True)
 ```
 
 ```python
-plot_idx = 0
-y = y4
-n = n4
-fi = fi4
-n_theta=13
-quad_p_s2_g_y, grid, wts, joint = quadrature.integrate(
-    fi,
-    y[plot_idx:(plot_idx + 1)],
-    n[plot_idx:(plot_idx + 1)],
-    integrate_sigma2=False,
-    n_theta=n_theta,
-    return_intermediates=True,
-    tol=1e-6
-)
-#quad_p_s2_g_y /= np.sum(quad_p_s2_g_y * fi.sigma2_rule.wts, axis=1)
-plt.plot(np.log10(fi.sigma2_rule.pts), quad_p_s2_g_y[0] * fi.sigma2_rule.wts, "k--", markersize=3, label="Quad")
-plt.show()
-```
-
-```python
-grid.shape, joint.shape
+compare_hyperparam_posterior(fi4, y4, n4, 0, results_mcmc=results_mcmc4, n_theta=11)
 ```

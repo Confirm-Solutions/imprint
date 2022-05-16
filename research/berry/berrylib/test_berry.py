@@ -1,20 +1,17 @@
 import time
 
-import berry
-import binomial
-import dirty_bayes
-import fast_inla
-import inla
+import berrylib.binomial as binomial
+import berrylib.dirty_bayes as dirty_bayes
+import berrylib.fast_inla as fast_inla
+import berrylib.quadrature as quadrature
+import berrylib.util as util
 import numpy as np
 import pykevlar.grid as grid
 import pytest
-import quadrature
 import scipy.stats
-import util
+from berrylib.kevlar import BerryKevlarModel
 from pykevlar.driver import accumulate_process
 from scipy.special import logit
-
-from kevlar import BerryKevlarModel
 
 
 def test_broadcast():
@@ -22,139 +19,20 @@ def test_broadcast():
     assert util.broadcast(np.zeros((4, 5)), (3, 4, 6, 5), (1, 3)).shape == (1, 4, 1, 5)
 
 
-def test_binomial_hierarchical_grad_hess():
-    nT = 50
-    n_i = np.full((1, 4), nT)
-    x_i = np.array([[0.05422, -0.058, 0.5411, 1.1393]])
-    # p_i = np.array([[0.5135521136895386, 0.3305150325484877,
-    # 0.6320743881220601, 0.7575673322021476]])
-    y_i = np.array([[28, 14, 33, 36]]) * nT / 50
-    data = np.stack((y_i, n_i), axis=2)
-    qv0 = np.array([1.0])
-    a = np.array([1.0])
-    theta = np.stack((a, qv0), axis=1)
-    dx = 0.001
-    model = berry.BerryMu()
-    model.log_prior = lambda t: scipy.stats.lognorm.logpdf(1.0 / theta[..., 0], 10.0)
-
-    def calc_numerical_grad(local_x_i, row):
-        dx_vec = np.zeros(4)
-        dx_vec[row] = dx
-        f0 = model.log_joint(local_x_i - dx_vec, data, theta)
-        f2 = model.log_joint(local_x_i + dx_vec, data, theta)
-        f0_xonly = model.log_joint_xonly(local_x_i - dx_vec, data, theta)
-        f2_xonly = model.log_joint_xonly(local_x_i + dx_vec, data, theta)
-
-        # check that xonly is only dropping terms independent of x
-        np.testing.assert_allclose(f2 - f0, f2_xonly - f0_xonly)
-        return (f2 - f0) / (2 * dx)
-
-    num_grad = np.empty((1, 4))
-    for i in range(4):
-        num_grad[:, i] = calc_numerical_grad(x_i, i)
-    analytical_grad = model.grad(x_i, data, theta)
-    np.testing.assert_allclose(num_grad, analytical_grad, atol=1e-5)
-
-    num_hess = np.empty((1, 4))
-    for i in range(4):
-        # only calculate the diagonal (i = j)
-        dx_vec = np.zeros(4)
-        dx_vec[i] = dx
-        g0 = calc_numerical_grad(x_i - dx_vec, i)
-        g2 = calc_numerical_grad(x_i + dx_vec, i)
-        num_hess[:, i] = (g2 - g0) / (2 * dx)
-    np.set_printoptions(linewidth=100)
-    analytical_hess = model.hess(x_i, data, theta)
-
-    np.testing.assert_allclose(num_hess, analytical_hess, atol=1e-5)
-
-
-def test_inla_sim(n_sims=100, check=True):
-    n_sims = 100
-    n_arms = 4
-    np.random.seed(100)
-
-    n_patients_per_group = 50
-
-    # The effects are drawn from a distribution with mean 0.5 and variance 1.0
-    mean_effect = 0.5
-    effect_var = 1.0
-    t_i = scipy.stats.norm.rvs(mean_effect, np.sqrt(effect_var), size=(n_sims, n_arms))
-    # inverse logit to get probabilities from linear predictors.
-    p_i = scipy.special.expit(t_i)
-    n_i = np.full_like(p_i, n_patients_per_group)
-    # draw actual trial results.
-    y_i = scipy.stats.binom.rvs(n_patients_per_group, p_i).reshape(n_i.shape)
-    data = np.stack((y_i, n_i), axis=2)
-
-    thresh = np.full((1, 4), -1)
-
-    model = berry.Berry()
-    post_theta, logpost_theta_data = inla.calc_posterior_hyper(model, data)
-    inla_stats = inla.calc_posterior_x(post_theta, logpost_theta_data, thresh)
-
-    ci025 = inla_stats["mu_appx"] - 1.96 * inla_stats["sigma_appx"]
-    ci975 = inla_stats["mu_appx"] + 1.96 * inla_stats["sigma_appx"]
-    t_i_offset = t_i - model.logit_p1
-    good = (ci025 < t_i_offset) & (t_i_offset < ci975)
-    frac_contained = np.sum(good) / (n_sims * n_arms)
-
-    # Set the exact value since the seed should be fixed. I don't know if this
-    # will persist across machines, but it works for me for now.
-    # It's not a problem that this is lower than 95% because the data generating
-    # process is different from the model assumptions.
-    if check:
-        assert frac_contained == 0.9275
-
-    # Test the optimization!
-    # Confirm that x0 is truly the mode/peak of p(x|y,\theta).
-    # Check that random shifts of x0 have lower joint density.
-    x0 = logpost_theta_data["x0"]
-    theta_broadcast = logpost_theta_data["hyper_grid"].reshape((1, -1, 1))
-    data_broadcast = data[:, None, :]
-    x0f = model.log_joint_xonly(x0, data_broadcast, theta_broadcast)
-    for i in range(10):
-        x0shift = x0 + np.random.uniform(0, 0.01, size=x0.shape)
-        x0shiftf = model.log_joint_xonly(x0shift, data_broadcast, theta_broadcast)
-        assert np.all(x0f > x0shiftf)
-
-
 def test_dirty_bayes():
-    b = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e3))
+    fi = fast_inla.FastINLA()
     y_i = np.array([[3, 8, 5, 4]])
     n_i = np.full((1, 4), 15)
     db_stats = dirty_bayes.calc_dirty_bayes(
         y_i,
         n_i,
-        b.mu_0,
+        fi.mu_0,
         np.full((1, 4), logit(0.3)),
         np.full((1, 4), logit(0.2) - logit(0.3)),
-        b.sigma2_rule,
+        fi.sigma2_rule,
     )
-    expected = [0.938858, 0.995331, 0.980741, 0.963675]
+    expected = [0.939209, 0.995332, 0.98075, 0.963809]
     np.testing.assert_allclose(db_stats["exceedance"][0, :], expected, 1e-6)
-
-
-def test_mu_integration():
-    # If we select a sigma2 integration domain that does not include large
-    # values, then our mu integration range should be almost complete and the
-    # numerical integration should produce results almost exactly equal to the
-    # results from the analytical integration. This is useful for testing both!
-    b_mu = berry.BerryMu(sigma2_n=90, sigma2_bounds=(1e-8, 1e-3))
-    b_no_mu = berry.Berry(sigma2_n=90, sigma2_bounds=(1e-8, 1e-3))
-
-    y_i = np.array([[3, 8, 5, 4]])
-    n_i = np.full((1, 4), 15)
-    data = np.stack((y_i, n_i), axis=2)
-
-    post_hyper_mu, report_mu = inla.calc_posterior_hyper(b_mu, data)
-    post_hyper_no_mu, report_no_mu = inla.calc_posterior_hyper(b_no_mu, data)
-
-    thresh = np.full((1, 4), -0.0)
-    mu_stats = inla.calc_posterior_x(post_hyper_mu, report_mu, thresh)
-    no_mu_stats = inla.calc_posterior_x(post_hyper_no_mu, report_no_mu, thresh)
-    # The match should not be exact!! But it should be close.
-    assert np.all(mu_stats["exceedance"] - no_mu_stats["exceedance"] < 0.02)
 
 
 def test_simpson_rules():
@@ -202,59 +80,69 @@ def test_log_gauss_rule():
     np.testing.assert_allclose(est, exact, 1e-14)
 
 
-def test_exact_integrate():
-    n_i = np.full((1, 4), 10)
-    y_i = np.array([[1, 6, 3, 3]])
+def test_vectorized_bisection():
+    y = np.random.rand(10, 11)
+
+    def f(x):
+        return y - x**2
+
+    for tol in [1e-3, 1e-6, 1e-10]:
+        soln, obj, iters = quadrature.vectorized_bisection(
+            f, np.full_like(y, 0), np.full_like(y, 100), tol=tol
+        )
+        correct = np.sqrt(y)
+        np.testing.assert_allclose(soln, correct, np.sqrt(tol))
+        np.testing.assert_allclose(obj, 0, atol=tol)
+
+
+def test_quadrature():
+    n_i = np.full(4, 10)
+    y_i = np.array([1, 6, 3, 3])
     fi = fast_inla.FastINLA(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
 
     p_sigma2_g_y = quadrature.integrate(
         fi, y_i, n_i, integrate_sigma2=False, n_theta=11
     )
-    p_sigma2_g_y /= np.sum(p_sigma2_g_y * fi.sigma2_rule.wts, axis=1)[:, None]
+    p_sigma2_g_y /= np.sum(p_sigma2_g_y * fi.sigma2_rule.wts)
     expected = [
-        7.253775e-01,
-        5.361246e-01,
-        3.266723e-01,
-        1.871160e-01,
-        1.390248e-01,
-        6.546949e-02,
-        6.794999e-03,
-        8.639377e-04,
-        1.737905e-04,
-        6.668053e-05,
+        2.062674e00,
+        1.521337e00,
+        9.040576e-01,
+        4.066886e-01,
+        1.120525e-01,
+        1.760016e-02,
+        2.095379e-03,
+        2.803709e-04,
+        5.743632e-05,
+        2.217637e-05,
     ]
-    np.testing.assert_allclose(p_sigma2_g_y[0], expected, 1e-6)
+    np.testing.assert_allclose(p_sigma2_g_y, expected, 1e-5)
 
-
-# def test_exact_convergence():
-#     n_i = np.full((1, 2), 10)
-#     y_i = np.array([[1, 6]])
-#     data = np.stack((y_i, n_i), axis=2)
-#     b = berry.Berry(sigma2_n=10, sigma2_bounds=(1e-1, 1e2))
-
-#     sigma2_n
-#     cov = np.full((sigma2_n, n_arms, n_arms), mu_sig_sq)
-#     cov[:, arms, arms] += sigma2_rule.pts[:, None]
-#     neg_precQ = -np.linalg.inv(cov)
-#     logjoint = (
-#         0.5 * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
-#         + self.logprecQdet
-#         + np.sum(
-#             theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
-#             axis=-1,
-#         )
-#         + self.log_prior
-#     )
-
-#     I_11 = quadrature.integrate(
-#         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=11
-#     )
-#     I_11 /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
-#     I_13 = quadrature.integrate(
-#         b, data, integrate_sigma2=False, integrate_thetas=(0, 1, 2, 3), n_theta=13
-#     )
-#     I_13 /= np.sum(p_sigma2_g_y * b.sigma2_rule.wts, axis=1)[:, None]
-#     np.testing.assert_allclose(I_11, I_13, 1e-5)
+    ti_rule = util.simpson_rule(11, -1, 2)
+    p_arm = quadrature.integrate(
+        fi,
+        y_i,
+        n_i,
+        integrate_sigma2=True,
+        n_theta=11,
+        fixed_arm_dim=1,
+        fixed_arm_values=ti_rule.pts,
+    )
+    p_arm /= np.sum(p_arm * ti_rule.wts)
+    expected = [
+        0.005733,
+        0.026603,
+        0.094835,
+        0.249339,
+        0.473299,
+        0.651237,
+        0.670311,
+        0.542336,
+        0.361369,
+        0.204235,
+        0.099637,
+    ]
+    np.testing.assert_allclose(p_arm, expected, 1e-5)
 
 
 @pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])

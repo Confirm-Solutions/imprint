@@ -14,8 +14,8 @@ jupyter:
 ---
 
 ```python
-%load_ext autoreload
-%autoreload 2
+import berrylib.util
+berrylib.util.setup_nb()
 ```
 
 # The Berry model
@@ -97,10 +97,6 @@ import scipy.stats
 import matplotlib.pyplot as plt
 from scipy.special import logit
 
-import sys
-sys.path.append('../../python/example/berry')
-import util
-
 n_i = np.array([20, 20, 35, 35])
 # Try running with this parameter set! You'll find INLA does a lot worse. Exercise: Why?
 # y_i = np.array([0, 1, 9, 10], dtype=np.float64)
@@ -136,7 +132,7 @@ and compute values dependent only on $\sigma^2$:
 
 ```python
 sigN = 90
-sigma2_rule = util.log_gauss_rule(sigN, 1e-6, 1e3)
+sigma2_rule = berrylib.util.log_gauss_rule(sigN, 1e-6, 1e3)
 arms = np.arange(4)
 
 # See above, cov = sigma2 * I + mu_sig_sq2
@@ -271,26 +267,22 @@ plt.show()
 ```python
 arm_idx = 0
 ti_N = 61
-ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
+ti_rule = berrylib.util.simpson_rule(ti_N, -6.0, 2.0)
 ```
 
 ### 2.0: Do it with full numerical integration (slow)
 
 
 ```python
-import fast_inla
-import quadrature
+import berrylib.fast_inla as fast_inla
+import berrylib.quadrature as quadrature
 
 fi = fast_inla.FastINLA(sigma2_n=sigN, n_arms=4)
 quad_p_ti_g_y = quadrature.integrate(
-    fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
-    n_theta=21
+    fi, y_i, n_i, fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
+    n_theta=11
 )
-quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
-```
-
-```python
-quad_p_ti_g_y
+quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts)
 ```
 
 ### 2.1: Gaussian approximation of $p(\theta_i|y, \sigma^2)$
@@ -312,7 +304,7 @@ gaussian_p_ti_g_y = np.sum(
 )
 
 plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
-# plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+plt.plot(ti_rule.pts, quad_p_ti_g_y, "b-o", markersize=3, label="Quadrature")
 plt.legend()
 plt.show()
 ```
@@ -322,11 +314,14 @@ plt.show()
 ```python
 for arm_idx in range(4):
     print(arm_idx)
-    # quad_p_ti_g_y, grids, wts, joint = quadrature.integrate(
-    #     fi, y_i[None, :], n_i[None, :], fixed_arm_dim=arm_idx, fixed_arm_values=ti_rule.pts,
-    #     n_theta=21, return_intermediates=True
-    # )
-    # quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts, axis=1)[:, None]
+    quad_p_ti_g_y = quadrature.integrate(
+        fi,
+        y_i,
+        n_i,
+        fixed_arm_dim=arm_idx,
+        fixed_arm_values=ti_rule.pts,
+    )
+    quad_p_ti_g_y /= np.sum(quad_p_ti_g_y * ti_rule.wts)
 
     theta_i_sigma = np.sqrt(np.diagonal(-np.linalg.inv(hess), axis1=1, axis2=2))
     theta_i_mu = theta_max
@@ -340,9 +335,10 @@ for arm_idx in range(4):
     )
 
     plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
-    # plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+    plt.plot(ti_rule.pts, quad_p_ti_g_y, "b-o", markersize=3, label="Quad")
     plt.legend()
     plt.show()
+
 ```
 
 ### 2.2: Laplace approximation of $p(\theta_i|y, \sigma^2)$
@@ -363,13 +359,11 @@ ti_logjoint = fi.log_joint(y_tiled, n_tiled, ti_max)
 ti_post = np.exp(ti_logjoint + 0.5 * np.log(np.linalg.det(-ti_hess_inv)))
 ti_post /= np.sum(ti_post * ti_rule.wts[:, None], axis=0)
 laplace_p_ti_g_y = np.sum(ti_post * sigma2_post * sigma2_rule.wts, axis=1)
-```
 
-```python
 plt.figure(figsize=(7, 4))
 plt.plot(ti_rule.pts, gaussian_p_ti_g_y, "r-o", markersize=3, label="INLA-Gaussian")
 plt.plot(ti_rule.pts, laplace_p_ti_g_y, "k-o", markersize=3, label="INLA-Laplace")
-plt.plot(ti_rule.pts, quad_p_ti_g_y[0], "b-o", markersize=3, label="Quad")
+plt.plot(ti_rule.pts, quad_p_ti_g_y, "b-o", markersize=3, label="Quad")
 plt.legend()
 plt.show()
 ```
@@ -541,8 +535,4 @@ exceedance_inla = np.sum(
     axis=0
 )
 exceedance_inla
-```
-
-```python
-
 ```
