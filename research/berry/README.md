@@ -27,3 +27,17 @@
   - exploring the domain of integration.
   - developing the eigenvector approach.
   - tools for exploring a slice of the quadrature grid.
+
+# berrylib
+
+berrylib is a collection of the support code for the above notebooks. 
+- `constants.py`: the Berry Figure 1 and 2 datasets.
+- `binomial.py`: binomial kevlar framework accumulation and lookup table construction.
+- `fast_inla.py`: JAX, numpy and C++ implementations of INLA for the Berry problem.
+- `fast_inla_ext.cpp`: the C++ support code for FastINLA
+- `dirty_bayes.py`: Dirty Bayes applied to Berry.
+- `kevlar.py`: A Kevlar framework FastINLA Berry model.
+- `mcmc.py`: MCMC via numpyro applied to Berry.
+- `quadrature.py`: let's just apply Gauss quadrature to Berry.
+- `util.py`: some basic quadrature rules and plotting tools.
+- `test_berry.py`: a smattering of tests for the above where it seemed useful.
