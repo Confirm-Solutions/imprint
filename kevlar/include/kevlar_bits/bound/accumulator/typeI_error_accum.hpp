@@ -114,6 +114,19 @@ struct TypeIErrorAccum {
     }
 
     /*
+     * Pools with the raw sum and score from another accumulation. as if the
+     * current object were additionally updated in the same way as in other.
+     *
+     * @param   other_typeI_sum       the other type I sum
+     * @param   other_typeI_score       the other type I score
+     */
+    void pool_raw(const mat_type<uint_t>& other_typeI_sum,
+                  const colvec_type<value_t>& other_typeI_score) {
+        typeI_sum_ += other_typeI_sum;
+        score_sum_ += other_typeI_score;
+    }
+
+    /*
      * Reset the size of internal data structures corresponding
      * to the new configuration n_models, n_tiles, n_params, n_acc.
      * The first three parameters must be positive.

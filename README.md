@@ -25,7 +25,7 @@ To set up your kevlar conda environment (note that you may substitute `mamba`
 here for `conda` and the install will be substantially faster):
 ```
 cd kevlar/
-conda update conda
+conda update -y conda
 conda env create
 conda activate kevlar
 ```
@@ -35,7 +35,7 @@ To set up pre-commit:
 pre-commit install
 ```
 
-To set up your bazel configuration for building C++:
+To set up your bazel configuration for building C++. **See below to install bazel.**
 ```
 ./generate_bazelrc
 ```
@@ -45,3 +45,28 @@ for each of the sub-components:
 
 - [pykevlar](./python/README.md): Kevlar Python package.
 - [kevlar](./kevlar/README.md): Kevlar C++ core engine.
+
+
+## Install Bazel in the typical way for your OS:
+
+### Mac OS
+
+To install the dependencies:
+```
+brew install bazelisk 
+```
+
+### Ubuntu Linux
+
+To install the dependencies:
+```
+mkdir -p /some/dir
+curl -Lo /some/dir/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64
+chmod +x /some/dir/bazel
+```
+where `/some/dir` is a directory to store the `bazel` binary.
+Note that for a system-wide install, the user may need to call under `sudo`.
+For a local install, the user should add `/some/dir` to `PATH`:
+```
+export PATH="/some/dir:$PATH"
+```
