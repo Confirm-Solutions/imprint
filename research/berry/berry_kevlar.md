@@ -12,8 +12,6 @@ jupyter:
     name: python3
 ---
 
-# C++ Berry-INLA version
-
 ```python
 import berrylib.util as util
 util.setup_nb()
@@ -31,11 +29,12 @@ import berrylib.binomial as binomial
 ```python
 fi = fast_inla.FastINLA(2)
 
+name = 'berry2d'
 n_arms = 2
 n_arm_samples = 35
 seed = 10
 n_theta_1d = 16
-sim_size = 1000
+sim_size = 10000
 
 # define null hypos
 null_hypos = []
@@ -49,24 +48,62 @@ for i in range(n_arms):
     null_hypos.append(grid.HyperPlane(n, -logit(0.1)))
 
 gr = grid.make_cartesian_grid_range(n_theta_1d, np.full(n_arms, -3.5), np.full(n_arms, 1.0), sim_size)
-```
-
-Red dots are points in the alternative hypothesis space.
-Blue dots are points in the null space.
-
-```python
 gr.create_tiles(null_hypos)
-plt.plot(gr.thetas()[0,:], gr.thetas()[1,:], 'ro')
 gr.prune()
-plt.plot(gr.thetas()[0,:], gr.thetas()[1,:], 'bo')
-plt.show()
 ```
 
 ```python
-accumulator = binomial.binomial_accumulator(fi.rejection_inference)
 theta = gr.thetas().T
 theta_tiles = grid.theta_tiles(gr)
 is_null_per_arm = grid.is_null_per_arm(gr)
+```
+
+```python
+samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
+accumulator = binomial.binomial_accumulator(fi.rejection_inference)
+typeI_sum, typeI_score = accumulator(theta_tiles, is_null_per_arm, samples)
+```
+
+```python
+from pykevlar.model.binomial import SimpleSelection
+sys.path.append('../../python/example')
+import utils
+delta = 0.025
+simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
+simple_selection_model.critical_values([fi.critical_value])
+```
+
+```python
+from pykevlar.bound import TypeIErrorAccum
+acc_o = TypeIErrorAccum(simple_selection_model.n_models(), gr.n_tiles(), gr.n_params())
+typeI_sum = typeI_sum.astype(np.uint32).reshape((1, -1))
+score_sum = typeI_score.flatten()
+acc_o.pool_raw(typeI_sum, score_sum)
+print(np.all(acc_o.typeI_sum() == typeI_sum))
+print(np.all(acc_o.score_sum() == score_sum))
+```
+
+```python
+P, B = utils.create_ub_plot_inputs(simple_selection_model, acc_o, gr, delta)
+```
+
+```python
+import scipy.special
+delta_prop_0to1 = 0.5
+d0u_factor = 1.0 - delta * delta_prop_0to1
+delta_0_j = typeI_sum[0] / sim_size
+delta_0_u_j = scipy.special.betaincinv(
+    typeI_sum[0] + 1,
+    sim_size - typeI_sum[0],
+    d0u_factor
+) - delta_0_j
+np.testing.assert_allclose(delta_0_j, B[:, 0])
+np.testing.assert_allclose(delta_0_u_j, B[:, 1])
+```
+
+```python
+
+utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}.csv", f"B-{name}-{n_theta_1d}-{sim_size}.csv", P, B)
 ```
 
 ```python
@@ -96,11 +133,6 @@ plt.title('Tile count per grid point')
 plt.scatter(theta[:,0], theta[:,1], c=n_tiles_per_pt)
 plt.colorbar()
 plt.show()
-```
-
-```python
-samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
-typeI_sum, typeI_score = accumulator(theta_tiles, is_null_per_arm, samples)
 ```
 
 ```python
