@@ -65,12 +65,6 @@ struct utils_fixture : base_fixture {
                 expected.begin(), expected.end(),
                 [&](const auto& v) { return (v.array() == x.array()).all(); });
             EXPECT_NE(it, expected.end());
-            // auto v = expected.begin();
-            // for (;v != expected.end(); v++) {
-            //     for (int i = 0; i < x.size(); i++) {
-            //         EXPECT_EQ((*v).array()[i], x.array()[i]);
-            //     }
-            // }
             ++count;
         }
         EXPECT_EQ(count, expected.size());
