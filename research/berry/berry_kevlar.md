@@ -475,3 +475,32 @@ for t2_idx, t3_idx in [(40, 40), (32, 32), (24, 24), (16, 16), (8, 8)]:
     Bselect = B[selection, :]
     utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}-{t2_idx}.csv", f"B-{name}-{n_theta_1d}-{sim_size}-{t3_idx}.csv", Pselect, Bselect)
 ```
+
+```python
+import numpy as np
+data = np.load('berry2_64_8160.npy', allow_pickle=True)
+```
+
+```python
+data = data.tolist()
+```
+
+```python
+p_path = 'P4D.csv'
+b_path = 'B4D.csv'
+np.savetxt(p_path, data['P'], fmt="%s", delimiter=",")
+np.savetxt(b_path, data['B'], fmt="%s", delimiter=",")
+```
+
+```python
+t3 = np.unique(data['theta_tiles'][:, 2])[8]
+selection = (data['theta_tiles'][:,3] == t3)
+p_path = 'P3D.csv'
+b_path = 'B3D.csv'
+np.savetxt(p_path, data['P'][:, selection], fmt="%s", delimiter=",")
+np.savetxt(b_path, data['B'][selection, :], fmt="%s", delimiter=",")
+```
+
+```python
+
+```
