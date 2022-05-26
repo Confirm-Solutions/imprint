@@ -167,11 +167,14 @@ def test_inla_properties(method):
     np.testing.assert_allclose(sigma2_integral, 1.0)
 
 
-@pytest.mark.parametrize("method", ["jax", "numpy", "cpp"])
+@pytest.mark.parametrize("method", ["pytorch"])
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
     inla_model = fast_inla.FastINLA()
+
+    # import torch
+    # inla_model = fast_inla.FastINLA(torch_dtype=torch.float32, torch_device='mps')
 
     runtimes = []
     for i in range(iterations):
@@ -187,10 +190,28 @@ def test_fast_inla(method, N=10, iterations=1):
 
     sigma2_post, exceedances, theta_max, theta_sigma = out
 
-    np.testing.assert_allclose(
-        theta_max[0, 12],
+    correct_theta_max = [
+        [-0.65720195, -0.65720081, -0.65719484, -0.65719371],
+        [-0.65720546, -0.65720355, -0.65719345, -0.65719153],
+        [-0.65721851, -0.65721369, -0.65718827, -0.65718345],
+        [-0.65727494, -0.65725755, -0.65716589, -0.65714851],
+        [-0.65757963, -0.65749441, -0.65704505, -0.65695985],
+        [-0.65958489, -0.65905323, -0.65625057, -0.65571955],
+        [-0.67465157, -0.67076447, -0.65032674, -0.64647392],
+        [-0.78705011, -0.75796462, -0.60851132, -0.58150985],
+        [-1.34091076, -1.17062088, -0.44985596, -0.34985839],
+        [-2.47957009, -1.79535068, -0.28588712, -0.14714995],
+        [-3.7880899, -2.05159198, -0.23025555, -0.08632545],
+        [-5.02345932, -2.09158471, -0.21765884, -0.07316777],
         [-6.04682818, -2.09586893, -0.21474981, -0.07019088],
-        rtol=1e-3,
+        [-6.789137, -2.09644905, -0.21401509, -0.06944441],
+        [-7.21806318, -2.096633, -0.21382083, -0.06924673],
+    ]
+    print(theta_max[0])
+    np.testing.assert_allclose(
+        theta_max[0],
+        correct_theta_max,
+        rtol=1e-2,
     )
     correct = np.array(
         [

@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
 # essentials
-  - python
+  - python=3.9
   - setuptools
   - jupyterlab
   - numpy
