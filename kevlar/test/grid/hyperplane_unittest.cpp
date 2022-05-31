@@ -46,7 +46,9 @@ TEST_F(hyperplane_fixture, intersect) {
     colvec_type<value_t> dir(d);
     v.setRandom();
     dir.setRandom();
-    value_t expected = (normal.dot(v + dir) - shift) / (normal.dot(dir));
+
+    // TODO: this test is just
+    value_t expected = (shift - normal.dot(v)) / (normal.dot(dir));
 
     value_t actual = hp.intersect(v, dir);
     EXPECT_DOUBLE_EQ(actual, expected);

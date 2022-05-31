@@ -53,7 +53,7 @@ struct HyperPlaneView {
         auto ntd = normal_.dot(d);
         if (ntd == 0) return 0;
         auto ntv = normal_.dot(v);
-        return (ntv - *shift_) / ntd + 1.;
+        return (*shift_ - ntv) / ntd;
     }
 
     KEVLAR_STRONG_INLINE auto normal() const { return normal_; }
