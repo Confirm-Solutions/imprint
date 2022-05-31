@@ -40,14 +40,16 @@ TEST_F(hyperplane_fixture, find_orient) {
 }
 
 TEST_F(hyperplane_fixture, intersect) {
-    hp_t hp(normal, shift);
+    colvec_type<value_t> normal(3);
+    normal << 0, 0, 1;
 
-    colvec_type<value_t> v(d);
-    colvec_type<value_t> dir(d);
-    v.setRandom();
-    dir.setRandom();
-    value_t expected = (normal.dot(v + dir) - shift) / (normal.dot(dir));
+    hp_t hp(normal, 0.5);
 
+    colvec_type<value_t> v(3);
+    v << 1, 0, 0;
+    colvec_type<value_t> dir(3);
+    dir << 0, 0, 3;
+    value_t expected = 0.5 / 3.0;
     value_t actual = hp.intersect(v, dir);
     EXPECT_DOUBLE_EQ(actual, expected);
 }

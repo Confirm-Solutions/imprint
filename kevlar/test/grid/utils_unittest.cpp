@@ -193,7 +193,7 @@ TEST_F(utils_fixture, test_intersect_d2) {
     run_test();
 
     // test slightly more non-trivial shift
-    shift = 0.5 * normal.squaredNorm();
+    shift = 0.75 * normal.squaredNorm();
     n_expected.clear();
     p_expected.clear();
 
@@ -204,15 +204,15 @@ TEST_F(utils_fixture, test_intersect_d2) {
     n_expected.push_back(buff);
     buff << 1, -1;
     n_expected.push_back(buff);
-    buff << 0, 1;
+    buff << 0.5, 1;
     n_expected.push_back(buff);
-    buff << 1, 0;
+    buff << 1, 0.5;
     n_expected.push_back(buff);
 
     // non-negative region
-    buff << 0, 1;
+    buff << 0.5, 1;
     p_expected.push_back(buff);
-    buff << 1, 0;
+    buff << 1, 0.5;
     p_expected.push_back(buff);
     buff << 1, 1;
     p_expected.push_back(buff);
