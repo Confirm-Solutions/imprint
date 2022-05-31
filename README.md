@@ -4,69 +4,86 @@ The Kevlar Project.
 
 ## Dependencies
 
+The most important dependencies are:
+
+- [conda](https://docs.conda.io/projects/conda/en/latest/index.html)
+  - [Anaconda](https://www.anaconda.com/)
+  - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
+- [Python >= 3.9](https://www.python.org/)
+- [pybind11](https://pybind11.readthedocs.io/en/stable/)
 - [pre-commit](https://pre-commit.com/)
 
-## Install
+## Installing Kevlar for development
+
+NOTE: In the future, we will produce PyPI and conda-forge packages to ease the installation process for users. This will reduce the installation process to one or two steps. The current process is oriented at a developer of kevlar.
 
 Please run all the steps here to get a fully functional development environment.
 
-If you do not have conda installed already, please install it. There are many
-ways to get conda. We recommend installing `Mambaforge` which is a conda
-installation wwith `mamba` installed by default and set to use `conda-forge` as
-the default set of package repositories. [Click here for installers and
-installation instructions.](https://github.com/conda-forge/miniforge#mambaforge)
+1. If you do not have conda installed already, please install it. There are
+   many ways to get conda. We recommend installing `Mambaforge` which is a
+   conda installation wwith `mamba` installed by default and set to use
+   `conda-forge` as the default set of package repositories. [CLICK HERE for
+   installers and installation
+   instructions.](https://github.com/conda-forge/miniforge#mambaforge)
+2. Install Bazel. On Mac, you can just run `brew install bazelisk`. On Ubuntu
+   Linux, please follow the [instructions
+   here](https://docs.bazel.build/versions/main/install-ubuntu.html).
+3. Clone the git repo:
 
-To clone the git repo:
-```
-git clone git@github.com:mikesklar/kevlar.git
-```
+    ```bash
+    git clone git@github.com:mikesklar/kevlar.git
+    ```
 
-To set up your kevlar conda environment (note that you may substitute `mamba`
-here for `conda` and the install will be substantially faster):
-```
-cd kevlar/
-conda update -y conda
-conda env create
-conda activate kevlar
-```
+4. Set up your kevlar conda environment (note that you may substitute `mamba`
+   here for `conda` and the install will be substantially faster). The list of
+   packages that will be installed inside your conda environment can be seen in
+   the [`environment.yml` file](../environment.yml).
 
-To set up pre-commit:
-```
-pre-commit install
-```
+    ```bash
+    cd kevlar/
+    conda update -y conda
+    conda env create
+    conda activate kevlar
+    ```
 
-To set up your bazel configuration for building C++. **See below to install bazel.**
-```
-./generate_bazelrc
-```
+5. To set up pre-commit for this git repo:
 
-From here, we refer to the installation instructions
-for each of the sub-components:
+    ```bash
+    pre-commit install
+    ```
 
-- [pykevlar](./python/README.md): Kevlar Python package.
-- [kevlar](./kevlar/README.md): Kevlar C++ core engine.
+6. To set up your bazel configuration for building C++. **See below to install bazel.**
 
+    ```bash
+    ./generate_bazelrc
+    ```
 
-## Install Bazel in the typical way for your OS:
+7. Build and install the `pykevlar` package.
 
-### Mac OS
+    ```bash
+    bazel build //python:pykevlar_wheel
+    pip install bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
+    ```
 
-To install the dependencies:
-```
-brew install bazelisk 
-```
+8. (it's okay to skip this step if this is your first time installing kevlar) To recompile and reinstall the pykevlar package after making changes to the C++ backend, run the following:
 
-### Ubuntu Linux
+    ```bash
+    bazel build //python:pykevlar_wheel
+    pip install --force-reinstall bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
+    ```
 
-To install the dependencies:
-```
-mkdir -p /some/dir
-curl -Lo /some/dir/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.1.0/bazelisk-linux-amd64
-chmod +x /some/dir/bazel
-```
-where `/some/dir` is a directory to store the `bazel` binary.
-Note that for a system-wide install, the user may need to call under `sudo`.
-For a local install, the user should add `/some/dir` to `PATH`:
-```
-export PATH="/some/dir:$PATH"
-```
+9. Finally, check that the installation process was successful by running one of our example scripts:
+
+    ```bash
+    bazel run -c opt //python/example:simple_selection -- main
+    ```
+
+## Getting started understanding kevlar
+
+[Please check out the tutorial where we analyze a three arm basket trial here.](./research/berry/tutorial.ipynb)
+
+## Developing the Kevlar C++ core engine
+
+Most users will not need to work directly with the core C++, instead working entirely through the Python interface.
+
+[Instructions for developing the C++ core engine are available in the subfolder](./kevlar/README.md)

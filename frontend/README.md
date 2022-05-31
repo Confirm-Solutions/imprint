@@ -2,6 +2,11 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Setup
+
+1. On Mac: `brew install node`. Elsewhere, figure out how to install nodejs!
+2. Install reactjs with `npm i react-scripts`
+
 ## Available Scripts
 
 In the project directory, you can run:
