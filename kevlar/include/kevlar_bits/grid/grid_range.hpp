@@ -347,19 +347,24 @@ struct GridRange {
      * is associated with a regular tile, i.e. a rectangular tile.
      * This function is only valid once create_tiles() has been called.
      *
-     * Note: this function originally did:
-     *      return tiles_[tile_idx].is_regular();
-     * but benchmarking shows that there is a MASSIVE speed difference
-     * from the current implementation. Cache is really important...
-     * Idea is that tiles_ is a heterogenous structure which used to contain
-     * std::bitset<> and some Eigen objects.
-     * Iterating through these makes pre-fetching hard
-     * and there are more tiles than gridpoints, so not only does the current
-     * implementation pre-fetch more values at a time,
-     * but also pre-fetches less in total.
+     * The note below marked with "XXXX" is about an optimization that has been
+     * reverted due to incorrect behavior.
+     * XXXX Note: this function originally did:
+     * XXXX      return tiles_[tile_idx].is_regular();
+     * XXXX but benchmarking shows that there is a MASSIVE speed difference
+     * XXXX from the current implementation. Cache is really important...
+     * XXXX Idea is that tiles_ is a heterogenous structure which used to
+     * contain
+     * XXXX std::bitset<> and some Eigen objects.
+     * XXXX Iterating through these makes pre-fetching hard
+     * XXXX and there are more tiles than gridpoints, so not only does the
+     * current
+     * XXXX implementation pre-fetch more values at a time,
+     * XXXX but also pre-fetches less in total.
      */
-    KEVLAR_STRONG_INLINE
-    bool is_regular(size_t idx) const { return n_tiles(idx) == 1; }
+    bool is_regular(size_t idx) const {
+        return tiles_[cum_n_tiles_[idx]].is_regular();
+    }
 
     KEVLAR_STRONG_INLINE
     static constexpr size_t max_bits() { return sizeof(bits_t) * 8; }
