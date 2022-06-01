@@ -327,6 +327,29 @@ TEST_F(grid_range_fixture, prune_off_gridpt) {
     EXPECT_EQ(gr.n_params(), d);  // should not have changed
 }
 
+TEST_F(grid_range_fixture, prune_is_regular) {
+    size_t d = 2, n = 1;
+    gr_t gr(d, n);
+    gr.thetas().col(0) << 0.0, 0.0;
+    gr.radii().fill(0.5);
+
+    colvec_type<value_t> normal(d);
+
+    vec_surf_t vs;
+    normal << 1, 1;
+    normal /= normal.norm();
+    vs.emplace_back(normal, 0);
+
+    gr.create_tiles(vs);
+
+    EXPECT_EQ(gr.n_tiles(), 2);
+    EXPECT_FALSE(gr.is_regular(0));
+    EXPECT_FALSE(gr.is_regular(1));
+    gr.prune();
+    EXPECT_EQ(gr.n_tiles(), 1);
+    EXPECT_FALSE(gr.is_regular(0));
+}
+
 TEST_F(grid_range_fixture, prune_no_surfaces) {
     size_t d = 2, n = 10;
     gr_t gr(d, n);
