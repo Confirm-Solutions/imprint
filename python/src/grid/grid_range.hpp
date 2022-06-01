@@ -50,6 +50,33 @@ void add_grid_range(py::module_& m) {
         .def("sim_sizes_const",
              py::overload_cast<>(&gr_t::sim_sizes, py::const_),
              py::return_value_policy::reference_internal)
+        .def("corners",
+             [](gr_t& gr, int corner_index) {
+                 int dim = gr.thetas().rows();
+                 mat_type<value_t> corners(gr.n_tiles(), dim);
+                 for (size_t i = 0; i < gr.n_tiles(); i++) {
+                     auto& t = gr.tiles__()[i];
+                     int v_idx = 0;
+                     if (t.is_regular()) {
+                         auto begin = t.begin_full();
+                         auto end = t.end_full();
+                         for (; begin != end; ++begin, v_idx++) {
+                             if (v_idx == corner_index) {
+                                 corners.row(i) = *begin;
+                             }
+                         }
+                     } else {
+                         auto begin = t.begin();
+                         auto end = t.end();
+                         for (; begin != end; ++begin, v_idx++) {
+                             if (v_idx == corner_index) {
+                                 corners.row(i) = *begin;
+                             }
+                         }
+                     }
+                 }
+                 return corners;
+             })
         .def("check_null",
              py::overload_cast<size_t, size_t>(&gr_t::check_null, py::const_),
              py::arg("tile_idx"), py::arg("hypo_idx"))

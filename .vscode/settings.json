@@ -109,7 +109,8 @@
         "core": "cpp",
         "geometry": "cpp",
         "qtalignedmalloc": "cpp",
-        "matrixfunctions": "cpp"
+        "matrixfunctions": "cpp",
+        "bvh": "cpp"
     },
     "C_Cpp.errorSquiggles": "Enabled",
     "editor.formatOnSave": false,

@@ -17,6 +17,10 @@ def theta_tiles(gr):
     return np.repeat(gr.thetas().T, n_tiles_per_pt(gr), axis=0)
 
 
+def radii_tiles(gr):
+    return np.repeat(gr.radii().T, n_tiles_per_pt(gr), axis=0)
+
+
 def is_null_per_arm(gr):
     tiles = theta_tiles(gr)
     n_arms = tiles.shape[-1]
