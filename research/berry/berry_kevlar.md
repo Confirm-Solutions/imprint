@@ -89,21 +89,147 @@ P, B = utils.create_ub_plot_inputs(simple_selection_model, acc_o, gr, delta)
 
 ```python
 import scipy.special
+
 delta_prop_0to1 = 0.5
 d0u_factor = 1.0 - delta * delta_prop_0to1
+# monte carlo estimate of type I error at each theta.
 delta_0_j = typeI_sum[0] / sim_size
-delta_0_u_j = scipy.special.betaincinv(
-    typeI_sum[0] + 1,
-    sim_size - typeI_sum[0],
-    d0u_factor
-) - delta_0_j
+# clopper-pearson upper bound in beta form.
+delta_0_u_j = (
+    scipy.stats.beta.ppf(d0u_factor, typeI_sum[0] + 1, sim_size - typeI_sum[0])
+    - delta_0_j
+)
 np.testing.assert_allclose(delta_0_j, B[:, 0])
 np.testing.assert_allclose(delta_0_u_j, B[:, 1])
 ```
 
 ```python
+corners = np.empty((gr.n_tiles(), 2**gr.n_params(), gr.n_params()))
+for i in range(2**gr.n_params()):
+    corners[:, i, :] = np.array(gr.corners(i))
+```
+
+```python
+n_tiles_per_pt = grid.n_tiles_per_pt(gr)
+n_tiles_per_pt[74]
+```
+
+```python
+corners[76:79]
+```
+
+```python
+c_flat = corners.reshape((-1, 2))
+plt.scatter(c_flat[:,0], c_flat[:,1], c='k')
+plt.scatter(theta[:,0], theta[:,1], c='m')
+plt.hlines(logit(0.1), -4, 2, 'r')
+plt.vlines(logit(0.1), -4, 2, 'r')
+plt.xlim(np.min(theta[:,0]) - 0.2, np.max(theta[:,0]) + 0.2)
+plt.ylim(np.min(theta[:,1]) - 0.2, np.max(theta[:,1]) + 0.2)
+plt.show()
+```
+
+```python
+from scipy.special import expit
+p_tiles = expit(theta_tiles)
+v_diff = corners - theta_tiles[:, None]
+v_sq = v_diff ** 2
+```
+
+```python
+d1u_factor = np.sqrt(1 / ((1 - delta_prop_0to1) * delta) - 1.0)
+covar_quadform = (n_arm_samples * v_sq * p_tiles[:, None] * (1 - p_tiles[:, None])).sum(axis=-1)
+d1u = np.sqrt(covar_quadform) * (d1u_factor / np.sqrt(sim_size))
+d1 = ((typeI_score.to_py() / sim_size)[:, None] * v_diff).sum(axis=-1)
+```
+
+```python
+(((typeI_score.to_py() / sim_size)[:, None]) * v_diff).sum(axis=-1)[79]
+```
+
+```python
+radii = grid.radii_tiles(gr)
+p_lower = np.tile(expit(theta_tiles - radii)[:, None], (1, 4, 1))
+p_upper = np.tile(expit(theta_tiles + radii)[:, None], (1, 4, 1))
+
+hess_comp = np.empty((theta_tiles.shape[0], 4, 2))
+special = (p_lower <= 0.5) & (0.5 <= p_upper)
+hess_comp[special] = 0.25 * v_sq[special]
+max_p = np.where(np.abs(p_upper - 0.5) < np.abs(p_lower - 0.5), p_upper, p_lower)
+hess_comp[~special] = (max_p * (1 - max_p) * v_sq)[~special]
+
+hessian_quadform_bound = hess_comp.sum(axis=-1) * n_arm_samples
+d2u = 0.5 * hessian_quadform_bound
+```
+
+```python
+# worst_corner = (d1u + d2u + d1).argmax(axis=1)
+worst_corner = (d1).argmax(axis=1)
+ti = np.arange(d1.shape[0])
+d1w = d1[ti, worst_corner]
+d1uw = d1u[ti, worst_corner]
+d2uw = d2u[ti, worst_corner]
+```
+
+```python
+bad_d1[79:90]
+```
+
+```python
+bad_d1 = np.abs(d1w - B[:,2]) > 1e-10
+bad_d1u = np.abs(d1uw - B[:,3]) > 1e-10
+bad_d2u = np.abs(d2uw - B[:,4]) > 1e-10
+plt.figure(figsize=(12,4))
+plt.subplot(1,3,1)
+plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=bad_d1)
+plt.subplot(1,3,2)
+plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=bad_d1u)
+plt.subplot(1,3,3)
+plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=bad_d2u)
+plt.show()
+```
+
+```python
+bad = np.abs(d1w - B[:,2]) > 1e-10
+plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=bad)
+plt.show()
+```
+
+```python
+np.testing.assert_allclose(d1w, B[:,2])
+np.testing.assert_allclose(d1uw, B[:,3])
+np.testing.assert_allclose(d2uw, B[:,4])
+```
+
+```python
+B[:,2]
+```
+
+```python
 
 utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}.csv", f"B-{name}-{n_theta_1d}-{sim_size}.csv", P, B)
+```
+
+```python
+for i in [4,5]:
+    print(corners[i] - theta_tiles[i])
+```
+
+```python
+i = 4
+corners[i], corners[i+1]
+```
+
+```python
+
+```
+
+```python
+logit(0.1) - 2 * 0.03715042
+```
+
+```python
+n_tiles_per_pt[4]
 ```
 
 ```python
