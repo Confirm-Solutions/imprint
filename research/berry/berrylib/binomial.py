@@ -151,10 +151,10 @@ def upper_bound(
     #
     # Step 1. 0th order terms.
     #
-    d0u_factor = 1.0 - delta * delta_prop_0to1
     # monte carlo estimate of type I error at each theta.
     d0 = typeI_sum / sim_sizes
     # clopper-pearson upper bound in beta form.
+    d0u_factor = 1.0 - delta * delta_prop_0to1
     d0u = scipy.stats.beta.ppf(d0u_factor, typeI_sum + 1, sim_sizes - typeI_sum) - d0
     # If typeI_sum == sim_sizes, scipy.stats outputs nan. Output 0 instead
     # because there is no way to go higher than 1.0
@@ -163,12 +163,15 @@ def upper_bound(
     #
     # Step 2. 1st order terms.
     #
+    # Monte carlo estimate of gradient of type I error at the grid points
+    # then dot product with the vector from the center to the corner.
+    d1 = ((typeI_score / sim_sizes[:, None])[:, None] * v_diff).sum(axis=-1)
     d1u_factor = np.sqrt(1 / ((1 - delta_prop_0to1) * delta) - 1.0)
     covar_quadform = (
         n_arm_samples * v_sq * p_tiles[:, None] * (1 - p_tiles[:, None])
     ).sum(axis=-1)
+    # Upper bound on d1!
     d1u = np.sqrt(covar_quadform) * (d1u_factor / np.sqrt(sim_sizes)[:, None])
-    d1 = ((typeI_score / sim_sizes[:, None])[:, None] * v_diff).sum(axis=-1)
 
     #
     # Step 3. 2nd order terms.
@@ -184,9 +187,6 @@ def upper_bound(
 
     special = (p_lower <= 0.5) & (0.5 <= p_upper)
     max_p = np.where(np.abs(p_upper - 0.5) < np.abs(p_lower - 0.5), p_upper, p_lower)
-    # hess_comp = np.empty((theta_tiles.shape[0], n_corners, 2))
-    # hess_comp[special] = 0.25 * v_sq[special]
-    # hess_comp[~special] = (max_p * (1 - max_p) * v_sq)[~special]
     hess_comp = np.where(special, 0.25 * v_sq, (max_p * (1 - max_p) * v_sq))
 
     hessian_quadform_bound = hess_comp.sum(axis=-1) * n_arm_samples
@@ -195,9 +195,11 @@ def upper_bound(
     #
     # Step 4. Identify the corners with the highest upper bound.
     #
-    total = d1u + d2u + d1
-    total = np.where(np.isnan(total), 0, total)
-    worst_corner = total.argmax(axis=1)
+
+    # The total of the bound component that varies between corners.
+    total_var = d1u + d2u + d1
+    total_var = np.where(np.isnan(total_var), 0, total_var)
+    worst_corner = total_var.argmax(axis=1)
     ti = np.arange(d1.shape[0])
     d1w = d1[ti, worst_corner]
     d1uw = d1u[ti, worst_corner]
