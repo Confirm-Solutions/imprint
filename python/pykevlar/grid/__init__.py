@@ -34,8 +34,21 @@ def is_null_per_arm(gr):
 
 
 def collect_corners(gr):
+    # gr.corners expects a 2D array with shape: (n_tiles * 2^(d+1), d)
+    # unfilled indices will left as nan in order to be easily filtered out
+    # later on.
+    # We pass 2^(d+1) corner slots for each tile since that is guaranteed to be
+    # greater than the true number of corners. Since we only split a tile once,
+    # the true maximum should actually be (2^d) + d - 1.
     corners = np.full((gr.n_tiles() * 2 ** (gr.n_params() + 1), gr.n_params()), np.nan)
+
+    # gr.corners(...) fills the corners array in place.
     gr.corners(corners)
+
+    # After this reshape, the corners array will be: (n_tiles, 2^(d+1), d)
+    # Then, we will remove any corner indices that are entirely nan. After this
+    # loop the second dimension will be reduced in length from 2^(d+1) to the
+    # maximum number of corners for any tile.
     corners = corners.reshape((gr.n_tiles(), -1, gr.n_params()))
     for i in range(2 ** (gr.n_params() + 1)):
         if np.all(np.isnan(corners[:, i, :])):

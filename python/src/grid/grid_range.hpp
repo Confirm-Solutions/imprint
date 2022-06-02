@@ -54,11 +54,15 @@ void add_grid_range(py::module_& m) {
              [](gr_t& gr,
                 Eigen::Ref<mat_type<value_t, Eigen::Dynamic, Eigen::Dynamic,
                                     Eigen::RowMajor>>& out) {
-                 // out is expected to be full of nans.
+                 // out is expected to be full of nans and to have shape:
+                 // (n_tiles * max_corners, dim).
                  int dim = gr.thetas().rows();
                  colvec_type<value_t> bits(dim);
                  int two_to_dim = std::pow(2, dim);
-                 int nv = 2 * two_to_dim;
+                 int max_corners = 2 * two_to_dim;
+
+                 // loop over each tile and assign the corners for that tile to
+                 // the out array.
                  for (size_t i = 0; i < gr.n_tiles(); i++) {
                      auto& t = gr.tiles__()[i];
                      if (t.is_regular()) {
@@ -69,14 +73,15 @@ void add_grid_range(py::module_& m) {
                                              v_idx & (1 << (dim - 1 - k)))) -
                                      1;
                              }
-                             out.row(i * nv + v_idx) = t.regular_vertex(bits);
+                             out.row(i * max_corners + v_idx) =
+                                 t.regular_vertex(bits);
                          }
                      } else {
                          auto begin = t.begin();
                          auto end = t.end();
                          int v_idx = 0;
                          for (; begin != end; ++begin, v_idx++) {
-                             out.row(i * nv + v_idx) = *begin;
+                             out.row(i * max_corners + v_idx) = *begin;
                          }
                      }
                  }

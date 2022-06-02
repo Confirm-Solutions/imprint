@@ -362,7 +362,6 @@ struct GridRange {
      * XXXX implementation pre-fetch more values at a time,
      * XXXX but also pre-fetches less in total.
      */
-    KEVLAR_STRONG_INLINE
     bool is_regular(size_t idx) const {
         return tiles_[cum_n_tiles_[idx]].is_regular();
     }

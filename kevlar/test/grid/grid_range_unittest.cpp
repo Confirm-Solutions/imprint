@@ -344,7 +344,6 @@ TEST_F(grid_range_fixture, prune_is_regular) {
 
     EXPECT_EQ(gr.n_tiles(), 2);
     EXPECT_FALSE(gr.is_regular(0));
-    EXPECT_FALSE(gr.is_regular(1));
     gr.prune();
     EXPECT_EQ(gr.n_tiles(), 1);
     EXPECT_FALSE(gr.is_regular(0));
