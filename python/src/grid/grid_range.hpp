@@ -51,31 +51,35 @@ void add_grid_range(py::module_& m) {
              py::overload_cast<>(&gr_t::sim_sizes, py::const_),
              py::return_value_policy::reference_internal)
         .def("corners",
-             [](gr_t& gr, int corner_index) {
+             [](gr_t& gr,
+                Eigen::Ref<mat_type<value_t, Eigen::Dynamic, Eigen::Dynamic,
+                                    Eigen::RowMajor>>& out) {
+                 // out is expected to be full of nans.
                  int dim = gr.thetas().rows();
-                 mat_type<value_t> corners(gr.n_tiles(), dim);
+                 colvec_type<value_t> bits(dim);
+                 int two_to_dim = std::pow(2, dim);
+                 int nv = 2 * two_to_dim;
                  for (size_t i = 0; i < gr.n_tiles(); i++) {
                      auto& t = gr.tiles__()[i];
-                     int v_idx = 0;
                      if (t.is_regular()) {
-                         auto begin = t.begin_full();
-                         auto end = t.end_full();
-                         for (; begin != end; ++begin, v_idx++) {
-                             if (v_idx == corner_index) {
-                                 corners.row(i) = *begin;
+                         for (int v_idx = 0; v_idx < two_to_dim; v_idx++) {
+                             for (int k = 0; k < dim; k++) {
+                                 bits(k) =
+                                     2 * static_cast<int>(static_cast<bool>(
+                                             v_idx & (1 << (dim - 1 - k)))) -
+                                     1;
                              }
+                             out.row(i * nv + v_idx) = t.regular_vertex(bits);
                          }
                      } else {
                          auto begin = t.begin();
                          auto end = t.end();
+                         int v_idx = 0;
                          for (; begin != end; ++begin, v_idx++) {
-                             if (v_idx == corner_index) {
-                                 corners.row(i) = *begin;
-                             }
+                             out.row(i * nv + v_idx) = *begin;
                          }
                      }
                  }
-                 return corners;
              })
         .def("check_null",
              py::overload_cast<size_t, size_t>(&gr_t::check_null, py::const_),

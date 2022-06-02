@@ -1,6 +1,9 @@
 import jax
 import jax.numpy as jnp
+import jax.scipy.special
 import numpy as np
+import scipy.special
+import scipy.stats
 
 
 def binomial_accumulator(rejection_fnc):
@@ -125,3 +128,84 @@ def lookup_rejection(table, y, n_arm_samples=35):
         axis=-1
     )
     return table[y_index, :]
+
+
+def upper_bound(
+    theta_tiles,
+    tile_radii,
+    corners,
+    sim_sizes,
+    n_arm_samples,
+    typeI_sum,
+    typeI_score,
+    delta=0.025,
+    delta_prop_0to1=0.5,
+):
+    """
+    Compute the Kevlar upper bound after simulations have been run.
+    """
+    p_tiles = scipy.special.expit(theta_tiles)
+    v_diff = corners - theta_tiles[:, None]
+    v_sq = v_diff**2
+
+    #
+    # Step 1. 0th order terms.
+    #
+    d0u_factor = 1.0 - delta * delta_prop_0to1
+    # monte carlo estimate of type I error at each theta.
+    d0 = typeI_sum / sim_sizes
+    # clopper-pearson upper bound in beta form.
+    d0u = scipy.stats.beta.ppf(d0u_factor, typeI_sum + 1, sim_sizes - typeI_sum) - d0
+    # If typeI_sum == sim_sizes, scipy.stats outputs nan. Output 0 instead
+    # because there is no way to go higher than 1.0
+    d0u = np.where(np.isnan(d0u), 0, d0u)
+
+    #
+    # Step 2. 1st order terms.
+    #
+    d1u_factor = np.sqrt(1 / ((1 - delta_prop_0to1) * delta) - 1.0)
+    covar_quadform = (
+        n_arm_samples * v_sq * p_tiles[:, None] * (1 - p_tiles[:, None])
+    ).sum(axis=-1)
+    d1u = np.sqrt(covar_quadform) * (d1u_factor / np.sqrt(sim_sizes)[:, None])
+    d1 = ((typeI_score / sim_sizes[:, None])[:, None] * v_diff).sum(axis=-1)
+
+    #
+    # Step 3. 2nd order terms.
+    #
+    n_corners = corners.shape[1]
+
+    p_lower = np.tile(
+        scipy.special.expit(theta_tiles - tile_radii)[:, None], (1, n_corners, 1)
+    )
+    p_upper = np.tile(
+        scipy.special.expit(theta_tiles + tile_radii)[:, None], (1, n_corners, 1)
+    )
+
+    special = (p_lower <= 0.5) & (0.5 <= p_upper)
+    max_p = np.where(np.abs(p_upper - 0.5) < np.abs(p_lower - 0.5), p_upper, p_lower)
+    # hess_comp = np.empty((theta_tiles.shape[0], n_corners, 2))
+    # hess_comp[special] = 0.25 * v_sq[special]
+    # hess_comp[~special] = (max_p * (1 - max_p) * v_sq)[~special]
+    hess_comp = np.where(special, 0.25 * v_sq, (max_p * (1 - max_p) * v_sq))
+
+    hessian_quadform_bound = hess_comp.sum(axis=-1) * n_arm_samples
+    d2u = 0.5 * hessian_quadform_bound
+
+    #
+    # Step 4. Identify the corners with the highest upper bound.
+    #
+    total = d1u + d2u + d1
+    total = np.where(np.isnan(total), 0, total)
+    worst_corner = total.argmax(axis=1)
+    ti = np.arange(d1.shape[0])
+    d1w = d1[ti, worst_corner]
+    d1uw = d1u[ti, worst_corner]
+    d2uw = d2u[ti, worst_corner]
+
+    #
+    # Step 5. Compute the total bound and return it
+    #
+    total_bound = d0 + d0u + d1w + d1uw + d2uw
+
+    return total_bound, d0, d0u, d1w, d1uw, d2uw

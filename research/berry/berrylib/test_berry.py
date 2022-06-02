@@ -10,7 +10,9 @@ import pykevlar.grid as grid
 import pytest
 import scipy.stats
 from berrylib.kevlar import BerryKevlarModel
+from pykevlar.bound import TypeIErrorBound
 from pykevlar.driver import accumulate_process
+from pykevlar.model.binomial import SimpleSelection
 from scipy.special import logit
 
 
@@ -217,15 +219,12 @@ def test_fast_inla(method, N=10, iterations=1):
     )
 
 
-def test_py_binomial_accumulate():
+def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     """
-    Test against the Kevlar accumulation routines.
+    Test against the Kevlar accumulation and bound routines.
     """
-    n_arms = 2
     n_arm_samples = 35
     seed = 10
-    n_theta_1d = 16
-    sim_size = 100
     # getting an exact match is only possible with n_threads = 1 because
     # parallelism in the kevlar accumulator leads to a different order of random
     # numbers.
@@ -248,9 +247,9 @@ def test_py_binomial_accumulate():
     gr.prune()
     n_tiles = gr.n_tiles()
 
-    fi = fast_inla.FastINLA(2)
+    fi = fast_inla.FastINLA(n_arms)
     b = BerryKevlarModel(fi, n_arm_samples, [0.85])
-    out = accumulate_process(b, gr, sim_size, seed, n_threads)
+    acc_o = accumulate_process(b, gr, sim_size, seed, n_threads)
 
     np.random.seed(seed)
     samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
@@ -260,10 +259,38 @@ def test_py_binomial_accumulate():
 
     accumulator = binomial.binomial_accumulator(fi.rejection_inference)
     typeI_sum, typeI_score = accumulator(theta_tiles, nulls, samples)
-    assert np.all(typeI_sum.to_py() == out.typeI_sum()[0])
+    assert np.all(typeI_sum.to_py() == acc_o.typeI_sum()[0])
     np.testing.assert_allclose(
-        typeI_score.to_py(), out.score_sum().reshape(n_tiles, 2), 1e-13
+        typeI_score.to_py(), acc_o.score_sum().reshape(n_tiles, n_arms), 1e-12
     )
+
+    corners = grid.collect_corners(gr)
+    tile_radii = grid.radii_tiles(gr)
+    sim_sizes = grid.sim_sizes_tiles(gr)
+    total, d0, d0u, d1w, d1uw, d2uw = binomial.upper_bound(
+        theta_tiles,
+        tile_radii,
+        corners,
+        sim_sizes,
+        n_arm_samples,
+        typeI_sum.to_py(),
+        typeI_score.to_py(),
+    )
+
+    delta = 0.025
+    simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
+    simple_selection_model.critical_values([fi.critical_value])
+
+    ub = TypeIErrorBound()
+    kbs = simple_selection_model.make_kevlar_bound_state(gr)
+    ub.create(kbs, acc_o, gr, delta)
+
+    np.testing.assert_allclose(d0, ub.delta_0()[0])
+    np.testing.assert_allclose(d0u, ub.delta_0_u()[0])
+    np.testing.assert_allclose(d1w, ub.delta_1()[0])
+    np.testing.assert_allclose(d1uw, ub.delta_1_u()[0])
+    np.testing.assert_allclose(d2uw, ub.delta_2_u()[0])
+    np.testing.assert_allclose(total, ub.get()[0])
 
 
 def test_rejection_table():
@@ -280,6 +307,7 @@ def test_rejection_table():
 
 
 if __name__ == "__main__":
+    # INLA Benchmark
     N = 10000
     it = 4
     print("jax")
@@ -288,3 +316,7 @@ if __name__ == "__main__":
     test_fast_inla("cpp", N, it)
     print("numpy")
     test_fast_inla("numpy", N, it)
+
+    # Binomial Bound Benchmark
+    # test_py_binomial = profile(test_py_binomial)
+    # test_py_binomial(3, 32, 10)

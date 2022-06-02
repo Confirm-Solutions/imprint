@@ -21,12 +21,27 @@ def radii_tiles(gr):
     return np.repeat(gr.radii().T, n_tiles_per_pt(gr), axis=0)
 
 
+def sim_sizes_tiles(gr):
+    return np.repeat(gr.sim_sizes(), n_tiles_per_pt(gr), axis=0)
+
+
 def is_null_per_arm(gr):
     tiles = theta_tiles(gr)
     n_arms = tiles.shape[-1]
     return np.array(
         [[gr.check_null(i, j) for j in range(n_arms)] for i in range(tiles.shape[0])]
     )
+
+
+def collect_corners(gr):
+    corners = np.full((gr.n_tiles() * 2 ** (gr.n_params() + 1), gr.n_params()), np.nan)
+    gr.corners(corners)
+    corners = corners.reshape((gr.n_tiles(), -1, gr.n_params()))
+    for i in range(2 ** (gr.n_params() + 1)):
+        if np.all(np.isnan(corners[:, i, :])):
+            corners = corners[:, :i]
+            break
+    return corners
 
 
 def make_cartesian_grid_range(size, lower, upper, grid_sim_size):

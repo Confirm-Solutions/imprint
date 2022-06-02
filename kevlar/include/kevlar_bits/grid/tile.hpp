@@ -23,19 +23,6 @@ struct Tile {
     Eigen::Map<const colvec_type<value_t>>
         radius_;  // radius that defines the bounds
                   // of the tile centered at center_
-    /*
-     * Computes a regular tile vertex based on
-     * the direction to take radius.
-     *
-     * @param   b   vector of -1,1's where
-     *              b[i] is the direction bit for ith axis.
-     *              Assumed to have same dimensions as center
-     *              and radius.
-     */
-    template <class BitsType>
-    KEVLAR_STRONG_INLINE auto regular_vertex(const BitsType& b) const {
-        return center_ + b.cwiseProduct(radius_);
-    }
 
    public:
     struct FullVertexIterator {
@@ -175,6 +162,20 @@ struct Tile {
     KEVLAR_STRONG_INLINE void clear() { vertices_.clear(); }
     KEVLAR_STRONG_INLINE bool is_regular() const {
         return (vertices_.size() == 0);
+    }
+
+    /*
+     * Computes a regular tile vertex based on
+     * the direction to take radius.
+     *
+     * @param   b   vector of -1,1's where
+     *              b[i] is the direction bit for ith axis.
+     *              Assumed to have same dimensions as center
+     *              and radius.
+     */
+    template <class BitsType>
+    KEVLAR_STRONG_INLINE auto regular_vertex(const BitsType& b) const {
+        return center_ + b.cwiseProduct(radius_);
     }
 
     // Helper functions for pickling
