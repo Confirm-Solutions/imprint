@@ -5,6 +5,7 @@ import berrylib.dirty_bayes as dirty_bayes
 import berrylib.fast_inla as fast_inla
 import berrylib.quadrature as quadrature
 import berrylib.util as util
+import jax
 import numpy as np
 import pykevlar.grid as grid
 import pytest
@@ -189,10 +190,14 @@ def test_fast_inla(method, N=10, iterations=1):
 
     sigma2_post, exceedances, theta_max, theta_sigma = out
 
+    def logistic(x):
+        return jax.scipy.special.expit(x)
+
+    # Do our comparisons in probability space.
     np.testing.assert_allclose(
-        theta_max[0, 12],
-        [-6.04682818, -2.09586893, -0.21474981, -0.07019088],
-        rtol=1e-3,
+        logistic(theta_max[0, 12]),
+        logistic(np.array([-6.04682818, -2.09586893, -0.21474981, -0.07019088])),
+        atol=1e-3,
     )
     correct = np.array(
         [
@@ -213,9 +218,9 @@ def test_fast_inla(method, N=10, iterations=1):
             1.41605356e-06,
         ]
     )
-    np.testing.assert_allclose(sigma2_post[0], correct, rtol=1e-3)
+    np.testing.assert_allclose(logistic(sigma2_post[0]), logistic(correct), atol=1e-3)
     np.testing.assert_allclose(
-        exceedances[0], [0.28306264, 0.4077219, 0.99714174, 0.99904684], rtol=1e-3
+        exceedances[0], [0.28306264, 0.4077219, 0.99714174, 0.99904684], atol=1e-3
     )
 
 
@@ -261,7 +266,7 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     typeI_sum, typeI_score = accumulator(theta_tiles, nulls, samples)
     assert np.all(typeI_sum.to_py() == acc_o.typeI_sum()[0])
     np.testing.assert_allclose(
-        typeI_score.to_py(), acc_o.score_sum().reshape(n_tiles, n_arms), 1e-12
+        typeI_score.to_py(), acc_o.score_sum().reshape(n_tiles, n_arms), 1e-4
     )
 
     corners = grid.collect_corners(gr)
@@ -287,7 +292,7 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
 
     np.testing.assert_allclose(d0, ub.delta_0()[0])
     np.testing.assert_allclose(d0u, ub.delta_0_u()[0])
-    np.testing.assert_allclose(d1w, ub.delta_1()[0])
+    np.testing.assert_allclose(d1w, ub.delta_1()[0], rtol=1e-05)
     np.testing.assert_allclose(d1uw, ub.delta_1_u()[0])
     np.testing.assert_allclose(d2uw, ub.delta_2_u()[0])
     np.testing.assert_allclose(total, ub.get()[0])
@@ -304,6 +309,26 @@ def test_rejection_table():
         correct_rej = fi.rejection_inference(y, np.full_like(y, n))
         lookup_rej = binomial.lookup_rejection(table, y, n)
         np.testing.assert_allclose(correct_rej, lookup_rej)
+
+
+def test_faster_invert():
+    d = np.linspace(2, 5, 4)
+    s = 3
+    m = np.diag(d) + s
+    expected = np.linalg.inv(m)
+    np.testing.assert_allclose(fast_inla.jax_faster_invert(d, s), expected)
+
+
+def test_log_normal_pdf():
+    x = np.array([0.0, 0.5])
+    mu = np.array([0, 1])
+    cov = np.array([[2, 0.5], [0.5, 2]])
+    prec = np.linalg.inv(cov)
+    vals, vecs = np.linalg.eigh(prec)
+    expected = jax.scipy.stats.multivariate_normal.logpdf(x, mu, cov)
+    np.testing.assert_allclose(
+        fast_inla.log_normal_pdf(x, mu, vals, vecs, omit_constants=False), expected
+    )
 
 
 if __name__ == "__main__":
