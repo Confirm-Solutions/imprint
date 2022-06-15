@@ -34,7 +34,7 @@ n_arms = 2
 n_arm_samples = 35
 seed = 10
 n_theta_1d = 16
-sim_size = 10000
+sim_size = 1000
 
 # define null hypos
 null_hypos = []
@@ -59,6 +59,8 @@ is_null_per_arm = grid.is_null_per_arm(gr)
 ```
 
 ```python
+%%time
+np.random.seed(seed)
 samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
 accumulator = binomial.binomial_accumulator(fi.rejection_inference)
 typeI_sum, typeI_score = accumulator(theta_tiles, is_null_per_arm, samples)
@@ -85,25 +87,6 @@ print(np.all(acc_o.score_sum() == score_sum))
 
 ```python
 P, B = utils.create_ub_plot_inputs(simple_selection_model, acc_o, gr, delta)
-```
-
-```python
-import scipy.special
-delta_prop_0to1 = 0.5
-d0u_factor = 1.0 - delta * delta_prop_0to1
-delta_0_j = typeI_sum[0] / sim_size
-delta_0_u_j = scipy.special.betaincinv(
-    typeI_sum[0] + 1,
-    sim_size - typeI_sum[0],
-    d0u_factor
-) - delta_0_j
-np.testing.assert_allclose(delta_0_j, B[:, 0])
-np.testing.assert_allclose(delta_0_u_j, B[:, 1])
-```
-
-```python
-
-utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}.csv", f"B-{name}-{n_theta_1d}-{sim_size}.csv", P, B)
 ```
 
 ```python
@@ -144,11 +127,64 @@ plt.xlabel(r'$\theta_0$')
 plt.ylabel(r'$\theta_1$')
 cbar.set_label('Type I error')
 plt.show()
-plt.title('Yellow points are above 10%')
+plt.title('Yellow points are above 10\%')
 plt.scatter(theta_tiles[:,0], theta_tiles[:,1], c=typeI_sum / sim_size > 0.1)
 plt.xlabel(r'$\theta_0$')
 plt.ylabel(r'$\theta_1$')
 plt.show()
+```
+
+```python
+corners = grid.collect_corners(gr)
+c_flat = corners.reshape((-1, 2))
+plt.scatter(c_flat[:,0], c_flat[:,1], c='k')
+plt.scatter(theta[:,0], theta[:,1], c='m')
+plt.hlines(logit(0.1), -4, 2, 'r')
+plt.vlines(logit(0.1), -4, 2, 'r')
+plt.xlim(np.min(theta[:,0]) - 0.2, np.max(theta[:,0]) + 0.2)
+plt.ylim(np.min(theta[:,1]) - 0.2, np.max(theta[:,1]) + 0.2)
+plt.show()
+```
+
+```python
+%%time
+corners = grid.collect_corners(gr)
+```
+
+```python
+tile_radii = grid.radii_tiles(gr)
+sim_sizes = grid.sim_sizes_tiles(gr)
+```
+
+```python
+%%time
+total, d0, d0u, d1w, d1uw, d2uw = binomial.upper_bound(theta_tiles, tile_radii, corners, sim_sizes, n_arm_samples, typeI_sum[0], typeI_score)
+```
+
+```python
+from pykevlar.bound import TypeIErrorBound
+ub = TypeIErrorBound()
+kbs = simple_selection_model.make_kevlar_bound_state(gr)
+```
+
+```python
+%%time
+ub.create(kbs, acc_o, gr, delta)
+```
+
+```python
+
+np.testing.assert_allclose(d0, B[:, 0])
+np.testing.assert_allclose(d0u, B[:, 1])
+np.testing.assert_allclose(d1w, B[:,2])
+np.testing.assert_allclose(d1uw, B[:,3])
+np.testing.assert_allclose(d2uw, B[:,4])
+np.testing.assert_allclose(total, B[:,5])
+```
+
+```python
+
+utils.save_ub(f"P-{name}-{n_theta_1d}-{sim_size}.csv", f"B-{name}-{n_theta_1d}-{sim_size}.csv", P, B)
 ```
 
 # Comparing against MCMC for a few grid points
