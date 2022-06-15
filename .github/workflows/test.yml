@@ -1,43 +1,65 @@
 name: Test
 
-on: [push]
-
+on:
+  schedule:
+    # Every day at 9:00 AM UTC
+    - cron: "0 9 * * *"
+  push:
 jobs:
   test:
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest"]
         python-version: ["3.9"]
     name: Test (${{ matrix.python-version }}, ${{ matrix.os }})
-    runs-on:  ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash -l {0}
+    # https://github.com/marketplace/actions/setup-miniconda#caching-environments
     steps:
-    - uses: actions/checkout@v2
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        mamba-version: "*"
-        channels: conda-forge
-        activate-environment: kevlar
-        environment-file: environment.yml
-        python-version: ${{ matrix.python-version }}
-    - name: Run all pre-commit checks on the full repo!
-      run: |
-        pre-commit run --all-files
-    - name: Install Bazel
-      run: |
-        sudo apt install apt-transport-https curl gnupg
-        curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
-        sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
-        echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-        sudo apt update && sudo apt install bazel
-    - name: Build and install pykevlar
-      run: |
-        ./generate_bazelrc
-        bazel build -c dbg //python:pykevlar_wheel
-        pip install --force-reinstall bazel-bin/python/dist/*.whl
-    - name: Test
-      run: |
-        pytest .
+      - uses: actions/checkout@v2
+      - name: Setup Mambaforge
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: anaconda-client-env
+          use-mamba: true
+          python-version: ${{ matrix.python-version }}
+      - name: Get Date
+        id: get-date
+        run: echo "::set-output name=today::$(/bin/date -u '+%Y%m%d')"
+        shell: bash
+      - name: Cache Dependencies
+        uses: actions/cache@v2
+        with:
+          # Cache the Conda, Bazel, and Pre-commit files
+          path: |
+            ${{ env.CONDA }}/envs
+            ~/.cache/pre-commit
+            ~/.cache/bazel
+          key: conda-${{ runner.os }}--${{ runner.arch }}--${{ steps.get-date.outputs.today }}-${{ hashFiles('environment.yml') }}-${{ env.CACHE_NUMBER }}
+        env:
+          # Increase this value to reset cache if environment.yml has not changed
+          CACHE_NUMBER: 1
+        id: cache
+      - name: Update environment
+        run: mamba env update -n anaconda-client-env -f environment.yml
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Run all pre-commit checks on the full repo!
+        run: |
+          pre-commit run --all-files
+      - name: Build and install pykevlar
+        run: |
+          ./generate_bazelrc
+          bazel build -c dbg //python:pykevlar_wheel
+          pip install --force-reinstall bazel-bin/python/dist/*.whl
+      - name: Bazel Test
+        run: |
+          bazel test -c dbg //...
+      - name: Pytest
+        run: |
+          pytest .
