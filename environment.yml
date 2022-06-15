@@ -17,7 +17,7 @@ dependencies:
   - clang-tools
   # bazel is not currently working for installing the zip package when installed
   # on mac through conda-forge. see:
-  # https://github.com/mikesklar/kevlar/issues/82
+  # https://github.com/Confirm-Solutions/kevlar/issues/82
   # - bazel 
 
 # some more nice stuff for easy dev.

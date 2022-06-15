@@ -12,7 +12,6 @@ The most important dependencies are:
   - [Anaconda](https://www.anaconda.com/)
   - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Python >= 3.9](https://www.python.org/)
-- [pre-commit](https://pre-commit.com/)
 
 ## Installing Kevlar for development
 
@@ -32,7 +31,7 @@ Please run all the steps here to get a fully functional development environment.
 3. Clone the git repo:
 
     ```bash
-    git clone git@github.com:mikesklar/kevlar.git
+    git clone git@github.com:Confirm-Solutions/kevlar.git
     ```
 
 4. Set up your kevlar conda environment (note that you may substitute `mamba`
