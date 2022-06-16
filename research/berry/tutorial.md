@@ -176,7 +176,7 @@ First, we'll check that the inference does something reasonable. It rejects the 
 
 ```python
 import berrylib.fast_inla as fast_inla
-y = [[3,4,8]]
+y = [[4,5,9]]
 n = [[35,35,35]]
 fi = fast_inla.FastINLA(n_arms, critical_value=0.95)
 fi.rejection_inference(y, n)
