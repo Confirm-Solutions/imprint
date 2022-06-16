@@ -9,6 +9,7 @@ CMakeFiles/
 kevlarConfig.cmake
 kevlarConfigVersion.cmake
 DartConfiguration.tcl
+.env
 
 /python/dist/
 .spyproject/
