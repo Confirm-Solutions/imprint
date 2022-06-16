@@ -175,7 +175,12 @@ def build_grid(
         new_split_or_copy_idxs = split_or_copy_idxs + np.arange(
             split_or_copy_idxs.shape[0]
         )
+        is_regular = np.repeat(is_regular, to_split + 1)
         new_split_idxs = new_split_or_copy_idxs[is_regular[new_split_or_copy_idxs]]
+        # Update the is_regular array:
+        # - split tiles are marked irregular.
+        is_regular[new_split_or_copy_idxs] = False
+        is_regular[new_split_or_copy_idxs + 1] = False
         np.testing.assert_allclose(
             new_tile_vs[new_split_idxs, :max_v_count], tile_vs[split_idxs]
         )
@@ -221,11 +226,7 @@ def build_grid(
         # Hurray, we made it! Replace the tile array!
         tile_vs = new_tile_vs
 
-        # Update the tile characteristics:
-        # - split tiles are marked irregular.
-        is_regular = np.repeat(is_regular, to_split + 1)
-        is_regular[new_split_or_copy_idxs] = False
-        is_regular[new_split_or_copy_idxs + 1] = False
+        # Update the remaining tile characteristics.
         # - the two sides of a split tile have their null hypo truth indicators updated.
         null_truth = np.repeat(null_truth, to_split + 1, axis=0)
         null_truth[new_split_or_copy_idxs, iH] = 1
