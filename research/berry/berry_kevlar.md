@@ -32,15 +32,17 @@ import berrylib.grid as berrylibgrid
 ```
 
 ```python
-fi = fast_inla.FastINLA(2)
-
 name = "berry2d"
 n_arms = 2
 n_arm_samples = 35
 seed = 10
-n_theta_1d = 16
+n_theta_1d = 32
 sim_size = 1000
+```
 
+```python
+
+%%time
 # null is:
 # theta_i <= logit(0.1)
 # the normal should point towards the negative direction. but that also
@@ -49,27 +51,8 @@ sim_size = 1000
 # n = [0, 0, -1, 0]
 # c = -logit(0.1)
 null_hypos = [
-    grid.HyperPlane(-np.identity(n_arms)[i], -logit(0.1)) for i in range(n_arms)
-]
-
-```
-
-```python
-%%time
-gr = grid.make_cartesian_grid_range(n_theta_1d, np.full(n_arms, -3.5), np.full(n_arms, 1.0), sim_size)
-gr.create_tiles(null_hypos)
-gr.prune()
-```
-
-```python
-null_hypos = [
     berrylibgrid.HyperPlane(-np.identity(n_arms)[i], -logit(0.1)) for i in range(n_arms)
 ]
-# null_hypos = [HyperPlane([-1, -1], -logit(0.1)), HyperPlane([-1, 0], -logit(0.1))]
-
-```
-
-```python
 theta1d = [np.linspace(-3.5, 1.0, 2 * n_theta_1d + 1)[1::2] for i in range(n_arms)]
 theta = np.stack(np.meshgrid(*theta1d), axis=-1).reshape((-1, len(theta1d)))
 radii = np.empty(theta.shape)
@@ -81,54 +64,38 @@ g = berrylibgrid.prune(berrylibgrid.build_grid(theta, radii, null_hypos))
 ```python
 theta = g.thetas
 theta_tiles = g.thetas[g.grid_pt_idx]
-is_null_per_arm = g.null_truth
-# theta = gr.thetas().T
-# theta_tiles = grid.theta_tiles(gr)
-# is_null_per_arm = grid.is_null_per_arm(gr)
+```
 
+```python
+%%time
+fi = fast_inla.FastINLA(n_arms)
+rejection_table = binomial.build_rejection_table(n_arms, n_arm_samples, fi.rejection_inference)
 ```
 
 ```python
 %%time
 np.random.seed(seed)
 samples = np.random.uniform(size=(sim_size, n_arm_samples, n_arms))
-accumulator = binomial.binomial_accumulator(fi.rejection_inference)
-typeI_sum, typeI_score = accumulator(theta_tiles, is_null_per_arm, samples)
+accumulator = binomial.binomial_accumulator(lambda y,n: binomial.lookup_rejection(rejection_table, y))
+
+# Chunking improves performance dramatically for larger tile counts:
+# ~6x for a 64^3 grid
+typeI_sum = np.empty(theta_tiles.shape[0])
+typeI_score = np.empty((theta_tiles.shape[0], n_arms))
+chunk_size = 5000
+n_chunks = int(np.ceil(theta_tiles.shape[0] / chunk_size))
+for i in range(n_chunks):
+    start = i * chunk_size
+    end = (i + 1) * chunk_size
+    end = min(end, theta_tiles.shape[0])
+    typeI_sum[start:end], typeI_score[start:end] = accumulator(theta_tiles[start:end], g.null_truth[start:end], samples)
 ```
 
 ```python
-from pykevlar.model.binomial import SimpleSelection
-
-sys.path.append("../../python/example")
-import utils
-
-delta = 0.025
-simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
-simple_selection_model.critical_values([fi.critical_value])
-
-```
-
-```python
-from pykevlar.bound import TypeIErrorAccum
-
-acc_o = TypeIErrorAccum(simple_selection_model.n_models(), gr.n_tiles(), gr.n_params())
-typeI_sum = typeI_sum.astype(np.uint32).reshape((1, -1))
-score_sum = typeI_score.flatten()
-acc_o.pool_raw(typeI_sum, score_sum)
-print(np.all(acc_o.typeI_sum() == typeI_sum))
-print(np.all(acc_o.score_sum() == score_sum))
-
-```
-
-```python
-P, B = utils.create_ub_plot_inputs(simple_selection_model, acc_o, gr, delta)
-
-```
-
-```python
-n_tiles_per_pt = grid.n_tiles_per_pt(gr)
-pos_start = gr.cum_n_tiles()[:-1]
-is_null_per_arm_gridpt = np.add.reduceat(is_null_per_arm, pos_start, axis=0) > 0
+_, n_tiles_per_pt = np.unique(g.grid_pt_idx, return_counts=True)
+pos_start = np.zeros(g.n_grid_pts, dtype=np.int64)
+pos_start[1:] = np.cumsum(n_tiles_per_pt)[:-1]
+is_null_per_arm_gridpt = np.add.reduceat(g.null_truth, pos_start, axis=0) > 0
 
 plt.title("Is null for arm 0?")
 plt.scatter(theta[:, 0], theta[:, 1], c=is_null_per_arm_gridpt[:, 0], cmap="Set1")
@@ -173,7 +140,7 @@ plt.show()
 ```
 
 ```python
-corners = grid.collect_corners(gr)
+corners = g.vertices
 c_flat = corners.reshape((-1, 2))
 plt.scatter(c_flat[:, 0], c_flat[:, 1], c="k")
 plt.scatter(theta[:, 0], theta[:, 1], c="m")
@@ -187,51 +154,29 @@ plt.show()
 
 ```python
 %%time
-corners = grid.collect_corners(gr)
-```
-
-```python
-tile_radii = grid.radii_tiles(gr)
-sim_sizes = grid.sim_sizes_tiles(gr)
-
-```
-
-```python
-%%time
-total, d0, d0u, d1w, d1uw, d2uw = binomial.upper_bound(theta_tiles, tile_radii, corners, sim_sizes, n_arm_samples, typeI_sum[0], typeI_score)
-```
-
-```python
-from pykevlar.bound import TypeIErrorBound
-
-ub = TypeIErrorBound()
-kbs = simple_selection_model.make_kevlar_bound_state(gr)
-
-```
-
-```python
-%%time
-ub.create(kbs, acc_o, gr, delta)
-```
-
-```python
-np.testing.assert_allclose(d0, B[:, 0])
-np.testing.assert_allclose(d0u, B[:, 1])
-np.testing.assert_allclose(d1w, B[:, 2])
-np.testing.assert_allclose(d1uw, B[:, 3])
-np.testing.assert_allclose(d2uw, B[:, 4])
-np.testing.assert_allclose(total, B[:, 5])
-
-```
-
-```python
-utils.save_ub(
-    f"P-{name}-{n_theta_1d}-{sim_size}.csv",
-    f"B-{name}-{n_theta_1d}-{sim_size}.csv",
-    P,
-    B,
+tile_radii = g.radii[g.grid_pt_idx]
+sim_sizes = np.full(g.n_tiles, sim_size)
+total, d0, d0u, d1w, d1uw, d2uw = binomial.upper_bound(
+    theta_tiles,
+    tile_radii,
+    corners,
+    sim_sizes,
+    n_arm_samples,
+    typeI_sum.to_py(),
+    typeI_score,
 )
 
+```
+
+```python
+plt.figure()
+plt.title("Type I error at grid points.")
+plt.scatter(theta_tiles[:, 0], theta_tiles[:, 1], c=total)
+cbar = plt.colorbar()
+plt.xlabel(r"$\theta_0$")
+plt.ylabel(r"$\theta_1$")
+cbar.set_label("Type I error")
+plt.show()
 ```
 
 # Comparing against MCMC for a few grid points
