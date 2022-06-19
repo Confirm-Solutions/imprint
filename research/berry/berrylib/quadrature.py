@@ -1,4 +1,4 @@
-"""
+r"""
 # Multidimensional numerical integration
 
 Implementation of a numerical integration solver for low dimensional models.
