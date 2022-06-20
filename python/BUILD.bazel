@@ -1,6 +1,4 @@
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
-load("@pykevlar_deps//:requirements.bzl", "requirement")
-
 PACKAGE_VERSION = "0.1"
 
 py_library(
@@ -8,10 +6,6 @@ py_library(
     srcs = glob(["pykevlar/**/*.py"]),
     data = ["pykevlar/core.so"],
     imports = ["."],
-    deps = [
-        requirement("numpy"),
-        requirement("pybind11"),
-    ],
     visibility = ["//visibility:public"],
 )
 

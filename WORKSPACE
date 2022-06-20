@@ -10,14 +10,6 @@ http_archive(
     url = "https://github.com/bazelbuild/rules_python/archive/{}.zip".format(rules_python_version),
 )
 
-# Python PIP dependencies
-load("@rules_python//python:pip.bzl", "pip_install")
-
-pip_install(
-    name = "pykevlar_deps",
-    requirements = "//python:requirements.txt",
-)
-
 # GoogleTest/GoogleMock framework. Used by most unit-tests
 http_archive(
     name = "com_google_googletest",
