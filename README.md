@@ -1,6 +1,8 @@
 # Kevlar
 
-The Kevlar Project.
+Kevlar is a library to validate clinical trial designs.
+
+![example workflow](https://github.com/Confirm-Solutions/kevlar/actions/workflows/test.yml/badge.svg)
 
 ## Dependencies
 
@@ -10,7 +12,6 @@ The most important dependencies are:
   - [Anaconda](https://www.anaconda.com/)
   - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Python >= 3.9](https://www.python.org/)
-- [pybind11](https://pybind11.readthedocs.io/en/stable/)
 - [pre-commit](https://pre-commit.com/)
 
 ## Installing Kevlar for development
