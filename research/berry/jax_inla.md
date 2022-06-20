@@ -43,7 +43,7 @@ fi = FastINLA(n_arms=2)
 # # fi.jax_inference(y, n)
 
 
-def jax_faster_invert(D, S):
+def jax_faster_inv(D, S):
     """Compute the inverse of a diagonal matrix D plus a shift S.
 
     This function uses "Sherman-Morrison" formula:
@@ -84,7 +84,7 @@ def jax_opt(y, neg_precQ, fast_loop=True):
         reg = jnp.sqrt(H * jnp.linalg.norm(grad))
         diag += reg
 
-        hess_inv = jax_faster_invert(diag, shift)
+        hess_inv = jax_faster_inv(diag, shift)
         step = -hess_inv.dot(grad)
 
         probit_step = 1 / (1 + jnp.exp(-theta_max))
@@ -117,7 +117,7 @@ def jax_opt(y, neg_precQ, fast_loop=True):
 # def run(y, i):
 #     # cov = jnp.full((fi.n_arms, fi.n_arms), fi.mu_sig_sq)
 #     # cov = cov + jnp.diag(jnp.full(fi.n_arms, sigma2))
-#     # # shift, prec_d = berrylib.fast_inla.jax_faster_invert(jnp.repeat(sigma2, arms), 100)
+#     # # shift, prec_d = berrylib.fast_inla.jax_faster_inv(jnp.repeat(sigma2, arms), 100)
 #     # # neg_precQ = -(jnp.diag(prec_d) + shift)
 #     # neg_precQ = jnp.linalg.inv(cov)
 #     n = np.array([[35, 35]])
