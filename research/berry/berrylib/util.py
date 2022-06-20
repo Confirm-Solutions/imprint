@@ -167,6 +167,7 @@ def setup_nb(text_size_ratio=0.75, pretty=True, autoreload=True):
     plt.rcParams["savefig.transparent"] = False
     plt.rcParams["image.cmap"] = "plasma"
     scale_text(factor=text_size_ratio)
+    np.set_printoptions(edgeitems=10, linewidth=100)
 
 
 def scale_text(factor=0.75):
