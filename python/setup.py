@@ -13,7 +13,7 @@ setup(
     description="Kevlar exports to Python.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mikesklar/kevlar",
+    url="https://github.com/Confirm-Solutions/kevlar",
     author="Confirm Solutions Modelling",
     author_email="contact@confirmsol.org",
     # TODO: lol we need one: license="BSD",
