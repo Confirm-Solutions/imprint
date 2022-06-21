@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 namespace exponential {
 
@@ -24,7 +24,7 @@ void add_simple_log_rank(py::module_& m) {
 
     using sgs_t = typename model_t::template sim_global_state_t<gen_t, value_t,
                                                                 uint_t, gr_t>;
-    using kbs_t = typename model_t::template kevlar_bound_state_t<gr_t>;
+    using kbs_t = typename model_t::template imprint_bound_state_t<gr_t>;
 
     py::class_<model_t, arm_base_t, mb_t>(m, "SimpleLogRank")
         .def(py::init<size_t, model_value_t,
@@ -46,9 +46,9 @@ void add_simple_log_rank(py::module_& m) {
                  &model_t::template make_sim_global_state<gen_t, value_t,
                                                           uint_t, gr_t>),
              py::arg("grid_range"))
-        .def("make_kevlar_bound_state",
+        .def("make_imprint_bound_state",
              static_cast<kbs_t (model_t::*)(const gr_t&) const>(
-                 &model_t::template make_kevlar_bound_state<gr_t>))
+                 &model_t::template make_imprint_bound_state<gr_t>))
         .def(py::pickle(
             [](const model_t& p) {  // __getstate__
                 /* Return a tuple that fully encodes the state of the object */
@@ -76,4 +76,4 @@ void add_simple_log_rank(py::module_& m) {
 
 }  // namespace exponential
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

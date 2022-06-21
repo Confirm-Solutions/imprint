@@ -7,7 +7,7 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.13.8
   kernelspec:
-    display_name: Python 3.10.5 ('kevlar')
+    display_name: Python 3.10.5 ('imprint')
     language: python
     name: python3
 ---
@@ -183,7 +183,7 @@ acc
 ```
 
 ```python
-with open("/home/const/kevlar/out.txt") as f:
+with open("/home/const/imprint/out.txt") as f:
     arr = np.array(eval(f.read()))
 arr.shape
 np.linalg.slogdet(arr)

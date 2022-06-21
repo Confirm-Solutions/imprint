@@ -1,9 +1,9 @@
 import unittest
 
 import numpy as np
-from pykevlar.driver import accumulate_process
-from pykevlar.grid import Gridder, GridRange
-from pykevlar.model.normal import Simple
+from pyimprint.driver import accumulate_process
+from pyimprint.grid import Gridder, GridRange
+from pyimprint.model.normal import Simple
 
 
 class TestSimple(unittest.TestCase):

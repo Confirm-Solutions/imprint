@@ -7,7 +7,7 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.13.8
   kernelspec:
-    display_name: Python 3.10.4 ('kevlar')
+    display_name: Python 3.10.4 ('imprint')
     language: python
     name: python3
 ---
@@ -24,7 +24,7 @@ from scipy.special import logit, expit
 import scipy.special
 import matplotlib.pyplot as plt
 import numpy as np
-import pykevlar.grid as grid
+import pyimprint.grid as grid
 import berrylib.fast_inla as fast_inla
 import berrylib.binomial as binomial
 ```

@@ -7,7 +7,7 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.13.8
   kernelspec:
-    display_name: Python 3.10.2 ('kevlar')
+    display_name: Python 3.10.2 ('imprint')
     language: python
     name: python3
 ---

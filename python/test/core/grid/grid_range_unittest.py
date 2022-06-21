@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from pykevlar.core.grid import GridRange
+from pyimprint.core.grid import GridRange
 
 
 class TestGridRange(unittest.TestCase):

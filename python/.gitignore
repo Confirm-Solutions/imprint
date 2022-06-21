@@ -1,4 +1,4 @@
 *__pycache__/
 build/
-pykevlar/*.so
-pykevlar.egg-info/
+pyimprint/*.so
+pyimprint.egg-info/

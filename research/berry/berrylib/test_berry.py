@@ -7,13 +7,13 @@ import berrylib.quadrature as quadrature
 import berrylib.util as util
 import jax
 import numpy as np
-import pykevlar.grid as grid
+import pyimprint.grid as grid
 import pytest
 import scipy.stats
-from berrylib.kevlar import BerryKevlarModel
-from pykevlar.bound import TypeIErrorBound
-from pykevlar.driver import accumulate_process
-from pykevlar.model.binomial import SimpleSelection
+from berrylib.imprint import BerryImprintModel
+from pyimprint.bound import TypeIErrorBound
+from pyimprint.driver import accumulate_process
+from pyimprint.model.binomial import SimpleSelection
 from scipy.special import logit
 
 
@@ -227,12 +227,12 @@ def test_fast_inla(method, N=10, iterations=1):
 
 def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     """
-    Test against the Kevlar accumulation and bound routines.
+    Test against the Imprint accumulation and bound routines.
     """
     n_arm_samples = 35
     seed = 10
     # getting an exact match is only possible with n_threads = 1 because
-    # parallelism in the kevlar accumulator leads to a different order of random
+    # parallelism in the imprint accumulator leads to a different order of random
     # numbers.
     n_threads = 1
 
@@ -254,7 +254,7 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     n_tiles = gr.n_tiles()
 
     fi = fast_inla.FastINLA(n_arms)
-    b = BerryKevlarModel(fi, n_arm_samples, [0.85])
+    b = BerryImprintModel(fi, n_arm_samples, [0.85])
     acc_o = accumulate_process(b, gr, sim_size, seed, n_threads)
 
     np.random.seed(seed)
@@ -288,7 +288,7 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     simple_selection_model.critical_values([fi.critical_value])
 
     ub = TypeIErrorBound()
-    kbs = simple_selection_model.make_kevlar_bound_state(gr)
+    kbs = simple_selection_model.make_imprint_bound_state(gr)
     ub.create(kbs, acc_o, gr, delta)
 
     np.testing.assert_allclose(d0, ub.delta_0()[0])

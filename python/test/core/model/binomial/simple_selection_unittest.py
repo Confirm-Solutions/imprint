@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-import pykevlar.core.grid as grid
-import pykevlar.core.model.binomial as binom
+import pyimprint.core.grid as grid
+import pyimprint.core.model.binomial as binom
 
 
 class TestSimpleSelection(unittest.TestCase):
@@ -47,4 +47,4 @@ class TestSimpleSelection(unittest.TestCase):
         sgs = m.make_sim_global_state(gr)
         sgs.make_sim_state(0)
 
-        m.make_kevlar_bound_state(gr)
+        m.make_imprint_bound_state(gr)

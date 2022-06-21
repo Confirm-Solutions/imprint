@@ -10,14 +10,14 @@
 #include <grid/gridder.hpp>
 #include <grid/hyperplane.hpp>
 #include <grid/tile.hpp>
-#include <kevlar_bits/bound/typeI_error_bound.hpp>
-#include <kevlar_bits/grid/adagrid_internal.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <kevlar_bits/grid/gridder.hpp>
-#include <kevlar_bits/grid/hyperplane.hpp>
-#include <kevlar_bits/grid/tile.hpp>
+#include <imprint_bits/bound/typeI_error_bound.hpp>
+#include <imprint_bits/grid/adagrid_internal.hpp>
+#include <imprint_bits/grid/grid_range.hpp>
+#include <imprint_bits/grid/gridder.hpp>
+#include <imprint_bits/grid/hyperplane.hpp>
+#include <imprint_bits/grid/tile.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace grid {
 
 void add_to_module(pybind11::module_& m) {
@@ -38,4 +38,4 @@ void add_to_module(pybind11::module_& m) {
 }
 
 }  // namespace grid
-}  // namespace kevlar
+}  // namespace imprint

@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 namespace exponential {
 
@@ -21,9 +21,9 @@ void add_fixed_n_log_hazard_rate(py::module_& m) {
 
     using kbs_t = KBS;
     using kbs_base_t = typename kbs_t::base_t;
-    py::class_<kbs_t, kbs_base_t>(m, "KevlarBoundStateFixedNLogHazardRate");
+    py::class_<kbs_t, kbs_base_t>(m, "ImprintBoundStateFixedNLogHazardRate");
 }
 
 }  // namespace exponential
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

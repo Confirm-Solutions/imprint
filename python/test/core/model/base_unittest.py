@@ -1,7 +1,7 @@
 import unittest
 
 from core_test.model import test_py_ss_score, test_py_ss_simulate
-from pykevlar.core.model import SimStateBase
+from pyimprint.core.model import SimStateBase
 
 
 class PySS(SimStateBase):

@@ -2,10 +2,10 @@
 #include <pybind11/pybind11.h>
 
 #include <export_utils/types.hpp>
-#include <kevlar_bits/model/base.hpp>
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/model/base.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 
 namespace py = pybind11;
@@ -30,4 +30,4 @@ void add_base_tests(py::module_& m) {
 }
 
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

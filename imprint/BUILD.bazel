@@ -1,0 +1,16 @@
+cc_library(
+    name = "imprint",
+    hdrs = glob(["include/**"]),
+    defines = [
+        # force Eigen to not use openmp to parallelize
+        # we will use openmp to divide up simulation jobs
+        # so there is no room for Eigen to further parallelize
+        "EIGEN_DONT_PARALLELIZE",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_scipy_boost//:boost",
+        "@eigen",
+    ],
+)

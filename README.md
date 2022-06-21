@@ -1,8 +1,8 @@
-# Kevlar
+# Imprint
 
-Kevlar is a library to validate clinical trial designs.
+Imprint is a library to validate clinical trial designs.
 
-![example workflow](https://github.com/Confirm-Solutions/kevlar/actions/workflows/test.yml/badge.svg)
+![example workflow](https://github.com/Confirm-Solutions/imprint/actions/workflows/test.yml/badge.svg)
 
 ## Dependencies
 
@@ -13,9 +13,9 @@ The most important dependencies are:
   - [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
 - [Python >= 3.9](https://www.python.org/)
 
-## Installing Kevlar for development
+## Installing Imprint for development
 
-NOTE: In the future, we will produce PyPI and conda-forge packages to ease the installation process for users. This will reduce the installation process to one or two steps. The current process is oriented at a developer of kevlar.
+NOTE: In the future, we will produce PyPI and conda-forge packages to ease the installation process for users. This will reduce the installation process to one or two steps. The current process is oriented at a developer of imprint.
 
 Please run all the steps here to get a fully functional development environment.
 
@@ -31,19 +31,19 @@ Please run all the steps here to get a fully functional development environment.
 3. Clone the git repo:
 
     ```bash
-    git clone git@github.com:Confirm-Solutions/kevlar.git
+    git clone git@github.com:Confirm-Solutions/imprint.git
     ```
 
-4. Set up your kevlar conda environment (note that you may substitute `mamba`
+4. Set up your imprint conda environment (note that you may substitute `mamba`
    here for `conda` and the install will be substantially faster). The list of
    packages that will be installed inside your conda environment can be seen in
    the [`environment.yml` file](../environment.yml).
 
     ```bash
-    cd kevlar/
+    cd imprint/
     conda update -y conda
     conda env create
-    conda activate kevlar
+    conda activate imprint
     ```
 
 5. To set up pre-commit for this git repo:
@@ -58,18 +58,18 @@ Please run all the steps here to get a fully functional development environment.
     ./generate_bazelrc
     ```
 
-7. Build and install the `pykevlar` package.
+7. Build and install the `pyimprint` package.
 
     ```bash
-    bazel build //python:pykevlar_wheel
-    pip install bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
+    bazel build //python:pyimprint_wheel
+    pip install bazel-bin/python/dist/pyimprint-0.1-py3-none-any.whl
     ```
 
-8. (it's okay to skip this step if this is your first time installing kevlar) To recompile and reinstall the pykevlar package after making changes to the C++ backend, run the following:
+8. (it's okay to skip this step if this is your first time installing imprint) To recompile and reinstall the pyimprint package after making changes to the C++ backend, run the following:
 
     ```bash
-    bazel build //python:pykevlar_wheel
-    pip install --force-reinstall bazel-bin/python/dist/pykevlar-0.1-py3-none-any.whl
+    bazel build //python:pyimprint_wheel
+    pip install --force-reinstall bazel-bin/python/dist/pyimprint-0.1-py3-none-any.whl
     ```
 
 9. Finally, check that the installation process was successful by running one of our example scripts:
@@ -78,12 +78,12 @@ Please run all the steps here to get a fully functional development environment.
     bazel run -c opt //python/example:simple_selection -- main
     ```
 
-## Getting started understanding kevlar
+## Getting started understanding imprint
 
 [Please check out the tutorial where we analyze a three arm basket trial here.](./research/berry/tutorial.ipynb)
 
-## Developing the Kevlar C++ core engine
+## Developing the Imprint C++ core engine
 
 Most users will not need to work directly with the core C++, instead working entirely through the Python interface.
 
-[Instructions for developing the C++ core engine are available in the subfolder](./kevlar/README.md)
+[Instructions for developing the C++ core engine are available in the subfolder](./imprint/README.md)

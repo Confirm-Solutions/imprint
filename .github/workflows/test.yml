@@ -52,10 +52,10 @@ jobs:
       - name: Run all pre-commit checks on the full repo!
         run: |
           pre-commit run --all-files
-      - name: Build and install pykevlar
+      - name: Build and install pyimprint
         run: |
           ./generate_bazelrc
-          bazel build -c dbg //python:pykevlar_wheel
+          bazel build -c dbg //python:pyimprint_wheel
           pip install --force-reinstall bazel-bin/python/dist/*.whl
       - name: Bazel Test
         run: |

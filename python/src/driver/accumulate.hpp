@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/driver/accumulate.hpp>
+#include <imprint_bits/driver/accumulate.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace driver {
 
 namespace py = pybind11;
@@ -29,4 +29,4 @@ inline void add_accumulate(pybind11::module_& m) {
 }
 
 }  // namespace driver
-}  // namespace kevlar
+}  // namespace imprint

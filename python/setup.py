@@ -9,11 +9,11 @@ with open(os.path.join(CWD, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="pykevlar",
-    description="Kevlar exports to Python.",
+    name="pyimprint",
+    description="Imprint exports to Python.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Confirm-Solutions/kevlar",
+    url="https://github.com/Confirm-Solutions/imprint",
     author="Confirm Solutions Modelling",
     author_email="contact@confirmsol.org",
     # TODO: lol we need one: license="BSD",
@@ -26,7 +26,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=["numpy", "pybind11"],
-    data_files=[("../../pykevlar", ["core.so"])],
+    data_files=[("../../pyimprint", ["core.so"])],
     zip_safe=False,
     version=os.environ["VERSION"],
 )

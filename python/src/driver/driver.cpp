@@ -6,12 +6,12 @@
 #include <driver/accumulate.hpp>
 #include <driver/driver.hpp>
 #include <export_utils/types.hpp>
-#include <kevlar_bits/bound/accumulator/typeI_error_accum.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/base.hpp>
+#include <imprint_bits/bound/accumulator/typeI_error_accum.hpp>
+#include <imprint_bits/grid/grid_range.hpp>
+#include <imprint_bits/grid/tile.hpp>
+#include <imprint_bits/model/base.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace driver {
 
 namespace py = pybind11;
@@ -26,4 +26,4 @@ void add_to_module(py::module_& m) {
 }
 
 }  // namespace driver
-}  // namespace kevlar
+}  // namespace imprint

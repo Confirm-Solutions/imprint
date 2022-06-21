@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 namespace binomial {
 
@@ -21,9 +21,9 @@ void add_fixed_n_default(py::module_& m) {
 
     using kbs_t = KBS;
     using kbs_base_t = typename kbs_t::base_t;
-    py::class_<kbs_t, kbs_base_t>(m, "KevlarBoundStateFixedNDefault");
+    py::class_<kbs_t, kbs_base_t>(m, "ImprintBoundStateFixedNDefault");
 }
 
 }  // namespace binomial
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

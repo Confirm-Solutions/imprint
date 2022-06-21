@@ -45,10 +45,10 @@ build:asan --linkopt -fsanitize=address
         if platform == "darwin":
             # get canonical brew path
             conda_prefix = os.environ["CONDA_PREFIX"]
-            if not ("kevlar" in conda_prefix):
+            if not ("imprint" in conda_prefix):
                 print(
                     "Current conda environment path does not include the "
-                    'phrase "kevlar". You might need to activate your kevlar '
+                    'phrase "imprint". You might need to activate your imprint '
                     "conda environment and the run `./generate_bazelrc` "
                     "again."
                 )

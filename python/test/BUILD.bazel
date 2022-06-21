@@ -7,16 +7,16 @@ pybind_extension(
         "src/**/*hpp",
     ]),
     includes = ["src/"],
-    deps = ["//kevlar", "//python:pykevlar_headers"],
+    deps = ["//imprint", "//python:pyimprint_headers"],
     visibility = ["//visibility:public"],
 )
 
 [py_test(
     name = name,
     srcs = ["{}_main.py".format(name)],
-    data = ["//python:pykevlar/core.so", ":core_test.so"],
+    data = ["//python:pyimprint/core.so", ":core_test.so"],
     deps = [
-        "//python:pykevlar_lib",
+        "//python:pyimprint_lib",
     ],
     imports = ["."],
     main = "{}_main.py".format(name),

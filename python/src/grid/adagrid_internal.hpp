@@ -1,16 +1,16 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-namespace kevlar {
+namespace imprint {
 namespace grid {
 
 namespace py = pybind11;
 
-template <class AdaGridInternalType, class KevlarBoundType, class GRType,
+template <class AdaGridInternalType, class ImprintBoundType, class GRType,
           class ValueType>
 void add_adagrid_internal(py::module_& m) {
     using ada_t = AdaGridInternalType;
-    using ub_t = KevlarBoundType;
+    using ub_t = ImprintBoundType;
     using gr_t = GRType;
     using value_t = ValueType;
     py::class_<ada_t>(m, "AdaGridInternal")
@@ -19,4 +19,4 @@ void add_adagrid_internal(py::module_& m) {
 }
 
 }  // namespace grid
-}  // namespace kevlar
+}  // namespace imprint

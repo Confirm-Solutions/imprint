@@ -3,11 +3,11 @@ build/
 /.vs
 .vscode/
 .history/
-/kevlar/CMakeSettings.json
+/imprint/CMakeSettings.json
 CMakeCache.txt
 CMakeFiles/
-kevlarConfig.cmake
-kevlarConfigVersion.cmake
+imprintConfig.cmake
+imprintConfigVersion.cmake
 DartConfiguration.tcl
 .env
 
@@ -17,13 +17,7 @@ DartConfiguration.tcl
 # ignore rc because we are tracking generator now
 .bazelrc 
 bazel
-bazel-bazel-test
-bazel-bin
-bazel-genfiles
-bazel-out
-bazel-testlogs
-bazel-vagrant
-bazel-kevlar
+bazel-*
 .vagrant/
 Vagrantfile
 .idea/

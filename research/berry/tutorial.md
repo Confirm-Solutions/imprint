@@ -7,7 +7,7 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.13.8
   kernelspec:
-    display_name: Python 3.10.4 ('kevlar')
+    display_name: Python 3.10.4 ('imprint')
     language: python
     name: python3
 ---
@@ -19,7 +19,7 @@ import berrylib.util as util
 util.setup_nb()
 ```
 
-# An introduction to analyzing trial designs with Kevlar.
+# An introduction to analyzing trial designs with Imprint.
 
 
 We're going to analyze a three arm basket trial following the design of [Berry et al. (2013)](https://pubmed.ncbi.nlm.nih.gov/23983156/).
@@ -46,17 +46,17 @@ n_arm_samples = 35
 
 ## Step 1: constructing a parameter grid
 
-We're going to use the `pykevlar.grid.make_cartesian_grid_range` function to produce a 3 dimensional grid covering $\theta_i \in [-3.5, 1.0]$. This grid consists of points that lie at the center of (hyper)rectangular cells. The cells cover the whole box.
+We're going to use the `pyimprint.grid.make_cartesian_grid_range` function to produce a 3 dimensional grid covering $\theta_i \in [-3.5, 1.0]$. This grid consists of points that lie at the center of (hyper)rectangular cells. The cells cover the whole box.
 
 ```python
-import pykevlar.grid as grid
+import pyimprint.grid as grid
 n_theta_1d = 16
 sim_size = 2000
 gr = grid.make_cartesian_grid_range(n_theta_1d, np.full(n_arms, -3.5), np.full(n_arms, 1.0), sim_size)
 
 ```
 
-Next, we need to define the null hypothesis space. There are built-in tools in kevlar for defining a null hypothesis as a domain bounded by planes. In this case, the null hypothesis for each arm is defined by $\theta_i < \mathrm{logit}(0.1)$. For $i = 0$, the plane defining this surface is defined by:
+Next, we need to define the null hypothesis space. There are built-in tools in imprint for defining a null hypothesis as a domain bounded by planes. In this case, the null hypothesis for each arm is defined by $\theta_i < \mathrm{logit}(0.1)$. For $i = 0$, the plane defining this surface is defined by:
 \begin{align}
 \mathbf{n} \cdot \mathbf{x} = \mathrm{logit}(0.1)\\
 \mathbf{n} = (1, 0, 0)
@@ -269,7 +269,7 @@ Intuitively, this bound is constructed from the three pieces above:
 First, we need to create a `TypeIErrorAccum` object from the `typeI_sum` and `typeI_score` arrays that we computed previously. The code to do this is currently a little messy.
 
 ```python
-from pykevlar.bound import TypeIErrorAccum
+from pyimprint.bound import TypeIErrorAccum
 acc_o = TypeIErrorAccum(1, gr.n_tiles(), gr.n_params())
 typeI_sum = typeI_sum.astype(np.uint32).reshape((1, -1))
 score_sum = typeI_score.flatten()
@@ -280,7 +280,7 @@ Next, we haven't implemented the second order bound for the model demonstrated h
 
 ```python
 
-from pykevlar.model.binomial import SimpleSelection
+from pyimprint.model.binomial import SimpleSelection
 simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
 simple_selection_model.critical_values([fi.critical_value])
 
@@ -290,9 +290,9 @@ Finally, we actually compute the bound.
 
 ```python
 delta = 0.025
-from pykevlar.bound import TypeIErrorBound
+from pyimprint.bound import TypeIErrorBound
 ub = TypeIErrorBound()
-ub.create(simple_selection_model.make_kevlar_bound_state(gr), acc_o, gr, delta)
+ub.create(simple_selection_model.make_imprint_bound_state(gr), acc_o, gr, delta)
 ```
 
 ## Step 4: Bound visualization

@@ -2,43 +2,43 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 PACKAGE_VERSION = "0.1"
 
 py_library(
-    name = "pykevlar_lib",
-    srcs = glob(["pykevlar/**/*.py"]),
-    data = ["pykevlar/core.so"],
+    name = "pyimprint_lib",
+    srcs = glob(["pyimprint/**/*.py"]),
+    data = ["pyimprint/core.so"],
     imports = ["."],
     visibility = ["//visibility:public"],
 )
 
 cc_library(
-    name = "pykevlar_headers",
+    name = "pyimprint_headers",
     hdrs = glob(["src/**/*.hpp"]),
     includes = ["src/"],
     visibility = ["//visibility:public"],
 )
 
 pybind_extension(
-    name = "pykevlar/core",
+    name = "pyimprint/core",
     srcs = glob([
         "src/**/*cpp",
         "src/**/*hpp",
     ]),
     includes = ["src/"],
-    deps = ["//kevlar"],
+    deps = ["//imprint"],
     visibility = ["//visibility:public"]
 )
 
 genrule(
-    name = "pykevlar_wheel",
+    name = "pyimprint_wheel",
     srcs = [
         "README.md",
-        "pykevlar/core.so",
+        "pyimprint/core.so",
     ] + glob(["**/*py"]),
-    outs = ["dist/pykevlar-{}-py3-none-any.whl".format(PACKAGE_VERSION)],
+    outs = ["dist/pyimprint-{}-py3-none-any.whl".format(PACKAGE_VERSION)],
     cmd_bash = """
-    cp $(location pykevlar/core.so) python/
+    cp $(location pyimprint/core.so) python/
     cd python/
     VERSION={0} python3 setup.py bdist_wheel
     cd ..
-    cp python/dist/pykevlar-{0}-py3-none-any.whl $@
+    cp python/dist/pyimprint-{0}-py3-none-any.whl $@
     """.format(PACKAGE_VERSION),
 )

@@ -1,9 +1,9 @@
 [py_binary(
     name = name,
     srcs = ["{}.py".format(name)],
-    data = ["//python:pykevlar/core.so"],
+    data = ["//python:pyimprint/core.so"],
     deps = [
-        "//python:pykevlar_lib",
+        "//python:pyimprint_lib",
     ],
 ) for name in [
     "simple_selection",

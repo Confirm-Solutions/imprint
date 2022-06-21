@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 
 namespace py = pybind11;
@@ -17,4 +17,4 @@ void add_fixed_single_arm_size(py::module_& m) {
 }
 
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

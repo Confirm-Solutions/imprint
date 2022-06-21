@@ -8,11 +8,11 @@
 
 namespace py = pybind11;
 
-using value_t = kevlar::py_double_t;
-using uint_t = kevlar::py_uint_t;
+using value_t = imprint::py_double_t;
+using uint_t = imprint::py_uint_t;
 
 void add_model_to_module(py::module_& m) {
-    using namespace kevlar::model;
+    using namespace imprint::model;
     using sgs_t = SimGlobalStateBase<value_t, uint_t>;
     add_base_tests<sgs_t>(m);
 }
