@@ -7,7 +7,7 @@ jupyter:
       format_version: '1.3'
       jupytext_version: 1.13.8
   kernelspec:
-    display_name: Python 3.10.2 ('kevlar')
+    display_name: Python 3.10.2 ('imprint')
     language: python
     name: python3
 ---
@@ -24,7 +24,7 @@ from scipy.special import logit, expit
 import matplotlib.pyplot as plt
 import numpy as np
 import warnings
-import pykevlar.grid as grid
+import pyimprint.grid as grid
 import berrylib.fast_inla as fast_inla
 import berrylib.binomial as binomial
 import berrylib.grid as berrylibgrid
@@ -214,10 +214,10 @@ import pickle
 
 load = True
 if load:
-    with open(f"berry_kevlar_mcmc{idx}.pkl", "rb") as f:
+    with open(f"berry_imprint_mcmc{idx}.pkl", "rb") as f:
         results_mcmc = pickle.load(f)
 else:
-    with open(f"berry_kevlar_mcmc{idx}.pkl", "wb") as f:
+    with open(f"berry_imprint_mcmc{idx}.pkl", "wb") as f:
         pickle.dump(results_mcmc, f)
 
 ```
@@ -351,10 +351,10 @@ os.environ["MKL_NUM_THREADS"] = "1"
 from scipy.special import logit, expit
 import matplotlib.pyplot as plt
 import numpy as np
-from pykevlar import mt19937
-import pykevlar.grid as grid
-from pykevlar.driver import accumulate_process
-import pykevlar.core.model.binomial
+from pyimprint import mt19937
+import pyimprint.grid as grid
+from pyimprint.driver import accumulate_process
+import pyimprint.core.model.binomial
 import berrylib.binomial as binomial
 
 import berrylib.fast_inla as fast_inla
@@ -488,7 +488,7 @@ for t2_idx, t3_idx in [(4, 4), (8, 8)]:
 # Compute the bound and save slices for the Plotly frontend
 
 ```python
-from pykevlar.model.binomial import SimpleSelection
+from pyimprint.model.binomial import SimpleSelection
 
 sys.path.append("../../python/example")
 import utils
@@ -500,7 +500,7 @@ simple_selection_model.critical_values([fi.critical_value])
 ```
 
 ```python
-from pykevlar.bound import TypeIErrorAccum
+from pyimprint.bound import TypeIErrorAccum
 
 acc_o = TypeIErrorAccum(simple_selection_model.n_models(), gr.n_tiles(), gr.n_params())
 typeI_sum = typeI_sum.astype(np.uint32).reshape((1, -1))
