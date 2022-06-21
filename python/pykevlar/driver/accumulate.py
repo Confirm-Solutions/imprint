@@ -1,7 +1,7 @@
 import os
 
-from pykevlar.core.bound import TypeIErrorAccum
-from pykevlar.core.driver import accumulate
+from pyimprint.core.bound import TypeIErrorAccum
+from pyimprint.core.driver import accumulate
 
 
 def accumulate_process(

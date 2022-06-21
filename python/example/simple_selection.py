@@ -6,9 +6,9 @@ from logging import basicConfig, getLogger
 from timeit import default_timer as timer
 
 import numpy as np
-from pykevlar.driver import accumulate_process
-from pykevlar.grid import HyperPlane, make_cartesian_grid_range
-from pykevlar.model.binomial import SimpleSelection
+from pyimprint.driver import accumulate_process
+from pyimprint.grid import HyperPlane, make_cartesian_grid_range
+from pyimprint.model.binomial import SimpleSelection
 from utils import to_array
 
 # ==========================================
@@ -88,7 +88,7 @@ common_parser.add_argument(
     type=float,
     nargs="?",
     default=delta_def,
-    help=f"Kevlar bound 1-confidence (default: {delta_def}).",
+    help=f"Imprint bound 1-confidence (default: {delta_def}).",
 )
 
 global_parser = argparse.ArgumentParser(
@@ -143,14 +143,14 @@ main_parser.add_argument(
     action="store_const",
     const=(not bound_def),
     default=bound_def,
-    help=f"Computes kevlar bound with level --delta if True (default: {bound_def}).",
+    help=f"Computes imprint bound with level --delta if True (default: {bound_def}).",
 )
 main_parser.add_argument(
     "--hash",
     type=str,
     nargs="?",
     default=hsh_def,
-    help=f"Hash to append to kevlar bound output (default: {hsh_def}).",
+    help=f"Hash to append to imprint bound output (default: {hsh_def}).",
 )
 
 adagrid_parser = sub_parsers.add_parser(
@@ -263,8 +263,8 @@ elif args.example_type == "adagrid":
 
     # imports conditional on command-line args
     import matplotlib.pyplot as plt
-    from pykevlar.batcher import SimpleBatch
-    from pykevlar.grid import AdaGrid
+    from pyimprint.batcher import SimpleBatch
+    from pyimprint.grid import AdaGrid
     from scipy.stats import norm
 
 # Begin our logging

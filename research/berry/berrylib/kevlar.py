@@ -1,7 +1,7 @@
 import numpy as np
-import pykevlar.grid as grid
+import pyimprint.grid as grid
 import scipy.special
-from pykevlar.core.model import ModelBase, SimStateBase
+from pyimprint.core.model import ModelBase, SimStateBase
 
 
 class SimState(SimStateBase):
@@ -40,7 +40,7 @@ class SimGlobalState:
         return SimState(self, seed)
 
 
-class BerryKevlarModel(ModelBase):
+class BerryImprintModel(ModelBase):
     def __init__(self, fast_inla_obj, n_arm_samples, cvs):
         """
         cvs:    critical values (descending order)

@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace grid {
 
 namespace py = pybind11;
@@ -43,4 +43,4 @@ void add_hyperplane(py::module_& m) {
 }
 
 }  // namespace grid
-}  // namespace kevlar
+}  // namespace imprint

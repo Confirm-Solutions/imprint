@@ -2,9 +2,9 @@ import copy
 import os
 
 import numpy as np
-from pykevlar.bound import TypeIErrorBound
-from pykevlar.core.grid import AdaGridInternal, GridRange
-from pykevlar.driver import accumulate_process
+from pyimprint.bound import TypeIErrorBound
+from pyimprint.core.grid import AdaGridInternal, GridRange
+from pyimprint.driver import accumulate_process
 
 
 class AdaGrid(AdaGridInternal):
@@ -110,7 +110,7 @@ class AdaGrid(AdaGridInternal):
                 n_threads=n_threads,
             )
             ub = TypeIErrorBound()
-            kbs = model.make_kevlar_bound_state(gr)
+            kbs = model.make_imprint_bound_state(gr)
             ub.create(kbs, is_o, gr, delta)
 
             # extract estimates of alpha, alpha_minus, N_crit

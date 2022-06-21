@@ -1,9 +1,9 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 
 namespace py = pybind11;
@@ -61,9 +61,9 @@ void add_sim_global_state_base(pybind11::module_& m) {
 }
 
 template <class KBSB>
-void add_kevlar_bound_state_base(pybind11::module_& m) {
+void add_imprint_bound_state_base(pybind11::module_& m) {
     using kbs_t = KBSB;
-    py::class_<kbs_t>(m, "KevlarBoundStateBase")
+    py::class_<kbs_t>(m, "ImprintBoundStateBase")
         .def("apply_eta_jacobian", &kbs_t::apply_eta_jacobian,
              py::arg("gridpt_idx"), py::arg("v"), py::arg("output"))
         .def("covar_quad", &kbs_t::covar_quadform, py::arg("gridpt_idx"),
@@ -74,4 +74,4 @@ void add_kevlar_bound_state_base(pybind11::module_& m) {
 }
 
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

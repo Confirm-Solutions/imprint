@@ -1,2 +1,2 @@
-from pykevlar.model.binomial import *
-from pykevlar.model.exponential import *
+from pyimprint.model.binomial import *
+from pyimprint.model.exponential import *

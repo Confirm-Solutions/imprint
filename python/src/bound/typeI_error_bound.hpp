@@ -1,7 +1,7 @@
 #pragma once
 #include <pybind11/pybind11.h>
 
-namespace kevlar {
+namespace imprint {
 namespace bound {
 
 namespace py = pybind11;
@@ -33,4 +33,4 @@ void add_typeI_error_bound(py::module_& m) {
 }
 
 }  // namespace bound
-}  // namespace kevlar
+}  // namespace imprint

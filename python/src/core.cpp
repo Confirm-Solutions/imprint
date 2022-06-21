@@ -4,14 +4,14 @@
 #include <core.hpp>
 #include <driver/driver.hpp>
 #include <grid/grid.hpp>
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 #include <model/model.hpp>
 #include <random>
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(core, m) {
-    using namespace kevlar;
+    using namespace imprint;
 
     /* Call each adder function from each subdirectory */
     py::module_ model_m = m.def_submodule("model", "Model submodule.");

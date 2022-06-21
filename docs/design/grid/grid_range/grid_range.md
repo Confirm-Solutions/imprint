@@ -1,6 +1,6 @@
 # Grid Range
 
-In general, `kevlar` requires a notion of "a set of grid-points"
+In general, `imprint` requires a notion of "a set of grid-points"
 on which to simulate a given model.
 As it turns out, we require a few more additional detail
 to be able to integrate grid range into the framework.
@@ -68,11 +68,11 @@ a range of grid-points is still a meaningful quantity
 for the rest of the framework.
 The framework only ever assumes that the grid-points lie in the space in which
 we apply the Taylor expansion of the function of interest (e.g. Type I error function)
-(see [KevlarBound](../../../math/bound/doc.pdf)).
+(see [ImprintBound](../../../math/bound/doc.pdf)).
 
 ### Radii
 
-In [KevlarBound](../../../math/bound/doc.pdf),
+In [ImprintBound](../../../math/bound/doc.pdf),
 the Type I error guarantees originate from having control of a Taylor expansion
 around a small region `R` associated with each grid-point.
 While it is true that `R` need not contain the corresponding grid-point,
@@ -122,7 +122,7 @@ intersected by all null-hypothesis surfaces.
 Naturally, a vector of null-hypothesis surfaces partition
 the given grid space into disjoint tiles.
 These tiles are precisely the regions on which we Taylor-expand
-and compute our Kevlar bounds.
+and compute our Imprint bounds.
 Associated with each tile is an _intersection hypothesis space_ (IHS)
 defined by the configuration of the null-hypothesis space.
 Since each tile belongs to one partition of the null-hypothesis surfaces,

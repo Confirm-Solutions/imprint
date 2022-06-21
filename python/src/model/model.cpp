@@ -3,12 +3,12 @@
 #include <pybind11/stl.h>
 
 #include <export_utils/types.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/base.hpp>
-#include <kevlar_bits/model/binomial/simple_selection.hpp>
-#include <kevlar_bits/model/binomial/thompson.hpp>
-#include <kevlar_bits/model/exponential/simple_log_rank.hpp>
+#include <imprint_bits/grid/grid_range.hpp>
+#include <imprint_bits/grid/tile.hpp>
+#include <imprint_bits/model/base.hpp>
+#include <imprint_bits/model/binomial/simple_selection.hpp>
+#include <imprint_bits/model/binomial/thompson.hpp>
+#include <imprint_bits/model/exponential/simple_log_rank.hpp>
 #include <model/base.hpp>
 #include <model/binomial/fixed_n_default.hpp>
 #include <model/binomial/simple_selection.hpp>
@@ -18,7 +18,7 @@
 #include <model/fixed_single_arm_size.hpp>
 #include <model/model.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace model {
 
 namespace py = pybind11;
@@ -37,7 +37,7 @@ void add_binomial_to_module(py::module_& m) {
 
     using sgs_fixed_n_default_t =
         SimGlobalStateFixedNDefault<gen_t, value_t, uint_t, gr_t>;
-    using kbs_fixed_n_default_t = KevlarBoundStateFixedNDefault<gr_t>;
+    using kbs_fixed_n_default_t = ImprintBoundStateFixedNDefault<gr_t>;
 
     add_fixed_n_default<sgs_fixed_n_default_t, kbs_fixed_n_default_t>(m);
 
@@ -56,7 +56,7 @@ void add_exponential_to_module(py::module_& m) {
     using sgs_fixed_n_log_hazard_rate_t =
         SimGlobalStateFixedNLogHazardRate<gen_t, value_t, uint_t, gr_t>;
     using kbs_fixed_n_log_hazard_rate_t =
-        KevlarBoundStateFixedNLogHazardRate<gr_t>;
+        ImprintBoundStateFixedNLogHazardRate<gr_t>;
     using simple_log_rank_t = exponential::SimpleLogRank<value_t>;
 
     add_fixed_n_log_hazard_rate<sgs_fixed_n_log_hazard_rate_t,
@@ -72,11 +72,11 @@ void add_exponential_to_module(py::module_& m) {
 void add_to_module(py::module_& m) {
     using mb_t = ModelBase<value_t>;
     using sgs_t = SimGlobalStateBase<value_t, uint_t>;
-    using kbs_t = KevlarBoundStateBase<value_t>;
+    using kbs_t = ImprintBoundStateBase<value_t>;
 
     add_model_base<mb_t>(m);
     add_sim_global_state_base<sgs_t>(m);
-    add_kevlar_bound_state_base<kbs_t>(m);
+    add_imprint_bound_state_base<kbs_t>(m);
 
     using fsas_t = FixedSingleArmSize;
     add_fixed_single_arm_size<fsas_t>(m);
@@ -91,4 +91,4 @@ void add_to_module(py::module_& m) {
 }
 
 }  // namespace model
-}  // namespace kevlar
+}  // namespace imprint

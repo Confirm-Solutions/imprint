@@ -1,1 +1,1 @@
-from pykevlar.core import mt19937
+from pyimprint.core import mt19937

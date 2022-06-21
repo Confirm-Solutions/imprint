@@ -11,7 +11,7 @@ def binomial_accumulator(rejection_fnc):
     A simple re-implementation of accumulation. This is useful for distilling
     what is happening during accumulation down to a simple linear sequence of
     operations. Retaining this could be useful for tutorials or conceptual
-    introductions to Kevlar since we can explain this code without introducing
+    introductions to Imprint since we can explain this code without introducing
     most of the framework.
 
     NOTE: to implement the early stopping procedure from Berry, we will need to
@@ -142,7 +142,7 @@ def upper_bound(
     delta_prop_0to1=0.5,
 ):
     """
-    Compute the Kevlar upper bound after simulations have been run.
+    Compute the Imprint upper bound after simulations have been run.
     """
     p_tiles = scipy.special.expit(theta_tiles)
     v_diff = corners - theta_tiles[:, None]

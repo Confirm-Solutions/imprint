@@ -1,8 +1,8 @@
 import unittest
 
 import numpy as np
-import pykevlar.core.grid as grid
-from pykevlar.core.model.exponential import SimpleLogRank
+import pyimprint.core.grid as grid
+from pyimprint.core.model.exponential import SimpleLogRank
 
 
 class TestSimpleLogRank(unittest.TestCase):
@@ -41,4 +41,4 @@ class TestSimpleLogRank(unittest.TestCase):
         sgs = m.make_sim_global_state(gr)
         sgs.make_sim_state(0)
 
-        m.make_kevlar_bound_state(gr)
+        m.make_imprint_bound_state(gr)

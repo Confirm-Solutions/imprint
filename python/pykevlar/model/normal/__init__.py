@@ -1,1 +1,1 @@
-from pykevlar.model.normal.simple import Simple
+from pyimprint.model.normal.simple import Simple

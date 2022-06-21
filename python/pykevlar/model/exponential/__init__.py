@@ -1,1 +1,1 @@
-from pykevlar.core.model.exponential import *
+from pyimprint.core.model.exponential import *

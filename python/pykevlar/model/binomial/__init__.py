@@ -1,1 +1,1 @@
-from pykevlar.core.model.binomial import *
+from pyimprint.core.model.binomial import *

@@ -134,7 +134,7 @@ def py_grid():
 
 
 def cpp_grid():
-    import pykevlar.grid as grid
+    import pyimprint.grid as grid
 
     # define null hypos
     null_hypos = []

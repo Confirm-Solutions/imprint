@@ -1,8 +1,8 @@
 # Model
 
-Model classes are at the heart of `kevlar`
+Model classes are at the heart of `imprint`
 as they define all simulation-specific routines,
-model-specific kevlar bound quantities,
+model-specific imprint bound quantities,
 and any global configurations for the model.
 This document will explain in detail the design of our model classes.
 
@@ -13,13 +13,13 @@ This document will explain in detail the design of our model classes.
     - [Attaching `GridRange`](#attaching-gridrange)
     - [Simulating](#simulating)
     - [`Accumulator` Update](#accumulator-update)
-    - [`KevlarBound` Update](#kevlarbound-update)
+    - [`ImprintBound` Update](#imprintbound-update)
 - [Model API](#model-api)
     - [`Distribution`](#distribution)
     - [`Model` and `ModelBase`](#model-and-modelbase)
     - [`SimGlobalState` and `SimGlobalStateBase`](#simglobalstate-and-simglobalstatebase)
     - [`SimState` and `SimStateBase`](#simstate-and-simstatebase)
-    - [`KevlarBoundState` and `KevlarBoundStateBase`](#kevlarboundstate-and-kevlarboundstatebase)
+    - [`ImprintBoundState` and `ImprintBoundStateBase`](#imprintboundstate-and-imprintboundstatebase)
     - [Virtual Members](#virtual-members)
 
 ## Overview
@@ -65,16 +65,16 @@ flowchart TB
 ```
 
 Aside from the simulation mechanism,
-we also have the kevlar-bound mechanism where the framework
+we also have the imprint-bound mechanism where the framework
 interacts with a `model` and an accumulator object
 that has accrued information from simulations with that `model`
-to compute the corresponding `KevlarBound` object.
+to compute the corresponding `ImprintBound` object.
 The following diagram describes this interaction:
 ```mermaid
 flowchart LR
     model([Model])
     is_o([Accumulator])
-    model --> ub[Compute KevlarBound]
+    model --> ub[Compute ImprintBound]
     is_o --> ub
 ```
 
@@ -111,7 +111,7 @@ rather than the natural parameter space (negative hazard).
 The user is then responsible for constructing grid-points
 in the log-hazard space.
 This promise is solely between the user and the `model` of interest;
-the rest of the `kevlar` framework does not use the context of a `GridRange` object
+the rest of the `imprint` framework does not use the context of a `GridRange` object
 for a given `model`, since they must be agnostic to the `model` types.
 
 __In summary__:
@@ -176,13 +176,13 @@ __In summary__:
 ### `Accumulator` Update
 
 An `Accumulator` object essentially stores the necessary simulation-specific information
-needed to compute its corresponding kevlar-bound.
+needed to compute its corresponding imprint-bound.
 Depending on the function of interest (e.g. Type I Error, bias, MSE),
-we may have different quantities in general that are needed to compute their respective kevlar bound.
+we may have different quantities in general that are needed to compute their respective imprint bound.
 As an example, Type I Error accumulator will save the sum of false rejections
 and the score estimates for each tile in the attached `GridRange` object of the `model`
 (see [TODO: link `Accumulator` page]() for more information).
-See [TODO: KevlarBound page instead?](../math/stats/kevlar_bound/doc.pdf) 
+See [TODO: ImprintBound page instead?](../math/stats/imprint_bound/doc.pdf) 
 for the mathematical details for why this the case.
 
 The false rejections per tile has already been discussed in [Simulating](#simulating).
@@ -195,27 +195,27 @@ the `Accumulator` object is updated to accrue simulation information.
     - False rejections for each tile.
     - Score estimates for each grid-point.
 
-### `KevlarBound` Update
+### `ImprintBound` Update
 
-An `KevlarBound` object stores the components that comprise the kevlar bound estimate.
+An `ImprintBound` object stores the components that comprise the imprint bound estimate.
 It is computed from a `model`, its attached `GridRange` object, 
 and its corresponding `Accumulator` object that accrued information across all the simulations.
 The only model-specific quantities are:
 
 - Jacobian operator of the transformation that maps grid-points to natural parameters.
 - Quadratic form of the covariance of the sufficient statistic.
-- Kevlar bound on the quadratic form of the hessian.
+- Imprint bound on the quadratic form of the hessian.
 
 We explain the reasoning at a high-level.
 The first quantity is required since a `model` defines 
 the space in which the grid-points lie,
-and `KevlarBound` requires the Jacobian of the transform
+and `ImprintBound` requires the Jacobian of the transform
 that maps grid-points to the natural parameters.
 Hence, this Jacobian is a model-specific quantity.
 The second and third quantities are obviously model-specific
 since a model assumes a particular data distribution
 and both quantities are dependent on that distribution.
-See [KevlarBound](../math/stats/kevlar_bound/doc.pdf) 
+See [ImprintBound](../math/stats/imprint_bound/doc.pdf) 
 for further mathematical details.
 See [Exponential Model](../math/model/exp_control_k_treatment/doc.pdf)
 for a concrete example of these specifications.
@@ -244,7 +244,7 @@ class ModelBase {
 
 class Model {
     +make_sim_global_state(grid_range) SimGlobalState
-    +make_kevlar_bound_state(grid_range) KevlarBoundState
+    +make_imprint_bound_state(grid_range) ImprintBoundState
 }
 
 class SimGlobalStateBase {
@@ -260,21 +260,21 @@ class SimStateBase {
 
 class SimState
 
-class KevlarBoundStateBase {
+class ImprintBoundStateBase {
     +apply_eta_jacobian(gridpt_idx, v, out)* void
     +covar_quadform(gridpt_idx, v)* double
     +hessian_quadform_bound(gridpt_idx, tile_idx, v)* double
 }
 
-class KevlarBoundState
+class ImprintBoundState
 
 %% Inheritance
-Distribution --|> KevlarBoundState
+Distribution --|> ImprintBoundState
 Distribution --|> SimGlobalState
 Distribution --|> SimState
 ModelBase --|> Model : Inheritance
 SimStateBase --|> SimState
-KevlarBoundStateBase --|> KevlarBoundState
+ImprintBoundStateBase --|> ImprintBoundState
 SimGlobalStateBase --|> SimGlobalState
 
 %% Composition (up to reference)
@@ -283,12 +283,12 @@ GridRange --* SimGlobalState : Composition by Reference
 
 SimGlobalState --* SimState
 
-Model --* KevlarBoundState
-GridRange --* KevlarBoundState
+Model --* ImprintBoundState
+GridRange --* ImprintBoundState
 
 %% Type Dependency
 SimGlobalState ..> Model
-KevlarBoundState ..> Model: Type Dependency
+ImprintBoundState ..> Model: Type Dependency
 ```
 
 We list the diagram notation definitions:
@@ -305,7 +305,7 @@ specific to a particular distribution (e.g. binomial).
 - `Model`: concrete model class.
 - `SimState`: concrete simulation state class associated with `Model`.
 - `SimGlobalState`: concrete simulation global state class associated with `Model`.
-- `KevlarBoundState`: concrete kevlar bound state class associated with `Model`.
+- `ImprintBoundState`: concrete imprint bound state class associated with `Model`.
 - All class names of the form `FooBase` are base classes for
 their corresponding derived classes `Foo`. 
 
@@ -326,7 +326,7 @@ such as the score function.
 In general, distribution-specific quantities are present in
 - `SimState` (e.g. score function)
 - `SimGlobalState` (e.g. natural parameter to mean parameter transformation)
-- `KevlarBoundState` (e.g. covariance quadratic form)
+- `ImprintBoundState` (e.g. covariance quadratic form)
 
 ### `Model` and `ModelBase`
 
@@ -334,10 +334,10 @@ The `Model` class should be interpreted as a collection of policies.
 It is simply a dispatcher to create sibling classes for a particular routine
 and store any model-specific configuration data.
 Note that `Model` contains two member functions which create
-an instance of `SimGlobalState` and `KevlarBoundState`.
+an instance of `SimGlobalState` and `ImprintBoundState`.
 These sibling classes will be discussed in further detail in the later sections,
 but at a high level, `SimGlobalState` is a class used in simulation
-and `KevlarBoundState` is a class used to construct an kevlar bound estimate.
+and `ImprintBoundState` is a class used to construct an imprint bound estimate.
 `Model` itself does not interact with the framework otherwise.
 The sibling classes are constructed with an instance of a `GridRange` object,
 `grid_range`.
@@ -362,7 +362,7 @@ Every concrete `Model` class decides its own meaning of these critical values
 scaling of the critical values, e.g. z-score values, chi-squared values, etc.).
 These critical values are only ever used within `Model`-related classes,
 so the user is free to decide the context;
-`Accumulator` and `KevlarBound` objects never work with these critical values directly.
+`Accumulator` and `ImprintBound` objects never work with these critical values directly.
 The critical values solely exist to define the sequence of models
 and to compute the false rejections during simulations.
 
@@ -405,15 +405,15 @@ for each tile in the current `GridRange` object
 and one of the parameters
 (see [`Accumulator` Update](#accumulator-update)).
 
-### `KevlarBoundState` and `KevlarBoundStateBase`
+### `ImprintBoundState` and `ImprintBoundStateBase`
 
-`KevlarBoundState` is a class associated with `Model`
-that is used to create an `KevlarBound` object.
-It implements the members of `KevlarBoundStateBase`,
-which are the only members needed to create an kevlar bound estimate
-(see [`KevlarBound` Update](#kevlarbound-update)).
+`ImprintBoundState` is a class associated with `Model`
+that is used to create an `ImprintBound` object.
+It implements the members of `ImprintBoundStateBase`,
+which are the only members needed to create an imprint bound estimate
+(see [`ImprintBound` Update](#imprintbound-update)).
 __The user is otherwise free to choose the internal representation
-of these concrete `KevlarBoundState` types.__
+of these concrete `ImprintBoundState` types.__
 
 ### Virtual Members 
 

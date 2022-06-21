@@ -2,9 +2,9 @@
 #include <pybind11/pybind11.h>
 
 #include <export_utils/types.hpp>
-#include <kevlar_bits/util/types.hpp>
+#include <imprint_bits/util/types.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace bound {
 
 namespace py = pybind11;
@@ -67,4 +67,4 @@ void add_typeI_error_accum(pybind11::module_& m) {
 }
 
 }  // namespace bound
-}  // namespace kevlar
+}  // namespace imprint

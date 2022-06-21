@@ -57,7 +57,8 @@ def build_grid(
     thetas: np.ndarray, radii: np.ndarray, null_hypos: List[HyperPlane], debug=False
 ):
     """
-    Construct a Kevlar grid from a set of grid point centers, radii and null hypothesis.
+    Construct a Imprint grid from a set of grid point centers, radii and null
+    hypothesis.
     1. Initially, we construct simple hyperrectangle cells.
     2. Then, we split cells that are intersected by the null hypothesis boundaries.
 

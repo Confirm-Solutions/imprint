@@ -1,5 +1,5 @@
 import numpy as np
-from pykevlar.core.model import ModelBase, SimStateBase
+from pyimprint.core.model import ModelBase, SimStateBase
 
 
 class SimState(SimStateBase):

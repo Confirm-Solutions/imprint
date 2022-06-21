@@ -5,7 +5,7 @@ from datetime import timedelta
 from timeit import default_timer as timer
 
 import numpy as np
-from pykevlar.bound import TypeIErrorBound
+from pyimprint.bound import TypeIErrorBound
 
 log_level = logging.DEBUG
 logging.basicConfig(
@@ -45,12 +45,12 @@ def save_ub(p_name, b_name, P, B):
 def create_ub_plot_inputs(model, acc_o, gr, delta):
     assert model.n_models() == 1
     ub = TypeIErrorBound()
-    kbs = model.make_kevlar_bound_state(gr)
+    kbs = model.make_imprint_bound_state(gr)
 
     start = timer()
     ub.create(kbs, acc_o, gr, delta)
     end = timer()
-    logger.info("Kevlar bound time: {}".format(timedelta(seconds=end - start)))
+    logger.info("Imprint bound time: {}".format(timedelta(seconds=end - start)))
 
     P = []
     B = []

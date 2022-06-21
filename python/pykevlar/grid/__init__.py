@@ -3,9 +3,9 @@ from types import MethodType
 import numpy as np
 
 # TODO: note that AdaGridInternal really should not be exposed.
-from pykevlar.core.grid import *
-from pykevlar.core.grid import Gridder, GridRange
-from pykevlar.grid.adagrid import AdaGrid
+from pyimprint.core.grid import *
+from pyimprint.core.grid import Gridder, GridRange
+from pyimprint.grid.adagrid import AdaGrid
 
 
 def n_tiles_per_pt(gr):

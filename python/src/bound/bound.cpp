@@ -5,13 +5,13 @@
 #include <bound/typeI_error_accum.hpp>
 #include <bound/typeI_error_bound.hpp>
 #include <export_utils/types.hpp>
-#include <kevlar_bits/bound/accumulator/typeI_error_accum.hpp>
-#include <kevlar_bits/bound/typeI_error_bound.hpp>
-#include <kevlar_bits/grid/grid_range.hpp>
-#include <kevlar_bits/grid/tile.hpp>
-#include <kevlar_bits/model/base.hpp>
+#include <imprint_bits/bound/accumulator/typeI_error_accum.hpp>
+#include <imprint_bits/bound/typeI_error_bound.hpp>
+#include <imprint_bits/grid/grid_range.hpp>
+#include <imprint_bits/grid/tile.hpp>
+#include <imprint_bits/model/base.hpp>
 
-namespace kevlar {
+namespace imprint {
 namespace bound {
 
 namespace py = pybind11;
@@ -21,7 +21,7 @@ void add_to_module(py::module_& m) {
     using gr_t = grid::GridRange<py_double_t, py_uint_t, tile_t>;
     using sgs_t = model::SimGlobalStateBase<py_double_t, py_uint_t>;
     using ss_t = typename sgs_t::sim_state_t;
-    using kbs_t = model::KevlarBoundStateBase<py_double_t>;
+    using kbs_t = model::ImprintBoundStateBase<py_double_t>;
     using acc_t = TypeIErrorAccum<py_double_t, py_uint_t>;
     using kb_t = TypeIErrorBound<py_double_t>;
 
@@ -30,4 +30,4 @@ void add_to_module(py::module_& m) {
 }
 
 }  // namespace bound
-}  // namespace kevlar
+}  // namespace imprint
