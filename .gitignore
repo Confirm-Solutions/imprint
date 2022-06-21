@@ -17,13 +17,7 @@ DartConfiguration.tcl
 # ignore rc because we are tracking generator now
 .bazelrc 
 bazel
-bazel-bazel-test
-bazel-bin
-bazel-genfiles
-bazel-out
-bazel-testlogs
-bazel-vagrant
-bazel-imprint
+bazel-*
 .vagrant/
 Vagrantfile
 .idea/
