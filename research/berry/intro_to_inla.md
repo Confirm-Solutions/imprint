@@ -37,6 +37,7 @@ berrylib.util.setup_nb()
 
 
 ## The basic model
+
 \begin{align}
 \mathbf{y} &\sim Binomial( \mathbf{p}, \mathbf{n})\\
 \mathbf{p} &= \mathrm{expit}(\mathbf{\theta} + logit(\mathbf{p_1}))\\
@@ -116,7 +117,7 @@ logit_p1 = logit(0.3)
 
 \begin{align}
 P(\mu) &= N(\mu_0, S^2)\\
-P(\theta|\mu, \sigma^2) &= N(\mu_0, \sigma^2)\\
+P(\theta|\mu_0, \sigma^2) &= N(\mu_0, \sigma^2)\\
 P(\theta|\sigma^2) &= P(\theta|\mu_0, \sigma^2, S^2) =  N(\mu_0, \sigma^2 I + S^2 J)
 \end{align}
 
