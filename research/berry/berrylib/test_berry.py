@@ -200,7 +200,6 @@ def test_fast_inla(method, N=10, iterations=1):
 
     sigma2_post, exceedances, theta_max, theta_sigma = out
 
-    # Do our comparisons in probability space.
     np.testing.assert_allclose(
         theta_max[0, 12],
         np.array([-6.04682818, -2.09586893, -0.21474981, -0.07019088]),
