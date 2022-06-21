@@ -181,6 +181,7 @@ def test_fast_inla(method, N=10, iterations=1):
         start = time.time()
         out = inla_model.inference(y_i, n_i, method=method)
         end = time.time()
+        np.testing.assert_allclose(out[0][0].sum(), 2111.808, rtol=1e-3)
         runtimes.append(end - start)
 
     if iterations > 1:
@@ -311,12 +312,40 @@ def test_rejection_table():
         np.testing.assert_allclose(correct_rej, lookup_rej)
 
 
-def test_faster_invert():
-    d = np.linspace(2, 5, 4)
-    s = 3
-    m = np.diag(d) + s
-    expected = np.linalg.inv(m)
-    np.testing.assert_allclose(fast_inla.jax_faster_invert(d, s), expected)
+def test_faster_linalg():
+    num_iter = 100
+    key = jax.random.PRNGKey(0)
+    d = jax.random.uniform(key, (num_iter, 4))
+    s = jax.random.uniform(key, (num_iter, 1))
+    g = jax.random.uniform(key, (num_iter, 4))
+    atol = 1e-6
+    for d, s, g in zip(d, s, g):
+        m = np.diag(d) + s
+        sign, expected = np.linalg.slogdet(m)
+        expected *= sign
+        if expected < 0:
+            # If the determinant is negative, the matrix is not positive definite
+            continue
+        # Determinant
+        np.testing.assert_allclose(
+            fast_inla.jax_faster_log_det(d, s), expected, atol=atol
+        )
+
+        # Inverse
+        expected = np.linalg.inv(m)
+        np.testing.assert_allclose(fast_inla.jax_faster_inv(d, s), expected, atol=atol)
+
+        # Inverse product
+        expected = np.linalg.inv(m) @ g
+        np.testing.assert_allclose(
+            fast_inla.jax_faster_inv_product(d, s, g), expected, atol=atol
+        )
+
+        # Inverse diagonal
+        expected = np.diag(np.linalg.inv(m))
+        np.testing.assert_allclose(
+            fast_inla.jax_faster_inv_diag(d, s), expected, atol=atol
+        )
 
 
 def test_log_normal_pdf():
@@ -334,7 +363,7 @@ def test_log_normal_pdf():
 if __name__ == "__main__":
     # INLA Benchmark
     N = 10000
-    it = 4
+    it = 10
     print("jax")
     test_fast_inla("jax", N, it)
     print("cpp")
