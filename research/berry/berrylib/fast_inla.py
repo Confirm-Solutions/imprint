@@ -6,7 +6,11 @@ import jax.numpy as jnp
 import numpy as np
 import scipy.linalg
 import scipy.stats
+from jax.config import config
 from scipy.special import logit
+
+# This line is critical for enabling 64-bit floats.
+config.update("jax_enable_x64", True)
 
 
 def logdet(m):
@@ -65,11 +69,11 @@ class FastINLA:
             jax.vmap(
                 jax.vmap(
                     jax_opt,
-                    in_axes=(None, None, 0, None, None, None),
-                    out_axes=(0, 0, 0, 0),
+                    in_axes=(None, None, 0, 0, 0, 0, None, None, None),
+                    out_axes=(0, 0, 0),
                 ),
-                in_axes=(0, 0, None, None, None, None),
-                out_axes=(0, 0, 0, 0),
+                in_axes=(0, 0, None, None, None, None, None, None, None),
+                out_axes=(0, 0, 0),
             )
         )
 
@@ -246,10 +250,13 @@ class FastINLA:
         """
         y = jnp.asarray(y)
         n = jnp.asarray(n)
-        num_iters, theta_max, hess_diag, hess_shift = self.jax_opt_vec(
+        num_iters, theta_max, hess_inv = self.jax_opt_vec(
             y,
             n,
+            self.sigma2_pts_jax,
             self.neg_precQ_jax,
+            self.precQ_eig_vals_jax,
+            self.precQ_eig_vecs_jax,
             self.logit_p1,
             self.mu_0,
             self.tol,
@@ -262,8 +269,7 @@ class FastINLA:
             self.log_prior_jax,
             self.precQ_eig_vals_jax,
             self.precQ_eig_vecs_jax,
-            hess_diag,
-            hess_shift,
+            hess_inv,
             self.sigma2_wts_jax,
             self.logit_p1,
             self.mu_0,
@@ -305,9 +311,23 @@ class FastINLA:
         return sigma2_post, exceedances, theta_max, theta_sigma
 
 
-def jax_opt(y, n, neg_precQ, logit_p1, mu_0, tol, max_iter=100, fast_loop=True):
+def jax_opt(
+    y,
+    n,
+    sigma2,
+    neg_precQ,
+    prec_eig_vals,
+    prec_eig_vecs,
+    logit_p1,
+    mu_0,
+    tol,
+    max_iter=100,
+    fast_loop=True,
+):
+    cov = jnp.full_like(neg_precQ, 100) + jnp.diag(jnp.repeat(sigma2, len(y)))
+
     def step(args):
-        i, theta_max, hess_diag, hess_shift, go = args
+        i, theta_max, hess_inv, go = args
         theta_m0 = theta_max - mu_0
         exp_theta_adj = jnp.exp(theta_max + logit_p1)
         C = 1.0 / (exp_theta_adj + 1)
@@ -316,12 +336,10 @@ def jax_opt(y, n, neg_precQ, logit_p1, mu_0, tol, max_iter=100, fast_loop=True):
         grad = neg_precQ.dot(theta_m0) + y - nCeta
         diag = nCeta * C
 
-        shift = neg_precQ[..., 0, 1]
-        prec_d = jnp.diag(neg_precQ) - shift
-        diag = prec_d - diag
-        step = -jax_faster_inv_product(diag, shift, grad)
-        go = jnp.square(step).sum() > tol * tol
-        return i + 1, theta_max + step, diag, shift, go
+        hess_inv = jax_fast_inv(-cov, -diag)
+        step = -hess_inv.dot(grad)
+        go = jnp.sum(step**2) > tol**2
+        return i + 1, theta_max + step, hess_inv, go
 
     # NOTE: Warm starting was not helpful but I left this code here in case it's
     # useful.
@@ -334,7 +352,7 @@ def jax_opt(y, n, neg_precQ, logit_p1, mu_0, tol, max_iter=100, fast_loop=True):
     # )
     n_arms = y.shape[0]
     theta_max0 = jnp.zeros(n_arms)
-    init_args = (jnp.int16(0), theta_max0, jnp.zeros(n_arms), jnp.float32(0), True)
+    init_args = (jnp.int16(0), theta_max0, jnp.zeros_like(cov), True)
 
     if fast_loop:
         out = jax.lax.while_loop(
@@ -348,8 +366,15 @@ def jax_opt(y, n, neg_precQ, logit_p1, mu_0, tol, max_iter=100, fast_loop=True):
             out = args
             if not args[-1]:
                 break
-    i, theta_max, hess_diag, hess_shift, go = out
-    return i, theta_max, hess_diag, hess_shift
+    i, theta_max, hess_inv, go = out
+    return i, theta_max, hess_inv
+
+
+def jax_fast_inv(S, d):
+    for k in range(d.shape[0]):
+        offset = d[k] / (1 + d[k] * S[k, k])
+        S = S - (offset * (S[k, None, :] * S[:, None, k]))
+    return S
 
 
 def jax_faster_inv(D, S):
@@ -359,7 +384,8 @@ def jax_faster_inv(D, S):
     https://en.wikipedia.org/wiki/Sherman–Morrison_formula
     """
     D_inverse = 1.0 / D
-    multiplier = -S / (1 + S * D_inverse.sum())
+    # NB: reusing D_inverse in this line is numerically unstable
+    multiplier = -S / (1 + (S / D).sum())
     M = multiplier * jnp.outer(D_inverse, D_inverse)
     M = M + jnp.diag(D_inverse)
     return M
@@ -372,7 +398,8 @@ def jax_faster_inv_diag(D, S):
     https://en.wikipedia.org/wiki/Sherman–Morrison_formula
     """
     D_inverse = 1.0 / D
-    multiplier = -S / (1 + S * D_inverse.sum())
+    # NB: reusing D_inverse in this line is numerically unstable
+    multiplier = -S / (1 + (S / D).sum())
     return multiplier * D_inverse * D_inverse + D_inverse
 
 
@@ -382,9 +409,9 @@ def jax_faster_inv_product(D, S, G):
     This function uses "Sherman-Morrison" formula:
     https://en.wikipedia.org/wiki/Sherman–Morrison_formula
     """
-    D_inverse = 1.0 / D
-    multiplier = -S / (1 + S * D_inverse.sum())
-    return multiplier * D_inverse * jnp.dot(D_inverse, G) + D_inverse * G
+    D_norm = jnp.abs(D).sum()
+    D_normed = D / D_norm
+    return (-S * (G / D_normed).sum() / (D_norm + (S / D_normed).sum()) + G) / D
 
 
 def jax_faster_log_det(D, S):
@@ -396,7 +423,7 @@ def jax_faster_log_det(D, S):
     https://en.wikipedia.org/wiki/Matrix_determinant_lemma
     """
     detD_inverse = jnp.log(D).sum()
-    newdeterminant = detD_inverse + jnp.log1p(S * (1 / D).sum())
+    newdeterminant = detD_inverse + jnp.log1p((S / D).sum())
     return newdeterminant
 
 
@@ -407,13 +434,13 @@ def log_normal_pdf(x, mean, prec_eig_vals, prec_eig_vecs, omit_constants=True):
     """
     logdet = -jnp.sum(jnp.log(prec_eig_vals))
     U = prec_eig_vecs * jnp.sqrt(prec_eig_vals)
-    rank = len(prec_eig_vals)
     dev = x - mean
     # "maha" for "Mahalanobis distance".
     maha = jnp.square(jnp.dot(dev, U)).sum()
     if omit_constants:
         return -0.5 * (maha + logdet)
     else:
+        rank = len(prec_eig_vals)
         log2pi = jnp.log(2 * jnp.pi)
         return -0.5 * (rank * log2pi + maha + logdet)
 
@@ -432,8 +459,7 @@ def jax_calc_posterior_and_exceedances(
     log_prior,
     precQ_eig_vals,
     precQ_eig_vecs,
-    hess_diag,
-    hess_shift,
+    hess_inv,
     sigma2_wts,
     logit_p1,
     mu_0,
@@ -454,13 +480,16 @@ def jax_calc_posterior_and_exceedances(
         )
         + log_prior
     )
-    hess_inv_diag = jax.vmap(jax.vmap(jax_faster_inv_diag))(-hess_diag, -hess_shift)
-    logdet_hess_inv = -jax.vmap(jax.vmap(jax_faster_log_det))(-hess_diag, -hess_shift)
+    logdet_hess_inv = jax.vmap(jax.vmap(logdet))(-hess_inv)
     log_sigma2_post = logjoint + 0.5 * logdet_hess_inv
+
+    # This helps prevent underflow
+    log_sigma2_post -= jnp.nanmin(log_sigma2_post, axis=1)[:, None]
     sigma2_post = jnp.exp(log_sigma2_post)
+    sigma2_post = jnp.nan_to_num(sigma2_post, posinf=0, neginf=0)
     sigma2_post /= jnp.sum(sigma2_post * sigma2_wts, axis=1)[:, None]
 
-    theta_sigma = jnp.sqrt(hess_inv_diag)
+    theta_sigma = jnp.sqrt(jnp.diagonal(-hess_inv, axis1=2, axis2=3))
     exc_sigma2 = 1.0 - jax.scipy.stats.norm.cdf(
         thresh_theta,
         theta_max,

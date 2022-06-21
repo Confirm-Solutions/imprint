@@ -1,3 +1,4 @@
+import itertools
 import time
 
 import berrylib.binomial as binomial
@@ -15,6 +16,10 @@ from pyimprint.bound import TypeIErrorBound
 from pyimprint.driver import accumulate_process
 from pyimprint.model.binomial import SimpleSelection
 from scipy.special import logit
+
+
+def logistic(x):
+    return jax.scipy.special.expit(x)
 
 
 def test_broadcast():
@@ -182,7 +187,8 @@ def test_fast_inla(method, N=10, iterations=1):
         start = time.time()
         out = inla_model.inference(y_i, n_i, method=method)
         end = time.time()
-        np.testing.assert_allclose(out[0][0].sum(), 2111.808, rtol=1e-3)
+        # Prevent optimizations by asserting against the output.
+        assert out[0].sum() > 0
         runtimes.append(end - start)
 
     if iterations > 1:
@@ -191,9 +197,6 @@ def test_fast_inla(method, N=10, iterations=1):
         print("us per sample", np.median(runtimes) * 1e6 / N)
 
     sigma2_post, exceedances, theta_max, theta_sigma = out
-
-    def logistic(x):
-        return jax.scipy.special.expit(x)
 
     # Do our comparisons in probability space.
     np.testing.assert_allclose(
@@ -220,10 +223,33 @@ def test_fast_inla(method, N=10, iterations=1):
             1.41605356e-06,
         ]
     )
-    np.testing.assert_allclose(logistic(sigma2_post[0]), logistic(correct), atol=1e-3)
+    np.testing.assert_allclose(sigma2_post[0], correct, rtol=1e-3)
     np.testing.assert_allclose(
         exceedances[0], [0.28306264, 0.4077219, 0.99714174, 0.99904684], atol=1e-3
     )
+
+
+def test_fast_inla_same_results(N=1, iterations=1_000):
+    """Ensure the optimized jax output matches the numpy output."""
+    n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
+    inla_model = fast_inla.FastINLA()
+    methods = ["jax", "numpy"]
+    key = jax.random.PRNGKey(0)
+    y_is = jax.random.uniform(key, shape=(iterations, N, 1)) * n_i[None]
+    for y_i in y_is:
+        # print(y_i)
+        outs = {}
+        for method in methods:
+            outs[method] = inla_model.inference(y_i, n_i, method=method)
+        for method1, method2 in itertools.combinations(methods, 2):
+            # sigma2_post, exceedances, theta_max, theta_sigma
+            outs1 = outs[method1]
+            outs2 = outs[method2]
+            np.testing.assert_allclose(outs1[0], outs2[0], atol=1e-3, rtol=1e-2)
+            np.testing.assert_allclose(outs1[1], outs2[1], atol=1e-3)
+            np.testing.assert_allclose(
+                logistic(outs1[2]), logistic(outs2[2]), atol=1e-3
+            )
 
 
 def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
