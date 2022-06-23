@@ -84,6 +84,7 @@ def test_log_gauss_rule():
 
 
 def test_vectorized_bisection():
+    np.random.seed(10)
     y = np.random.rand(10, 11)
 
     def f(x):
@@ -284,7 +285,8 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     )
 
     delta = 0.025
-    simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, [])
+    critvals = np.array([0.99])
+    simple_selection_model = SimpleSelection(fi.n_arms, n_arm_samples, 1, critvals)
     simple_selection_model.critical_values([fi.critical_value])
 
     ub = TypeIErrorBound()
