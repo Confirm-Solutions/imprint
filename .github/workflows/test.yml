@@ -63,3 +63,15 @@ jobs:
       - name: Pytest
         run: |
           pytest .
+      - name: Report failures on Slack
+        if: failure() && github.event.repository.default_branch == github.event.workflow_run.head_branch
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          # Slack channel id, channel name, or user id to post message.
+          # See also: https://api.slack.com/methods/chat.postMessage#channels
+          channel-id: C02TC2DAN74
+          # For posting a simple plain text message
+          slack-message: "*Build failure on default branch!* 😱\nhttps://github.com/${{github.repository}}/actions/runs/${{github.run_id}}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
