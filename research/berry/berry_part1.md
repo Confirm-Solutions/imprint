@@ -131,7 +131,7 @@ def figure1_subplot(gridspec0, gridspec1, i, b, data, stats, title=None):
     plt.ylabel("N")
 
 def inla_figure1_data(fi, y, n):
-    sigma2_post, exceedances, theta_max, theta_sigma, _ = fi.numpy_inference(y, n, thresh_theta=thresh_interims)
+    sigma2_post, exceedances, theta_max, theta_sigma, _ = fi.numpy_inference(np.stack((y, n), axis=-1), thresh_theta=thresh_interims)
     return dict(
         theta_map = np.sum(theta_max * sigma2_post[:,:, None] * fi.sigma2_rule.wts[None, :, None], axis=1),
         cilow = np.sum((theta_max - 2 * theta_sigma) * sigma2_post[:,:, None] * fi.sigma2_rule.wts[None, :, None], axis=1),

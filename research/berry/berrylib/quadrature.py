@@ -121,16 +121,17 @@ def build_grid(
     if fixed_arm_dim is None:
         y = y_in[None, :]
         n = n_in[None, :]
-        mode, hess_inv = fi.optimize_mode(y, n)
+        data = np.stack((y, n), axis=-1)
+        mode, hess_inv = fi.optimize_mode(data)
         assert mode.shape[0] == 1
     else:
         M = fixed_arm_values.shape[0]
         y = np.tile(y_in[None, :], (M, 1)).reshape((-1, R))
         n = np.tile(n_in[None, :], (M, 1)).reshape((-1, R))
+        data = np.stack((y, n), axis=-1)
         arm_values_tiled = np.tile(fixed_arm_values[:, None], (1, S))
         mode, hess_inv = fi.optimize_mode(
-            y,
-            n,
+            data,
             fixed_arm_dim=fixed_arm_dim,
             fixed_arm_values=arm_values_tiled,
         )
@@ -148,7 +149,7 @@ def build_grid(
     # TODO: this is the slow part of the calculation because:
     #   1) all the for loops
     log_tol = np.log(tol)
-    mode_logjoint = fi.log_joint(y, n, mode)
+    mode_logjoint = fi.model.log_joint(fi, data, mode)
 
     for eigen_idx in range(len(integrate_thetas)):
         scaled_eigenvecs = (
@@ -162,7 +163,7 @@ def build_grid(
                 probe[..., integrate_thetas] += (
                     scaled_eigenvecs * x[..., None] * direction
                 )
-                return fi.log_joint(y, n, probe) - mode_logjoint - log_tol
+                return fi.model.log_joint(fi, data, probe) - mode_logjoint - log_tol
 
             left = np.zeros((y.shape[0], fi.sigma2_n))
             right = np.full((y.shape[0], fi.sigma2_n), 100.0)
@@ -220,7 +221,9 @@ def build_grid(
     n_theta_pts = np.prod(full_grid.shape[0 : fi.n_arms])
     y_tiled = np.tile(y_in[None], (n_theta_pts, 1)).reshape((-1, fi.n_arms))
     n_tiled = np.tile(n_in[None], (n_theta_pts, 1)).reshape((-1, fi.n_arms))
-    logjoint = fi.log_joint(y_tiled, n_tiled, grids_ravel).reshape(full_grid.shape[:-1])
+    logjoint = fi.model.log_joint(
+        fi, np.stack((y_tiled, n_tiled), axis=-1), grids_ravel
+    ).reshape(full_grid.shape[:-1])
 
     return full_grid, full_wts, logjoint
 

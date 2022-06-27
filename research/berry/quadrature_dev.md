@@ -420,7 +420,7 @@ plt.show()
 ```
 
 ```python
-sigma2_post_fi, _, _, _ = fi.inference(y, n)
+sigma2_post_fi, _, _, _ = fi.inference(np.stack((y, n), axis=-1))
 ```
 
 ```python

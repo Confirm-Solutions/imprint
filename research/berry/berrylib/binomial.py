@@ -47,7 +47,8 @@ def binomial_accumulator(rejection_fnc):
         # (n_tiles, sim_size, n_arms)
         y_flat = y.reshape((-1, n_arms))
         n_flat = jnp.full_like(y_flat, n_arm_samples)
-        did_reject = rejection_fnc(y_flat, n_flat).reshape(y.shape)
+        data = jnp.stack((y_flat, n_flat), axis=-1)
+        did_reject = rejection_fnc(data).reshape(y.shape)
 
         # 3. Determine type I family wise error rate.
         #  a. type I is only possible when the null hypothesis is true.
@@ -103,7 +104,8 @@ def build_rejection_table(n_arms, n_arm_samples, rejection_fnc):
 
     # 4. Compute the rejections for each unique dataset.
     N = np.full_like(Y_unique, n_arm_samples)
-    reject_unique = rejection_fnc(Y_unique, N)
+    data = np.stack((Y_unique, N), axis=-1)
+    reject_unique = rejection_fnc(data)
 
     # 5. Invert the unique and the sort operations so that we know the rejection
     # value for every possible dataset.
