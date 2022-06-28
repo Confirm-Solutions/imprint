@@ -242,7 +242,9 @@ def test_fast_inla_same_results(N=1, iterations=1_000):
         # print(y_i)
         outs = {}
         for method in methods:
-            outs[method] = inla_model.inference(y_i, n_i, method=method)
+            outs[method] = inla_model.inference(
+                np.stack((y_i, n_i), axis=-1), method=method
+            )
         for method1, method2 in itertools.combinations(methods, 2):
             # sigma2_post, exceedances, theta_max, theta_sigma
             outs1 = outs[method1]
