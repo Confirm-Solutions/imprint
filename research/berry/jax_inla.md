@@ -22,6 +22,9 @@ import matplotlib.pyplot as plt
 
 
 from berrylib.constants import Y_I, Y_I2, N_I, N_I2
+from jax.config import config
+config.update("jax_enable_x64", False)
+
 
 ```
 
@@ -32,153 +35,57 @@ import importlib
 from functools import partial
 
 importlib.reload(berrylib.fast_inla)
-from berrylib.fast_inla import FastINLA, jax_opt
+from berrylib.fast_inla import FastINLA, jax_opt, jax_faster_inv_product
 
-# assert jax.config.read("jax_enable_x64")
-
-fi = FastINLA(n_arms=2)
-# sigma2 = jnp.array(1e5)
-# y = jnp.array([0, 0, 30, 30])[jnp.newaxis]
-# n = jnp.array([30, 30, 30, 30])[jnp.newaxis]
-# # fi.jax_inference(y, n)
-
-
-def jax_faster_inv(D, S):
-    """Compute the inverse of a diagonal matrix D plus a shift S.
+def jax_faster_inv_product(D, S, G):
+    """Compute (diag(D)+S)^-1 @ G.
 
     This function uses "Sherman-Morrison" formula:
     https://en.wikipedia.org/wiki/Sherman–Morrison_formula
     """
     D_inverse = 1.0 / D
-    multiplier = -S / (1 + S * D_inverse.sum())
-    M = multiplier * jnp.outer(D_inverse, D_inverse)
-    M = M + jnp.diag(D_inverse)
-    return M
+    multiplier = -S / (1 + (S / D).sum())
+    # return D_inverse *(multiplier * jnp.dot(D_inverse, G) +  G)
+    D_norm = jnp.abs(D).sum()
+    D_normed = D / D_norm
+    return (-S * (G / D_normed).sum() / (D_norm + (S  / D_normed).sum()) + G) / D
 
+Ds = jnp.arange(3, -7, -1)
+S = 100
+G = jnp.arange(1, 5)
+for D in Ds:
+    D = 10.0**D
+    print('D', D)
+    D = jnp.repeat(D, 4)
+    D_inverse = 1.0 / D
+    multiplier = -S / (1 + (S / D).sum())
+    d_multiplier = -S / (D + S*len(D))
+    a, b = D_inverse *(multiplier * jnp.dot(D_inverse, G)), D_inverse * G
+    # print("inv", D_inverse)
+    # print(multiplier * D_inverse)
+    # print(d_multiplier)
+    print(jax_faster_inv_product(D, S, G))
+    # print(jax_faster_inv_product(D, S, G) * D)
+# assert jax.config.read("jax_enable_x64")
 
-# @jax.jit
-def jax_opt(y, neg_precQ, fast_loop=True):
-    # y = jnp.array([29.65146991, 27.51985572])
-    n = jnp.array([35, 35])
-    # neg_precQ = jnp.array([[-28764.0366170816, 28764.031617082037], [28764.031617082037, -28764.0366170816]])
-    logit_p1 = -0.8472978603872036
-    mu_0 = -1.34
-    tol = 0.001
-
-    def step(args):
-        i, theta_max, hess_inv, go = args
-        theta_m0 = theta_max - mu_0
-        exp_theta_adj = jnp.exp(theta_max + logit_p1)
-        nCeta = jnp.log(n) - jnp.log1p(exp_theta_adj) + (theta_max + logit_p1)
-        diag = jnp.exp(nCeta - jnp.log1p(exp_theta_adj))
-        nCeta = jnp.exp(nCeta)
-
-        grad = neg_precQ @ theta_m0 + y - nCeta
-
-        shift = neg_precQ[..., 0, 1]
-        prec_d = jnp.diag(neg_precQ) - shift
-        diag = prec_d - diag
-
-        # Apply the regularization suggested in: https://arxiv.org/abs/2112.02089
-        H = 10
-        reg = jnp.sqrt(H * jnp.linalg.norm(grad))
-        diag += reg
-
-        hess_inv = jax_faster_inv(diag, shift)
-        step = -hess_inv.dot(grad)
-
-        probit_step = 1 / (1 + jnp.exp(-theta_max))
-        probit_step = probit_step * (1 - probit_step) * step
-        go = jnp.max(jnp.abs(probit_step)) > tol
-        # go = jnp.sum(step**2) > tol**2
-        return i + 1, theta_max + step, hess_inv, go
-
-    n_arms = y.shape[0]
-    theta_max0 = jnp.zeros(n_arms)
-    init_args = (0, theta_max0, jnp.zeros((n_arms, n_arms)),  True)
-    max_iter = 1000
-
-    if fast_loop:
-        out = jax.lax.while_loop( lambda args: ((args[0] < max_iter) & args[-1]), step, init_args)
-    else:
-        args = init_args
-        step = jax.jit(step)
-        converged = False
-        for i in range(max_iter):
-            args = step(args)
-            out = args
-            if not args[-1]:
-                converged = True
-                break
-    i, theta_max, hess_inv, go = out
-    return theta_max, hess_inv
-
-
-# def run(y, i):
-#     # cov = jnp.full((fi.n_arms, fi.n_arms), fi.mu_sig_sq)
-#     # cov = cov + jnp.diag(jnp.full(fi.n_arms, sigma2))
-#     # # shift, prec_d = berrylib.fast_inla.jax_faster_inv(jnp.repeat(sigma2, arms), 100)
-#     # # neg_precQ = -(jnp.diag(prec_d) + shift)
-#     # neg_precQ = jnp.linalg.inv(cov)
-#     n = np.array([[35, 35]])
-
-#     with open("out.txt", "a") as f:
-#         def p(x):
-#             f.write(str(x) + "\n")
-#         p(y)
-#         f.flush()
-#     opt = jax_opt
-#     theta_max, hess_inv = opt(
-#     y[0],
-#     n[0],
-#     # fi.cov,
-#     fi.neg_precQ[i],
-#     # None,
+# fi = FastINLA(n_arms=4)
+# # sigma2 = jnp.array(1e5)
+# y = jnp.array([0, 0, 30, 30])
+# n = jnp.array([30, 30, 30, 30])
+# # # fi.jax_inference(y, n)
+# j = -2
+# jax_opt(
+#     y,
+#     n,
+#     fi.sigma2_pts_jax[j],
+#     fi.neg_precQ_jax[j],
+#     fi.precQ_eig_vals_jax[j],
+#     fi.precQ_eig_vecs_jax[j],
 #     fi.logit_p1,
 #     fi.mu_0,
 #     fi.tol,
-#     )
-#     if np.isnan(theta_max).any():
-#         assert False, (y)
-#     return theta_max
-
-trials = 100_000
-
-acc = 0
-def test(y, j, fn=jax_opt):
-    global acc
-    if not fn(y, fi.neg_precQ[j]):
-        acc +=1 #(i, y, j)
-
-# y = jnp.array([ 7.28087852, 19.92078862])
-# j = 0
-# test(y, j, fn=partial(jax_opt, fast_loop=False))
-
-fn = jax.jit(jax_opt)
-acc = 0
-for i in range(trials):
-    arms = 2
-    y = np.random.uniform(0, 35, size=(arms))
-    if i % (trials // 10) == 0:
-        print(i)
-    for j in range(15):
-        test(y, j, fn=fn)
-# # %timeit run()
-# _, exc, _, _ = fi.jax_inference(Y_I2, N_I2)
-# exc[-1]
-# ret = fi.jax_inference(Y_I2, N_I2)
-# sigma2_post, exceedances, theta_max, theta_sigma=ret
-# for r in ret:
-# print(r.dtype)
-# theta_max = jnp.array([0.1, 0.1, 0.1, 0.1])
-# theta_m0 = theta_max - fi.mu_0
-# theta_adj = theta_max + fi.logit_p1
-# exp_theta_adj = jnp.exp(theta_adj)
-# y = Y_I2
-# n = N_I2
-
-# jax_opt()
-acc
+#     fast_loop=False,
+# )
 
 ```
 
@@ -187,6 +94,7 @@ with open("/home/const/imprint/out.txt") as f:
     arr = np.array(eval(f.read()))
 arr.shape
 np.linalg.slogdet(arr)
+
 ```
 
 ```python
