@@ -42,7 +42,7 @@ def logdet(m):
 class FastINLA:
     def __init__(
         self,
-        model=None,
+        model: FastINLAModel = None,
         n_arms=4,
         mu_0=-1.34,
         mu_sig2=100.0,
@@ -94,7 +94,7 @@ class FastINLA:
             )
         )
 
-        self.model = model
+        self.model: FastINLAModel = model
         if model is None:
 
             def log_joint(self, data, theta):
@@ -282,8 +282,8 @@ class FastINLA:
         See the numpy implementation for comments explaining the steps. The
         series of operations is almost identical in the JAX implementation.
         """
-        y = jnp.asarray(data[..., 0], dtype=np.float64)
-        n = jnp.asarray(data[..., 1], dtype=np.float64)
+        y = jnp.asarray(data[..., 0])
+        n = jnp.asarray(data[..., 1])
         theta_max, hess_inv = self.jax_opt_vec(
             y,
             n,
