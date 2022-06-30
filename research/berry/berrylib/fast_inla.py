@@ -4,6 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 import scipy.linalg
 import scipy.stats
+from berrylib.fast_math import jax_fast_invert
 from jax.config import config
 from scipy.special import logit
 
@@ -334,23 +335,6 @@ def jax_opt(y, n, cov, neg_precQ, sigma2, logit_p1, mu_0, tol):
     )
     theta_max, hess_inv, stop = out
     return theta_max, hess_inv
-
-
-def jax_fast_invert(S, d):
-    """
-    Invert a matrix plus a diagonal by iteratively applying the Sherman-Morrison
-    formula. If we are computing Binv = (A + d)^-1,
-    then the arguments are:
-    - S: A^-1
-    - d: d
-    """
-    # NOTE: It's possible to improve performance by about 10% by doing an
-    # incomplete inversion here. In the last iteration through the loop, return
-    # both S and offset. Then, perform .dot(grad) with those components directly.
-    for k in range(d.shape[0]):
-        offset = d[k] / (1 + d[k] * S[k, k])
-        S = S - (offset * (S[k, None, :] * S[:, None, k]))
-    return S
 
 
 @jax.jit
