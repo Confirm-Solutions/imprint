@@ -20,7 +20,7 @@ class SimState(SimStateBase):
         )
         y = np.sum(self.uniform_samples[None] < self.p_tiles[:, None, :], axis=1)
         n = np.full_like(y, self.n_arm_samples)
-        did_reject = self.fast_inla_obj.rejection_inference(y, n)
+        did_reject = self.fast_inla_obj.rejection_inference(np.stack((y, n), axis=-1))
 
         rej_len[...] = np.any(self.outer.nulls & did_reject, axis=-1)
 

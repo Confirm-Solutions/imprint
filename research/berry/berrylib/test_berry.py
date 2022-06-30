@@ -158,9 +158,10 @@ def test_quadrature():
 def test_inla_properties(method):
     n_i = np.array([[35, 35], [35, 35]])
     y_i = np.array([[4, 7], [7, 4]])
+    data = np.stack((y_i, n_i), axis=-1)
     inla_model = fast_inla.FastINLA(n_arms=2)
     sigma2_post, exceedances, theta_max, theta_sigma, _ = inla_model.numpy_inference(
-        y_i, n_i
+        data
     )
 
     # INLA inference should be perfectly symmetric in the arm ordering.
@@ -180,12 +181,13 @@ def test_inla_properties(method):
 def test_fast_inla(method, N=10, iterations=1):
     n_i = np.tile(np.array([20, 20, 35, 35]), (N, 1))
     y_i = np.tile(np.array([0, 1, 9, 10], dtype=np.float64), (N, 1))
+    data = np.stack((y_i, n_i), axis=-1)
     inla_model = fast_inla.FastINLA()
 
     runtimes = []
     for i in range(iterations):
         start = time.time()
-        out = inla_model.inference(y_i, n_i, method=method)
+        out = inla_model.inference(data, method=method)
         end = time.time()
         # Prevent optimizations by asserting against the output.
         assert out[0].sum() > 0
@@ -198,10 +200,9 @@ def test_fast_inla(method, N=10, iterations=1):
 
     sigma2_post, exceedances, theta_max, theta_sigma = out
 
-    # Do our comparisons in probability space.
     np.testing.assert_allclose(
-        logistic(theta_max[0, 12]),
-        logistic(np.array([-6.04682818, -2.09586893, -0.21474981, -0.07019088])),
+        theta_max[0, 12],
+        np.array([-6.04682818, -2.09586893, -0.21474981, -0.07019088]),
         atol=1e-3,
     )
     correct = np.array(
@@ -240,7 +241,9 @@ def test_fast_inla_same_results(N=1, iterations=1_000):
         # print(y_i)
         outs = {}
         for method in methods:
-            outs[method] = inla_model.inference(y_i, n_i, method=method)
+            outs[method] = inla_model.inference(
+                np.stack((y_i, n_i), axis=-1), method=method
+            )
         for method1, method2 in itertools.combinations(methods, 2):
             # sigma2_post, exceedances, theta_max, theta_sigma
             outs1 = outs[method1]
@@ -280,7 +283,7 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
     gr.prune()
     n_tiles = gr.n_tiles()
 
-    fi = fast_inla.FastINLA(n_arms)
+    fi = fast_inla.FastINLA(n_arms=n_arms)
     b = BerryImprintModel(fi, n_arm_samples, [0.85])
     acc_o = accumulate_process(b, gr, sim_size, seed, n_threads)
 
@@ -328,14 +331,15 @@ def test_py_binomial(n_arms=2, n_theta_1d=16, sim_size=100):
 
 
 def test_rejection_table():
-    fi = fast_inla.FastINLA(2)
+    fi = fast_inla.FastINLA(n_arms=2)
     n = 10
     table = binomial.build_rejection_table(2, n, fi.rejection_inference)
 
     np.random.seed(11)
     for p in np.linspace(0, 1, 11):
         y = scipy.stats.binom.rvs(n, p, size=(1, fi.n_arms))
-        correct_rej = fi.rejection_inference(y, np.full_like(y, n))
+        data = np.stack((y, np.full_like(y, n)), axis=-1)
+        correct_rej = fi.rejection_inference(data)
         lookup_rej = binomial.lookup_rejection(table, y, n)
         np.testing.assert_allclose(correct_rej, lookup_rej)
 

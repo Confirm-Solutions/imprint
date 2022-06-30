@@ -109,7 +109,7 @@ for k in scenarios:
         cur_data = data[:,:N_look,:]
 
         if look < 5:
-            _, exceedance, _, _, _ = fi.numpy_inference(cur_data[...,0], cur_data[...,1], thresh_theta=pmid_theta)
+            _, exceedance, _, _, _ = fi.numpy_inference(cur_data, thresh_theta=pmid_theta)
             stop_success = 0 * (
                 exceedance > pmid_accept
             )  # no early stopping for success

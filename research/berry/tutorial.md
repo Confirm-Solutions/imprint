@@ -179,7 +179,7 @@ import berrylib.fast_inla as fast_inla
 y = [[4,5,9]]
 n = [[35,35,35]]
 fi = fast_inla.FastINLA(n_arms, critical_value=0.95)
-fi.rejection_inference(y, n)
+fi.rejection_inference(np.stack((y, n), axis=-1))
 ```
 
 Next, we're going to simulate a lot of datasets! Specifically, we will construct `sim_size` datasets, each consisting of `(n_arm_samples, n_arms)` uniform draws. We construct the datasets this way so that we can threshold the same data many times for each potential set of true parameter values. 

@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Callable
+
 import berrylib.util as util
 import jax
 import jax.numpy as jnp
@@ -21,32 +24,54 @@ def fast_invert(S_in, d):
     return S
 
 
+@dataclass
+class FastINLAModel:
+    log_joint: Callable
+    grad_hess: Callable
+
+
+def logdet(m):
+    """Compute the log of the determinant in a numerically stable way."""
+    if isinstance(m, np.ndarray):
+        numpy = np
+    else:
+        numpy = jnp
+    sign, logdet = numpy.linalg.slogdet(m)
+    return sign * logdet
+
+
 class FastINLA:
     def __init__(
         self,
+        model: FastINLAModel = None,
         n_arms=4,
+        mu_0=-1.34,
+        mu_sig2=100.0,
         sigma2_n=15,
         sigma2_bounds=(1e-6, 1e3),
+        sigma2_alpha=0.0005,
+        sigma2_beta=0.000005,
         p1=0.3,
         critical_value=0.85,
+        opt_tol=1e-3,
     ):
         self.n_arms = n_arms
-        self.mu_0 = -1.34
-        self.mu_sig_sq = 100.0
+        self.mu_0 = mu_0
+        self.mu_sig2 = mu_sig2
         self.logit_p1 = logit(p1)
 
         # For numpy impl:
         self.sigma2_n = sigma2_n
         self.sigma2_rule = util.log_gauss_rule(self.sigma2_n, *sigma2_bounds)
         self.arms = np.arange(self.n_arms)
-        self.cov = np.full((self.sigma2_n, self.n_arms, self.n_arms), self.mu_sig_sq)
+        self.cov = np.full((self.sigma2_n, self.n_arms, self.n_arms), self.mu_sig2)
         self.cov[:, self.arms, self.arms] += self.sigma2_rule.pts[:, None]
         self.neg_precQ = -np.linalg.inv(self.cov)
         self.logprecQdet = 0.5 * np.log(np.linalg.det(-self.neg_precQ))
         self.log_prior = scipy.stats.invgamma.logpdf(
-            self.sigma2_rule.pts, 0.0005, scale=0.000005
+            self.sigma2_rule.pts, sigma2_alpha, scale=sigma2_beta
         )
-        self.tol = 1e-3
+        self.opt_tol = opt_tol
         self.thresh_theta = np.full(self.n_arms, logit(0.1) - self.logit_p1)
         self.critical_value = critical_value
 
@@ -70,19 +95,70 @@ class FastINLA:
             )
         )
 
-    def rejection_inference(self, y, n, method="jax"):
-        _, exceedance, _, _ = self.inference(y, n, method)
+        self.model: FastINLAModel = model
+        if model is None:
+
+            def log_joint(self, data, theta):
+                """
+                theta is expected to have shape (N, n_sigma2, n_arms)
+                """
+                y = data[..., 0]
+                n = data[..., 1]
+                theta_m0 = theta - self.mu_0
+                theta_adj = theta + self.logit_p1
+                exp_theta_adj = np.exp(theta_adj)
+                return (
+                    # NB: this has fairly low accuracy in float32
+                    0.5
+                    * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
+                    + self.logprecQdet
+                    + np.sum(
+                        theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
+                        axis=-1,
+                    )
+                    + self.log_prior
+                )
+
+            def grad_hess(self, data, theta, arms_opt):
+                # These formulas are
+                # straightforward derivatives from the Berry log joint density
+                # see the log_joint method below
+                y = data[..., 0]
+                n = data[..., 1]
+                na = np.arange(len(arms_opt))
+                theta_m0 = theta - self.mu_0
+                exp_theta_adj = np.exp(theta + self.logit_p1)
+                C = 1.0 / (exp_theta_adj + 1)
+                grad = (
+                    np.matmul(self.neg_precQ[None], theta_m0[:, :, :, None])[..., 0]
+                    + y[:, None]
+                    - (n[:, None] * exp_theta_adj) * C
+                )[..., arms_opt]
+
+                hess = np.tile(
+                    self.neg_precQ[None, ..., arms_opt, :][..., :, arms_opt],
+                    (y.shape[0], 1, 1, 1),
+                )
+                hess[..., na, na] -= (n[:, None] * exp_theta_adj * (C**2))[
+                    ..., arms_opt
+                ]
+                return grad, hess
+
+            self.model = FastINLAModel(log_joint, grad_hess)
+
+    def rejection_inference(self, data, method="jax"):
+        _, exceedance, _, _ = self.inference(data, method)
         return exceedance > self.critical_value
 
-    def inference(self, y, n, method="jax"):
+    def inference(self, data, method="jax"):
         fncs = dict(
             numpy=self.numpy_inference, jax=self.jax_inference, cpp=self.cpp_inference
         )
-        return fncs[method](y, n)[:4]
+        return fncs[method](data)[:4]
 
-    def numpy_inference(self, y, n, thresh_theta=None):
+    def numpy_inference(self, data, thresh_theta=None):
         """
-        Bayesian inference of the Berry model given data (y, n) with n_arms.
+        Bayesian inference of a basket trial given data with n_arms.
 
         Returns:
             sigma2_post: The posterior density for each value of the sigma2
@@ -99,10 +175,10 @@ class FastINLA:
         # TODO: warm start with DB theta ?
         # Step 1) Compute the mode of p(theta, y, sigma^2) holding y and sigma^2 fixed.
         # This is a simple Newton's method implementation.
-        theta_max, hess_inv = self.optimize_mode(y, n)
+        theta_max, hess_inv = self.optimize_mode(data)
 
         # Step 2) Calculate the joint distribution p(theta, y, sigma^2)
-        logjoint = self.log_joint(y, n, theta_max)
+        logjoint = self.model.log_joint(self, data, theta_max)
 
         # Step 3) Calculate p(sigma^2 | y) = (
         #   p(theta_max, y, sigma^2)
@@ -146,7 +222,7 @@ class FastINLA:
             hess_inv,
         )
 
-    def optimize_mode(self, y, n, fixed_arm_dim=None, fixed_arm_values=None):
+    def optimize_mode(self, data, fixed_arm_dim=None, fixed_arm_values=None):
         """
         Find the mode with respect to theta of the model log joint density.
 
@@ -165,13 +241,11 @@ class FastINLA:
         # have caused problems, but I left this comment here as a guide in case
         # the problem arises in the future.
 
-        N = y.shape[0]
+        N = data.shape[0]
         arms_opt = list(range(self.n_arms))
         theta_max = np.zeros((N, self.sigma2_n, self.n_arms))
-        na = np.arange(self.n_arms)
 
         if fixed_arm_dim is not None:
-            na = np.arange(self.n_arms - 1)
             arms_opt.remove(fixed_arm_dim)
             theta_max[..., fixed_arm_dim] = fixed_arm_values
 
@@ -183,22 +257,8 @@ class FastINLA:
         # optimizing here and constant offsets are irrelevant.
         for i in range(100):
 
-            # Calculate the gradient and hessian. These formulas are
-            # straightforward derivatives from the Berry log joint density
-            # see the log_joint method below
-            theta_m0 = theta_max - self.mu_0
-            exp_theta_adj = np.exp(theta_max + self.logit_p1)
-            C = 1.0 / (exp_theta_adj + 1)
-            grad = (
-                np.matmul(self.neg_precQ[None], theta_m0[:, :, :, None])[..., 0]
-                + y[:, None]
-                - (n[:, None] * exp_theta_adj) * C
-            )[..., arms_opt]
-
-            hess = np.tile(
-                self.neg_precQ[None, ..., arms_opt, :][..., :, arms_opt], (N, 1, 1, 1)
-            )
-            hess[..., na, na] -= (n[:, None] * exp_theta_adj * (C**2))[..., arms_opt]
+            # Calculate the gradient and hessian.
+            grad, hess = self.model.grad_hess(self, data, theta_max, arms_opt)
             hess_inv = np.linalg.inv(hess)
 
             # Take the full Newton step. The negative sign comes here because we
@@ -209,7 +269,7 @@ class FastINLA:
             # We use a step size convergence criterion. This seems empirically
             # sufficient. But, it would be possible to also check gradient norms
             # or other common convergence criteria.
-            if np.max(np.linalg.norm(step, axis=-1)) < self.tol:
+            if np.max(np.linalg.norm(step, axis=-1)) < self.opt_tol:
                 converged = True
                 break
 
@@ -218,30 +278,13 @@ class FastINLA:
 
         return theta_max, hess_inv
 
-    def log_joint(self, y, n, theta):
-        """
-        theta is expected to have shape (N, n_sigma2, n_arms)
-        """
-        theta_m0 = theta - self.mu_0
-        theta_adj = theta + self.logit_p1
-        exp_theta_adj = np.exp(theta_adj)
-        return (
-            0.5 * np.einsum("...i,...ij,...j", theta_m0, self.neg_precQ, theta_m0)
-            + self.logprecQdet
-            + np.sum(
-                theta_adj * y[:, None] - n[:, None] * np.log(exp_theta_adj + 1),
-                axis=-1,
-            )
-            + self.log_prior
-        )
-
-    def jax_inference(self, y, n):
+    def jax_inference(self, data):
         """
         See the numpy implementation for comments explaining the steps. The
         series of operations is almost identical in the JAX implementation.
         """
-        y = jnp.asarray(y)
-        n = jnp.asarray(n)
+        y = jnp.asarray(data[..., 0])
+        n = jnp.asarray(data[..., 1])
         theta_max, hess_inv = self.jax_opt_vec(
             y,
             n,
@@ -250,7 +293,7 @@ class FastINLA:
             self.sigma2_pts_jax,
             self.logit_p1,
             self.mu_0,
-            self.tol,
+            self.opt_tol,
         )
 
         sigma2_post, exceedances, theta_sigma = jax_calc_posterior_and_exceedances(
@@ -269,7 +312,7 @@ class FastINLA:
 
         return sigma2_post, exceedances, theta_max, theta_sigma
 
-    def cpp_inference(self, y, n):
+    def cpp_inference(self, data):
         """
         See the numpy implementation for comments explaining the steps. The
         series of operations is almost identical in the C++ implementation.
@@ -277,17 +320,17 @@ class FastINLA:
         import cppimport
 
         ext = cppimport.imp("berrylib.fast_inla_ext")
-        sigma2_post = np.empty((y.shape[0], self.sigma2_n))
-        exceedances = np.empty((y.shape[0], self.n_arms))
-        theta_max = np.empty((y.shape[0], self.sigma2_n, self.n_arms))
-        theta_sigma = np.empty((y.shape[0], self.sigma2_n, self.n_arms))
+        sigma2_post = np.empty((data.shape[0], self.sigma2_n))
+        exceedances = np.empty((data.shape[0], self.n_arms))
+        theta_max = np.empty((data.shape[0], self.sigma2_n, self.n_arms))
+        theta_sigma = np.empty((data.shape[0], self.sigma2_n, self.n_arms))
         ext.inla_inference(
             sigma2_post,
             exceedances,
             theta_max,
             theta_sigma,
-            y,
-            n,
+            data[..., 0],
+            data[..., 1],
             self.sigma2_rule.pts,
             self.sigma2_rule.wts,
             self.log_prior,
@@ -296,7 +339,7 @@ class FastINLA:
             self.logprecQdet,
             self.mu_0,
             self.logit_p1,
-            self.tol,
+            self.opt_tol,
             self.thresh_theta,
         )
         return sigma2_post, exceedances, theta_max, theta_sigma
@@ -378,3 +421,71 @@ def jax_calc_posterior_and_exceedances(
         exc_sigma2 * sigma2_post[:, :, None] * sigma2_wts[None, :, None], axis=1
     )
     return sigma2_post, exceedances, theta_sigma
+
+
+def FastINLASurvival(*, lambdaj, **kwargs):
+    """Rough draft of a builder for running INLA on survival data.
+
+    Parameters
+    ----------
+    lambdaj, optional
+
+
+    Returns
+    -------
+        a FastINLA object tailored to survival analysis.
+    """
+    mu_0 = kwargs["mu_0"]
+
+    @jax.jit
+    def log_joint(data, rho, neg_precQ, logprecQdet, log_prior):
+        """
+        theta is expected to have shape (N, n_sigma2, n_arms)
+        """
+        n_events = data[..., 0]
+        total_obs_time = data[..., 1]
+        rho_m0 = rho - mu_0
+        hazard = 1.0 / (jnp.exp(rho) * lambdaj[None])
+        return (
+            0.5 * jnp.einsum("...i,...ij,...j", rho_m0, neg_precQ, rho_m0)
+            + logprecQdet
+            + jnp.sum(
+                jnp.log(hazard) * n_events[:, None] - hazard * total_obs_time[:, None],
+                axis=-1,
+            )
+            + log_prior
+        )
+
+    def scalar_log_joint_opt(rho, neg_precQ, n_events, total_obs_time):
+        """
+        theta is expected to have shape (N, n_sigma2, n_arms)
+        """
+        rho_m0 = rho - mu_0
+        hazard = 1.0 / (jnp.exp(rho) * lambdaj)
+        return 0.5 * neg_precQ.dot(rho_m0).T.dot(rho_m0) + jnp.sum(
+            jnp.log(hazard) * n_events - hazard * total_obs_time
+        )
+
+    grad_opt = jax.jit(
+        jax.vmap(
+            jax.vmap(jax.grad(scalar_log_joint_opt), in_axes=(0, 0, None, None)),
+            in_axes=(0, None, 0, 0),
+        )
+    )
+    hessian_opt = jax.jit(
+        jax.vmap(
+            jax.vmap(jax.hessian(scalar_log_joint_opt), in_axes=(0, 0, None, None)),
+            in_axes=(0, None, 0, 0),
+        )
+    )
+
+    def grad_hess(fi, data, rho, arms_opt):
+        grad = grad_opt(rho, fi.neg_precQ, data[..., 0], data[..., 1])
+        hess = hessian_opt(rho, fi.neg_precQ, data[..., 0], data[..., 1])
+        return grad, hess
+
+    def log_joint_wrapper(fi, data, rho):
+        return log_joint(data, rho, fi.neg_precQ, fi.logprecQdet, fi.log_prior)
+
+    model = FastINLAModel(log_joint_wrapper, grad_hess)
+    return FastINLA(model=model, **kwargs)

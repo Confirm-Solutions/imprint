@@ -50,6 +50,7 @@ def run_mcmc(fi, y, n, n_samples=20000):
 
 ```python
 def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=None, n_theta=15, n_samples=20000, include_laplace=False, show=True):
+    data = np.stack((y, n), axis=-1)
     if results_mcmc is None:
         results_mcmc = run_mcmc(
             fi, y[plot_idx : (plot_idx + 1)], n[plot_idx : (plot_idx + 1)],
@@ -64,7 +65,7 @@ def compare_arm_marginals(fi, y, n, arm_idx, plot_idx, ti_N=51, results_mcmc=Non
     # print('arm_idx=', arm_idx, ' y=', y[plot_idx])
     ti_rule = util.simpson_rule(ti_N, -6.0, 2.0)
 
-    sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(y, n)
+    sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(data)
 
     integrate_dims = list(range(fi.n_arms))
     integrate_dims.remove(arm_idx)
@@ -133,7 +134,7 @@ def compare_hyperparam_posterior(fi, y, n, plot_idx, results_mcmc=None, n_theta=
     if not isinstance(mcmc_sigma2, np.ndarray):
         mcmc_sigma2 = mcmc_sigma2.to_py()
 
-    sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(y, n)
+    sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(np.stack((y, n), axis=-1))
 
     quad_p_s2_g_y = quadrature.integrate(
         fi,
@@ -200,7 +201,7 @@ plot_idx = 84
 arm_idx = 0
 y = ygrid[plot_idx:(plot_idx + 1)]
 n = ngrid[plot_idx:(plot_idx + 1)]
-sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(y, n)
+sigma2_post, _, theta_mu, theta_sigma, _ = fi.numpy_inference(np.stack((y, n), axis=-1))
 ```
 
 ```python
