@@ -21,8 +21,6 @@ async function plot(context: HTMLDivElement, height: number, width: number, stat
     var data = getPlotlyData(state.data, state.plotType, state.checkboxStates, state.layerNames)
     const layout: any = {
         height: height,
-        width: width,
-        autosize: false,
         coloraxis: { colorscale: state.colorscale },
         legend: {
             font: {
@@ -32,40 +30,28 @@ async function plot(context: HTMLDivElement, height: number, width: number, stat
         }
 
     }
-    await method(context, data, layout);
+    await method(context, data, layout, { responsive: true });
 }
 
 
-class Canvas extends React.Component<CanvasState> {
-    canvas: React.RefObject<HTMLDivElement>
-
-    constructor(props: CanvasState) {
-        super(props);
-        this.canvas = React.createRef();
-    }
-
-    componentDidMount() {
-        this.componentDidUpdate()
-    }
-
-    componentDidUpdate() {
-        if (this.canvas.current) {
+function Canvas(props: CanvasState) {
+    // https://stackoverflow.com/a/67906087
+    const canvas = React.useCallback((node: HTMLDivElement) => {
+        if (node !== null) {
             const main = document.getElementsByTagName("main")[0]
-            // Using JS for layout is necessary because canvas is not
+            // Using JS for layout is necessary because cannot be
             // laid out via CSS.
             let height = main.clientHeight - 20
             let width = main.clientWidth - 5
-            console.log('plot dims', height, width)
-            plot(this.canvas.current, height, width, this.props)
+            plot(node, height, width, props)
         }
-    }
+    }, [props]);
 
-    render() {
-        return (
-            <div
-                ref={this.canvas}
-            />
-        )
-    }
+
+    return (
+        <div
+            ref={canvas}
+        />
+    )
 }
 export default Canvas
