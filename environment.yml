@@ -15,10 +15,7 @@ dependencies:
 # C++ toolchain
   - cxx-compiler 
   - clang-tools
-  # bazel is not currently working for installing the zip package when installed
-  # on mac through conda-forge. see:
-  # https://github.com/Confirm-Solutions/imprint/issues/82
-  # - bazel 
+  - bazel 
 
 # some more nice stuff for easy dev.
   - pytest
