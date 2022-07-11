@@ -1,6 +1,7 @@
 import unittest
 
-from core_test.model import test_py_ss_score, test_py_ss_simulate
+from core_test.model import test_py_ss_score
+from core_test.model import test_py_ss_simulate
 from pyimprint.core.model import SimStateBase
 
 

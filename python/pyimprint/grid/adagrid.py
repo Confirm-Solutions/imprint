@@ -3,7 +3,8 @@ import os
 
 import numpy as np
 from pyimprint.bound import TypeIErrorBound
-from pyimprint.core.grid import AdaGridInternal, GridRange
+from pyimprint.core.grid import AdaGridInternal
+from pyimprint.core.grid import GridRange
 from pyimprint.driver import accumulate_process
 
 

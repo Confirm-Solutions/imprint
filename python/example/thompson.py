@@ -1,13 +1,16 @@
 import argparse
 import os
 from datetime import timedelta
+from logging import basicConfig
 from logging import DEBUG as log_level
-from logging import WARNING, basicConfig, getLogger
+from logging import getLogger
+from logging import WARNING
 from timeit import default_timer as timer
 
 import numpy as np
 from pyimprint.driver import accumulate_process
-from pyimprint.grid import HyperPlane, make_cartesian_grid_range
+from pyimprint.grid import HyperPlane
+from pyimprint.grid import make_cartesian_grid_range
 from pyimprint.model.binomial import Thompson
 from utils import to_array
 
