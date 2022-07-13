@@ -1,5 +1,6 @@
 import numpy as np
-from pyimprint.core.model import ModelBase, SimStateBase
+from pyimprint.core.model import ModelBase
+from pyimprint.core.model import SimStateBase
 
 
 class SimState(SimStateBase):

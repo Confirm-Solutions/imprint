@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 from pyimprint.driver import accumulate_process
-from pyimprint.grid import Gridder, GridRange
+from pyimprint.grid import Gridder
+from pyimprint.grid import GridRange
 from pyimprint.model.normal import Simple
 
 

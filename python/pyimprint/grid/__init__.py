@@ -1,11 +1,12 @@
 from types import MethodType
 
 import numpy as np
+from pyimprint.core.grid import *
+from pyimprint.core.grid import Gridder
+from pyimprint.core.grid import GridRange
+from pyimprint.grid.adagrid import AdaGrid
 
 # TODO: note that AdaGridInternal really should not be exposed.
-from pyimprint.core.grid import *
-from pyimprint.core.grid import Gridder, GridRange
-from pyimprint.grid.adagrid import AdaGrid
 
 
 def n_tiles_per_pt(gr):
