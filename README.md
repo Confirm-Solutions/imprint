@@ -87,3 +87,7 @@ Please run all the steps here to get a fully functional development environment.
 Most users will not need to work directly with the core C++, instead working entirely through the Python interface.
 
 [Instructions for developing the C++ core engine are available in the subfolder](./imprint/README.md)
+
+## References
+
+- [Adaptive Experiments and a Rigorous Framework for Type I Error Verification and Computational Experiment Design](https://arxiv.org/abs/2205.09369)
