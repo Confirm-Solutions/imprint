@@ -80,7 +80,7 @@ Please run all the steps here to get a fully functional development environment.
 
 ## Getting started understanding imprint
 
-[Please check out the tutorial where we analyze a three arm basket trial here.](https://github.com/Confirm-Solutions/imprint/blob/7014de8930fcfe4d17fc035d24007a3634b0ce94/research/berry/tutorial.ipynb)
+[Please check out the tutorial where we analyze a three arm basket trial here.](./research/berry/tutorial.ipynb)
 
 ## Developing the Imprint C++ core engine
 
