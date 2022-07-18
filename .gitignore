@@ -1,7 +1,6 @@
 *.DS_Store
 build/
 /.vs
-.vscode/
 .history/
 /imprint/CMakeSettings.json
 CMakeCache.txt
