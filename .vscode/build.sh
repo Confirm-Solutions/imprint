@@ -1,6 +1,5 @@
 #!/bin/zsh
 eval "$(conda shell.zsh hook)"
-conda activate kevlar
-rm -f bazel-bin/python/dist/*.whl
-bazel build -c dbg //python:pykevlar_wheel
-pip install --force-reinstall bazel-bin/python/dist/*.whl
+conda activate imprint
+bazel build //python:pyimprint/core.so
+ln -sf ./bazel-bin/python/pyimprint/core.so python/pyimprint/core.so

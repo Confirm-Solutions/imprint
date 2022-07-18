@@ -27,7 +27,8 @@ setup(
     ],
     packages=find_packages(),
     install_requires=["numpy", "pybind11"],
-    data_files=[("../../pyimprint", ["core.so"])],
+    # TODO: Alex put it here for a reason, but seems unnecessary?
+    # data_files=[("../../pyimprint", ["core.so"])],
     zip_safe=False,
-    version=os.environ["VERSION"],
+    # version=os.environ["VERSION"],
 )
