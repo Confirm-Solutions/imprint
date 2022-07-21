@@ -9,6 +9,11 @@ CWD = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(CWD, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
+if "VERSION" in os.environ:
+    version = os.environ["VERSION"]
+else:
+    version = "0.1"
+
 setup(
     name="pyimprint",
     description="Imprint exports to Python.",
@@ -29,5 +34,5 @@ setup(
     install_requires=["numpy", "pybind11"],
     data_files=[("../../pyimprint", ["core.so"])],
     zip_safe=False,
-    version=os.environ["VERSION"],
+    version=version,
 )
