@@ -18,6 +18,8 @@ Critically, the log-odds for each arm of the trial are assumed to be drawn from 
 
 ## Part 0: Type I Error
 
+First, we'll show off how easy it is to use `imprint`:
+
 ```python
 from scipy.special import logit
 import matplotlib.pyplot as plt
