@@ -107,7 +107,9 @@ plt.show()
 
 ## Part 1: Constructing a parameter grid
 
-We're going to use the `grid.make_cartesian_gridpts` function to produce a 3 dimensional set of points covering $\theta_i \in [-3.5, 1.0]$. The points lie at the center of (hyper)rectangular cells. The cells cover the whole box.
+The first step to constructing an upper bound on Type I Error is to chop up the domain into "tiles". Each of these tiles will be a hyperrectangle with a simulation point at the center.
+
+We're going to use the `ip.cartesian_grid` function to produce a 3 dimensional set of points covering $\theta_i \in [-3.5, 1.0]$. The points lie at the center of (hyper)rectangular cells. The cells cover the whole box.
 
 
 ```python
