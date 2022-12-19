@@ -1,0 +1,73 @@
+name: Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "research/**"
+      - "**.ipynb"
+      - "**.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "research/**"
+      - "**.ipynb"
+      - "**.md"
+jobs:
+  test:
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.10"]
+    name: Test (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    steps:
+
+      - uses: actions/checkout@v3
+      
+      - name: Install poetry
+        run: pipx install poetry
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'poetry'
+
+      # Cache pre-commit files so it's fast!
+      # based on https://pre-commit.com/#github-actions-example 
+      - name: set PY
+        run: echo "PY=$(python -VV | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
+      - name: Cache pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
+        id: precommitcache
+
+      - name: Update environment
+        run: |
+          poetry env use ${{ matrix.python-version }} && poetry install --with=test,cloud
+
+      - name: Run all pre-commit checks on all files
+        run: poetry run pre-commit run --color=always -a
+
+      - name: Pytest
+        run: poetry run pytest -n auto -s
+
+      - name: Report failures on Slack
+        if: failure() && github.event.repository.default_branch == github.event.workflow_run.head_branch
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          # Slack channel id, channel name, or user id to post message.
+          # See also: https://api.slack.com/methods/chat.postMessage#channels
+          channel-id: C02TC2DAN74
+          # For posting a simple plain text message
+          slack-message: "*Build failure on default branch!* 😱\nhttps://github.com/${{github.repository}}/actions/runs/${{github.run_id}}"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
