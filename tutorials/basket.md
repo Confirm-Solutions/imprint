@@ -18,7 +18,10 @@ Critically, the log-odds for each arm of the trial are assumed to be drawn from 
 
 ## Part 0: Type I Error
 
-First, we'll show off how easy it is to use `imprint`:
+First, we'll show off how easy it is to use `imprint`. If none of this makes sense, jump to the next section where we'll get into details. The next cell:
+1. Constructs a grid of tiles. (inside `ip.cartesian_grid`)
+2. Simulates the Basket trial model (inside `ip.validate`)
+3. Constructs a 99% confidence upper bound on the Type I Error of the Basket trial for each tile. (inside `ip.validate`)
 
 ```python
 from scipy.special import logit
@@ -26,25 +29,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import imprint as ip
-import model
-
-# This is the binomial n parameter, the number of patients recruited to each arm of the trial.
-n_arm_samples = 35
+from imprint.models.basket import BayesianBasket
 ```
 
 ```python
 g = ip.cartesian_grid(
+    # The minimum and maximum values of each parameter.
     theta_min=[-3.5, -3.5, -3.5],
     theta_max=[1.0, 1.0, 1.0],
+    # The number of tiles in each dimension.
     n=[16, 16, 16],
+    # Define the null hypotheses.
     null_hypos=[ip.hypo(f"theta{i} < {logit(0.1)}") for i in range(3)],
 )
 validation_df = ip.validate(
-    model.BayesianBasket,
+    BayesianBasket,
     g,
+    # The threshold for our rejection criterion.
     0.05,
+    # The number of simulations to perform for each tile.
     K=2000,
-    model_kwargs={"n_arm_samples": n_arm_samples},
+    # This is the binomial n parameter, the number of patients recruited to each arm of the trial.
+    model_kwargs={"n_arm_samples": 35},
 )
 ```
 
