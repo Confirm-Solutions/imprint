@@ -1,32 +1,48 @@
-import time
 from pathlib import Path
 
-import IPython
-import matplotlib
 import pandas as pd
+import pytest
+
+from imprint.nb_util import run_notebook
 
 
-def run_tutorial(filename):
-    matplotlib.use("Agg")
-    ipy = IPython.terminal.embed.InteractiveShellEmbed()
-    path = Path(__file__).resolve().parent.parent.joinpath("tutorials", filename)
-    start = time.time()
-    ipy.run_line_magic("run", str(path))
-    end = time.time()
-    return ipy.user_ns, end - start
+def get_tutorial_path(filename):
+    return Path(__file__).resolve().parent.parent.joinpath("tutorials", filename)
 
 
+@pytest.mark.slow
 def test_ztest_tutorial(snapshot):
-    nb_namespace, _ = run_tutorial("ztest.ipynb")
-    rej_df = nb_namespace["rej_df"]
+    ns, _ = run_notebook(get_tutorial_path("ztest.ipynb"))
+    rej_df = ns["rej_df"]
     pd.testing.assert_frame_equal(rej_df, snapshot(rej_df))
 
 
-if __name__ == "__main__":
-    from unittest import mock
-    import matplotlib.pyplot
+@pytest.mark.slow
+def test_fisher_exact_tutorial(snapshot):
+    ns, _ = run_notebook(
+        get_tutorial_path("fisher_exact.ipynb"), cell_indices=[0, 3, 4, 7]
+    )
+    lamss = ns["cal_df"]["lams"].min()
+    assert lamss == snapshot(lamss)
 
-    with mock.patch("matplotlib.pyplot"):
-        for i in range(3):
-            ns, runtime = run_tutorial("ztest.ipynb")
-            print(runtime)
+
+@pytest.mark.slow
+def test_basket_tutorial(snapshot):
+    ns, _ = run_notebook(get_tutorial_path("basket.ipynb"), cell_indices=[0, 1])
+    pd.testing.assert_frame_equal(ns["validation_df"], snapshot(ns["validation_df"]))
+
+
+def main():
+    for i in range(3):
+        # ns, runtime = run_notebook(
+        #   get_tutorial_path("basket.ipynb"), cell_indices=[0,1])
+        ns, runtime = run_notebook(
+            get_tutorial_path("fisher_exact.ipynb"), cell_indices=[0, 3, 4, 7]
+        )
+        # ns, runtime = run_notebook(get_tutorial_path("ztest.ipynb"))
+        print(runtime)
+
+
+if __name__ == "__main__":
+    main()
+    # main2()
