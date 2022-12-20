@@ -1,5 +1,4 @@
 import copy
-import time
 import warnings
 from dataclasses import dataclass
 from dataclasses import field
@@ -9,6 +8,8 @@ from typing import List
 import numpy as np
 import pandas as pd
 import sympy as sp
+
+from .timer import unique_timer
 
 
 @dataclass(eq=False)
@@ -634,10 +635,6 @@ def get_edges(theta, radii):
     return edges
 
 
-def uuid_timer():
-    return time.time()
-
-
 def gen_short_uuids(n, host_id=None, t=None):
     """
     Short UUIDs are a custom identifier created for imprint that should allow
@@ -646,10 +643,11 @@ def gen_short_uuids(n, host_id=None, t=None):
     - The highest 28 bits are the time in seconds of creation. This will not
       loop for 8.5 years. When we start running jobs that take longer than 8.5
       years to complete, please send a message to me in the afterlife.
-        - The creation time is never re-used. If the creation time is going to
-          be reused because less than one second has passed since the previous
-          call to gen_short_uuids, then the creation time is incremented by
-          one.
+        - The unique_timer() function used for the time never returns the same
+          time twice so the creation time is never re-used. If the creation
+          time is going to be reused because less than one second has passed
+          since the previous call to gen_short_uuids, then the timer increments
+          by one.
     - The next 18 bits are the index of the process. This is a pretty generous limit
       on the number of processes. 2^18=262144.
     - The lowest 18 bits are the index of the created tiles within this batch.
@@ -693,10 +691,7 @@ def _gen_short_uuids(n, host_id, t):
     assert host_id < 2**host_bits
 
     if t is None:
-        t = np.uint64(int(uuid_timer()))
-    if _gen_short_uuids.largest_t is not None and t <= _gen_short_uuids.largest_t:
-        t = np.uint64(_gen_short_uuids.largest_t + 1)
-    _gen_short_uuids.largest_t = t
+        t = unique_timer()
 
     return (
         (t << np.uint64(n_bits + host_bits))
@@ -706,4 +701,3 @@ def _gen_short_uuids(n, host_id, t):
 
 
 _gen_short_uuids.config = (18, 18)
-_gen_short_uuids.largest_t = None

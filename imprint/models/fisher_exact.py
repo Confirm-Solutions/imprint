@@ -81,7 +81,6 @@ class FisherExact:
         )
 
     def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
-        print("starting", theta.shape[0], begin_sim, end_sim)
         return _sim_jax(self.samples[begin_sim:end_sim], theta, null_truth)
 
 

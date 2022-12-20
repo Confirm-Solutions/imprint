@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import imprint as ip
-from imprint.models.basket import BayesianBasket
+from imprint.models.basket import BayesianBasket, FastINLA
 ```
 
 ```python
@@ -111,6 +111,7 @@ The first step to constructing an upper bound on Type I Error is to chop up the 
 
 We're going to use the `ip.cartesian_grid` function to produce a 3 dimensional set of points covering $\theta_i \in [-3.5, 1.0]$. The points lie at the center of (hyper)rectangular cells. The cells cover the whole box.
 
+The resulting imprint object is a `Grid`.
 
 ```python
 g_raw = ip.cartesian_grid(
@@ -119,14 +120,31 @@ g_raw = ip.cartesian_grid(
 type(g_raw)
 ```
 
+Most of the information contained in the `Grid` object is contained in a Pandas DataFrame with details on each tile.
+
 ```python
 g_raw.df.head()
 ```
 
-Next, we need to define the null hypothesis space. There are built-in tools in imprint for translating a symbolic statement to a bounding plane for a null hypothesis space.
+We can access some of the important data in this raw "database" data format with convenience functions:
+- `Grid.get_theta()` - return an NxD array containing the centers of each tile.
+- `Grid.get_radii()` - return an NxD array containing the half-width (aka, "radius") of each tile.
 
-Once we have defined these planes, we attach the null hypothesis to the grid created above using `Grid.add_null_hypos`. For each hyperrectangular cell, the method intersects with the null hypothesis boundaries and splits into multiple tiles whenever a cell is intersected by a null hypothesis plane.
+```python
+g_raw.get_theta()[:5]
+```
 
+```python
+g_raw.get_radii()[:5]
+```
+
+Since we want to discuss Type I Error, we need a null hypothesis to discuss! There are handy tools in imprint for defining a null hypothesis. From a computational perspective, most null hypotheses have a bounding hyperplane that defines the sharp null. But, defining a plane by hand is sort of a pain, so we have tools for translating a symbolic statement into such a bounding plane for a null hypothesis space. For example:
+
+```python
+ip.hypo("theta0 > theta1 - 0.1")
+```
+
+Our null hypothesis here will be that $\theta_i < \mathrm{logit}(0.1)$ for $i = 0, 1, 2$.
 
 ```python
 logit(0.1)
@@ -138,15 +156,23 @@ null_hypos = [
     ip.hypo(f"theta1 < -2.1972"),
     ip.hypo(f"theta2 < -2.1972"),
 ]
+```
+
+Once we have defined these planes, we attach the null hypothesis to the grid created above using `Grid.add_null_hypos`. For each hyperrectangular cell, the method intersects with the null hypothesis boundaries and splits into multiple tiles whenever a cell is intersected by a null hypothesis plane.
+
+```python
 g_unpruned = g_raw.add_null_hypos(null_hypos)
 ```
 
+We can see that the tiles now have `null_truth` columns. Each of these columns represents whether that particular null hypothesis is true or false on that tile.
+
 ```python
-g_unpruned.df.head()
+g_unpruned.active().df.head(n=10)
 ```
 
-Next, we can optionally prune our grid by calling `Grid.prune(g)`. Pruning will remove any tiles that are entirely in the alternative hypothesis space for all arms. Since our goal is to calculate type I error, we do not care about the alternative hypothesis space. For a false positive to occur, the truth must be negative!
+Next, for the sake of investigating Type I Error, we only care about regions of space where the null hypothesis is true! 
 
+In order to reduce computational effort, we can "prune" our grid by removing any tiles that are entirely in the alternative hypothesis space for all hypotheses.
 
 ```python
 g = g_unpruned.prune()
@@ -156,12 +182,15 @@ g = g_unpruned.prune()
 g_unpruned.n_tiles, g.n_tiles
 ```
 
+All our previous steps can be condensed into a single call to `cartesian_grid`:
+
 ```python
 g = ip.cartesian_grid(
     theta_min=[-3.5, -3.5, -3.5],
     theta_max=[1.0, 1.0, 1.0],
     n=[16, 16, 16],
     null_hypos=[ip.hypo(f"theta{i} < {logit(0.1)}") for i in range(3)],
+    prune=True,
 )
 ```
 
@@ -207,7 +236,7 @@ plt.ylim(np.min(theta_tiles[:, 1]) - 0.2, np.max(theta_tiles[:, 1]) + 0.2)
 plt.show()
 ```
 
-Let's explore another useful array produced for the grid. The `g.null_truth` array will contain whether the null hypothesis is true for each arm for each tile. Naturally, this has the same shape as `theta_tiles`.
+Let's explore another useful array produced for the grid. `g.get_null_truth()` will contain whether the null hypothesis is true for each arm for each tile. Because we have three arms and three null hypotheses, this array has the same shape as `theta_tiles`. In a different trial where, for example, we are comparing two arms, the number of null hypotheses may be different than the number of parameters.
 
 
 ```python
@@ -227,16 +256,16 @@ np.all(np.any(g.get_null_truth(), axis=1))
 
 Now that we've constructed and examined our computation grid, let's actually compute type I error and its gradient.
 
-First, in order to do this, we need to build an inference algorithm that tells us whether to reject or not given a particular dataset. We're going to use an implementation of INLA applied to the model described above. The `fi.rejection_inference` function below will implement this inference algorithm. The details of this inference are not particularly important to what we're doing here so we'll leave it unexplained. Please check out the [intro_to_inla.ipynb](./intro_to_inla.ipynb) notebook if you're interested in learning more.
+First, in order to do this, we need to build an inference algorithm that tells us whether to reject or not given a particular dataset. We're going to use an implementation of INLA applied to the model described at the beginning of this section. INLA is a method for approximate Bayesian inference. The `fi.test_inference` function below will implement this inference algorithm and and return a test statistic. The details of this inference are not particularly important to what we're doing here so we'll leave it unexplained. 
 
-First, we'll check that the inference does something reasonable. It rejects the null for arms 1 and 2 where the success counts are 5 and 9 but does not reject the null for arm 0 where the success count is 4. This seems reasonable!
+First, we'll check that the inference does something reasonable. Assuming a threshold of 0.05, it rejects the null for arms 1 and 2 where the success counts are 5 and 9 but does not reject the null for arm 0 where the success count is 4. This seems reasonable!
 
 
 ```python
 y = [[4, 5, 9]]
 n = [[35, 35, 35]]
-fi = basket.FastINLA(n_arms=3, critical_value=0.95)
-fi.rejection_inference(np.stack((y, n), axis=-1))
+fi = FastINLA(n_arms=3, critical_value=0.95)
+fi.test_inference(np.stack((y, n), axis=-1))
 ```
 
 ```python
@@ -246,11 +275,19 @@ import jax.numpy as jnp
 
 class BayesianBasket:
     def __init__(self, seed, K):
-        np.random.seed(seed)
-        self.samples = np.random.uniform(size=(K, n_arm_samples, 3))
-        self.fi = basket.FastINLA(n_arms=3)
+        self.n_arm_samples = 35
+
+        # The family field is used by imprint to determine how to compute the Tilt Bound.
         self.family = "binomial"
-        self.family_params = {"n": n_arm_samples}
+
+        # A binomial family needs to know N!
+        self.family_params = {"n": self.n_arm_samples}
+
+        # Everything below here is internal to the model and is not needed by
+        # imprint.
+        np.random.seed(seed)
+        self.samples = np.random.uniform(size=(K, self.n_arm_samples, 3))
+        self.fi = FastINLA(n_arms=3)
 
     def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
         # 1. Calculate the binomial count data.
@@ -259,16 +296,15 @@ class BayesianBasket:
         # n_arms). So, we add empty dimensions to broadcast and then sum across
         # n_arm_samples to produce an output `y` array of shape: (n_tiles,
         # sim_size, n_arms)
-
         p = jax.scipy.special.expit(theta)
         y = jnp.sum(self.samples[None] < p[:, None, None], axis=2)
 
         # 2. Determine if we rejected each simulated sample.
-        # rejection_fnc expects inputs of shape (n, n_arms) so we must flatten
+        # fi.test_inference expects inputs of shape (n, n_arms) so we must flatten
         # our 3D arrays. We reshape exceedance afterwards to bring it back to 3D
         # (n_tiles, sim_size, n_arms)
         y_flat = y.reshape((-1, 3))
-        n_flat = jnp.full_like(y_flat, n_arm_samples)
+        n_flat = jnp.full_like(y_flat, self.n_arm_samples)
         data = jnp.stack((y_flat, n_flat), axis=-1)
         test_stat_per_arm = self.fi.test_inference(data).reshape(y.shape)
 
@@ -279,6 +315,10 @@ class BayesianBasket:
 
 ```python
 sims = BayesianBasket(0, 100).sim_batch(0, 100, theta_tiles, g.get_null_truth())
+```
+
+```python
+sims.shape
 ```
 
 ```python
@@ -301,31 +341,29 @@ plt.axis("square")
 plt.show()
 ```
 
+Next, the bound calculation will be done by `ip.validate`. This function will:
+1. Simulate $K = 2000$ times for every tile.
+2. Decide to reject based on the test statistic: $T < \lambda$ where $\lambda = 0.05$.
+3. Compute a Clopper-Pearson confidence interval on the Type I Error at the simulation points.
+4. Compute a Tilt-Bound-based confidence interval on the Type I Error over each tile.
+
+
 ```python
 %%time
-validation_df = ip.validate(BayesianBasket, g, 0.05, K=2000)
+validation_df = ip.validate(BayesianBasket, g, lam=0.05, K=2000)
 ```
+
+Looking at the results, we see four columns:
+- `tie_sum`: The raw number of rejections for each tile.
+- `tie_est`: The Monte Carlo estimate of Type I Error at the simulation point.
+- `tie_cp_bound`: The Clopper-Pearson upper confidence bound on the Type I Error at the simulation point.
+- `tie_bound`: The Tilt-Bound upper confidence bound on the Type I Error over the whole tile.
 
 ```python
 validation_df.head()
 ```
 
-Next, the meat of the type I error calculation will be done by `binomial_accumulator`. This is a JAX function that will just in time compile into a very fast compiled version when passed a function that implements the rejection inference. Then, we call the JIT function `accumulator` and pass it the necessary information:
-
-- the array of tile centers
-- the truth value of each hypothesis for each tile.
-- the simulated data.
-
-Internally, this function will simulate `sim_size` trials for each tile and return:
-
-- `typeI_sum`: the number of simulations during which any arm had a false rejections (family-wise error).
-- `typeI_score`: the score/gradient of the typeI_sum output with respect to the true parameter values.
-
-Here, we are running 2000 simulations for each of 3185 tiles.
-
-
-
-Before continuing, let's look at a couple slices of this type I error grid:
+Before continuing, let's look at a couple slices of the type I error estimates:
 
 
 ```python
@@ -389,10 +427,6 @@ Finally:
 cd frontend
 npm start
 ```
-
-You should see something that looks like:
-
-<img src="bound_viz_example.png" alt="" width="400"/>
 
 Click on "Upload B matrix" and choose the B matrix we just saved. Do the same for the P matrix. Now you should be able to play around with the 3D visualization! Also, you can select the different layers to see the magnitude of different bound components.
 

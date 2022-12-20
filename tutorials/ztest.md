@@ -1,11 +1,12 @@
+# Exploring a one sample Z-Test
+
+A basic introduction to `imprint`.
+
 ```python
 from imprint.nb_util import setup_nb
 
+# setup_nb is a handy function for setting up some nice plotting defaults.
 setup_nb()
-import jax
-import jax.numpy as jnp
-import numpy as np
-import pandas as pd
 import scipy.stats
 import matplotlib.pyplot as plt
 
@@ -61,8 +62,7 @@ plt.axvline(0, color="k")
 plt.ylim([0, 2.6])
 plt.legend(fontsize=11, bbox_to_anchor=(0.05, 0.94), loc="upper left")
 plt.xlabel("$z$")
-plt.ylabel("Type I Error (\%)")
-plt.show()
+_ = plt.ylabel(r"Type I Error (\%)")
 ```
 
 ```python
