@@ -37,11 +37,28 @@ import pandas as pd
 import pytest
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        # --runslow given in cli: do not skip slow tests
+        return
+    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
+
+
 def pytest_addoption(parser):
     """
     Exposes snapshot plugin configuration to pytest.
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_addoption
     """
+    parser.addoption(
+        "--runslow", action="store_true", default=False, help="run slow tests"
+    )
     parser.addoption(
         "--snapshot-update",
         action="store_true",
@@ -133,7 +150,7 @@ class SnapshotAssertion:
     def __call__(self, obj, serializer=None):
         """
         Return the saved copy of the object. If --snapshot-update is passed,
-        save the object to disk.
+        save the object to disk in the __snapshot__ folder.
 
         Args:
             obj: The object to compare against. This is needed here to

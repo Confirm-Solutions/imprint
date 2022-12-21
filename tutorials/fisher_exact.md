@@ -183,7 +183,3 @@ tuned_fisher = fisher_table(n)
 differences = np.where(((boschloo < lam) != (tuned_fisher < lamss)))[0]
 differences
 ```
-
-```python
-
-```
