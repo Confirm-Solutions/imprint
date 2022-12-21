@@ -94,9 +94,10 @@ jobs:
   push_to_confirm:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # based on https://github.com/orgs/community/discussions/26323
     name: Trigger push to confirm
     steps:
-      - name: Test
+      - name: Trigger push to confirm
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.SUBREPO_BOT_TOKEN }}
