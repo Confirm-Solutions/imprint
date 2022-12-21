@@ -133,7 +133,7 @@ class SnapshotAssertion:
     def __call__(self, obj, serializer=None):
         """
         Return the saved copy of the object. If --snapshot-update is passed,
-        save the object to disk.
+        save the object to disk in the __snapshot__ folder.
 
         Args:
             obj: The object to compare against. This is needed here to

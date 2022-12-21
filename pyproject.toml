@@ -33,6 +33,8 @@ optional = true
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
 pre-commit = "^2.20.0"
+ipython = "^8.7.0"
+nbformat = "^5.7.1"
 
 [tool.poetry.group.test.dependencies.pytest-xdist]
 extras = [
@@ -51,6 +53,7 @@ flake8 = "^5.0.4"
 typer = "^0.6.1"
 jupyter = "^1.0.0"
 rich = "^12.6.0"
+ipdb = "^0.13.11"
 
 [tool.poetry.group.dev.dependencies.black]
 extras = [
