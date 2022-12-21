@@ -145,5 +145,5 @@ inputs:
 - calibration: the goal false positive rate
 
 output:
-- validation: the upper bound on false positive rate
+- validation: the upper bound on false positive rate 
 - calibration: the tuning parameter value which yield guaranteed goal false positive rate
