@@ -57,7 +57,7 @@ jobs:
           slack-message: "*Build failure on default branch!* 😱\nhttps://github.com/${{github.repository}}/actions/runs/${{github.run_id}}"
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-  test:
+  lint:
     if: github.event.pull_request.draft == false
     timeout-minutes: 15
     strategy:
