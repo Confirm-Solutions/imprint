@@ -60,8 +60,6 @@ jobs:
   lint:
     if: github.event.pull_request.draft == false
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -91,21 +89,3 @@ jobs:
         run: pre-commit run --color=always -a
         if: github.ref == 'refs/heads/main'
           
-  push_to_confirm:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    # based on https://github.com/orgs/community/discussions/26323
-    name: Trigger push to confirm
-    steps:
-      - name: Trigger push to confirm
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.SUBREPO_BOT_TOKEN }}
-          script: |
-            const result = await github.rest.actions.createWorkflowDispatch({
-              owner: 'Confirm-Solutions',
-              repo: 'confirmasaurus',
-              workflow_id: 'pull-from-imprint.yml',
-              ref: 'main'
-            })
-            console.log(result)
