@@ -34,6 +34,8 @@ plt.show()
 ```
 
 ```python
+true_drug_effect = 0
+K = 10000
 samples = scipy.stats.norm.rvs(loc=true_drug_effect, size=K)
 ```
 
