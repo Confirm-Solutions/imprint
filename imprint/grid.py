@@ -9,7 +9,10 @@ import numpy as np
 import pandas as pd
 import sympy as sp
 
+import imprint.log
 from .timer import unique_timer
+
+logger = imprint.log.getLogger(__name__)
 
 
 @dataclass(eq=False)
@@ -124,6 +127,7 @@ class Grid:
     """
 
     df: pd.DataFrame
+    worker_id: int
     null_hypos: List[HyperPlane] = field(default_factory=lambda: [])
 
     @property
@@ -194,7 +198,7 @@ class Grid:
         )
 
         parent_id = np.repeat(self.df["id"].values[intersects], 2)
-        new_g = init_grid(new_theta, new_radii, parents=parent_id)
+        new_g = init_grid(new_theta, new_radii, self.worker_id, parents=parent_id)
         _inherit(new_g.df, self.df[intersects], 2, inherit_cols)
         for i in range(hypo_idx):
             new_g.df[f"null_truth{i}"] = np.repeat(
@@ -225,7 +229,7 @@ class Grid:
         Returns:
             The grid with the null hypotheses added.
         """
-        g = Grid(self.df.copy(), copy.deepcopy(self.null_hypos))
+        g = Grid(self.df.copy(), self.worker_id, copy.deepcopy(self.null_hypos))
         for H in null_hypos:
             Hn = np.asarray(H.n)
             Hpad = HyperPlane(np.pad(Hn, (0, g.d - Hn.shape[0])), H.c)
@@ -249,7 +253,7 @@ class Grid:
         return self.subset(which)
 
     def add_cols(self, df):
-        return Grid(pd.concat((self.df, df), axis=1), self.null_hypos)
+        return Grid(pd.concat((self.df, df), axis=1), self.worker_id, self.null_hypos)
 
     def subset(self, which):
         """
@@ -262,7 +266,7 @@ class Grid:
             The grid subset.
         """
         df = self.df.loc[which].reset_index(drop=True)
-        return Grid(df, self.null_hypos)
+        return Grid(df, self.worker_id, self.null_hypos)
 
     def active(self):
         """
@@ -306,6 +310,7 @@ class Grid:
         out = init_grid(
             new_thetas,
             new_radii,
+            self.worker_id,
             parents=parent_id,
         )
         _inherit(out.df, self.df, 2**self.d, inherit_cols)
@@ -314,6 +319,7 @@ class Grid:
     def concat(self, *others):
         return Grid(
             pd.concat((self.df, *[o.df for o in others]), axis=0, ignore_index=True),
+            self.worker_id,
             self.null_hypos,
         )
 
@@ -336,10 +342,10 @@ def _inherit(child_df, parent_df, repeat, inherit_cols):
     # )
 
 
-def init_grid(theta, radii, parents=None):
+def init_grid(theta, radii, worker_id, parents=None):
     d = theta.shape[1]
     indict = dict()
-    indict["id"] = gen_short_uuids(len(theta))
+    indict["id"] = gen_short_uuids(theta.shape[0], worker_id=worker_id)
 
     # Is this a terminal tile in the tree?
     indict["active"] = True
@@ -353,7 +359,7 @@ def init_grid(theta, radii, parents=None):
     for i in range(d):
         indict[f"radii{i}"] = radii[:, i]
 
-    return Grid(pd.DataFrame(indict), [])
+    return Grid(pd.DataFrame(indict), worker_id, [])
 
 
 def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True):
@@ -377,7 +383,7 @@ def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True)
 
     if n is None:
         n = np.full(theta_min.shape[0], 2)
-    g = init_grid(*_cartesian_gridpts(theta_min, theta_max, n))
+    g = init_grid(*_cartesian_gridpts(theta_min, theta_max, n), 1)
     if null_hypos is not None:
         g = g.add_null_hypos(null_hypos)
         if prune:
@@ -635,7 +641,7 @@ def get_edges(theta, radii):
     return edges
 
 
-def gen_short_uuids(n, host_id=None, t=None):
+def gen_short_uuids(n, worker_id, t=None):
     """
     Short UUIDs are a custom identifier created for imprint that should allow
     for concurrent creation of tiles without having overlapping indices.
@@ -661,8 +667,8 @@ def gen_short_uuids(n, host_id=None, t=None):
 
     Args:
         n: The number of short uuids to generate.
-        host_id: The host id. It's okay to ignore this for non-concurrent jobs.
-            Defaults to None.
+        worker_id: The host id. Must be > 0 and < 2**18. For non-concurrent
+                   jobs, just set this to 1.
         t: The time to impose (used for testing). Defaults to None.
 
     Returns:
@@ -670,34 +676,38 @@ def gen_short_uuids(n, host_id=None, t=None):
     """
     n_max = 2 ** _gen_short_uuids.config[0] - 1
     if n <= n_max:
-        return _gen_short_uuids(n, host_id, t)
+        return _gen_short_uuids(n, worker_id, t)
 
     out = np.empty(n, dtype=np.uint64)
     for i in range(0, n, n_max):
         chunk_size = min(n_max, n - i)
-        out[i : i + chunk_size] = _gen_short_uuids(chunk_size, host_id, t)
+        out[i : i + chunk_size] = _gen_short_uuids(chunk_size, worker_id, t)
     return out
 
 
-def _gen_short_uuids(n, host_id, t):
-    n_bits, host_bits = _gen_short_uuids.config
-    # time_bits = 64 - n_bits - host_bits
+def _gen_short_uuids(n, worker_id, t):
+    n_bits, worker_bits = _gen_short_uuids.config
     assert n < 2**n_bits
 
-    if host_id is None:
-        # host_id == 0 is skipped so that we can use 0 as a sentinel value
-        host_id = 1
-    assert host_id > 0
-    assert host_id < 2**host_bits
+    assert worker_id >= 0
+    assert worker_id < 2**worker_bits
 
     if t is None:
         t = unique_timer()
 
-    return (
-        (t << np.uint64(n_bits + host_bits))
-        + np.uint64(host_id << n_bits)
+    max_t = np.uint64(2 ** (64 - n_bits - worker_bits))
+    looped_t = np.uint64(t) % max_t
+
+    out = (
+        (looped_t << np.uint64(n_bits + worker_bits))
+        + (np.uint64(worker_id) << np.uint64(n_bits))
         + np.arange(n, dtype=np.uint64)
     )
+    logger.debug(
+        f"_gen_short_uuids(n={n}, worker_id={worker_id}, t={t}, n_bits={n_bits},"
+        f" worker_bits={worker_bits}) = [{str(out[:3])[1:-1]}, ...]:"
+    )
+    return out
 
 
 _gen_short_uuids.config = (18, 18)

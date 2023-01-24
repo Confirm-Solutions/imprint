@@ -24,14 +24,19 @@ import time
 
 import numpy as np
 
+import imprint.log
+
+logger = imprint.log.getLogger(__name__)
+
 
 class Timer:
     def __init__(self):
-        self.last = None
+        self.last = np.uint64(0)
 
     def unique(self):
-        t = np.uint64(int(self.now()))
-        if self.last is not None and t <= self.last:
+        now = self.now()
+        t = np.uint64(int(now))
+        if t <= self.last:
             t = self.last + np.uint64(1)
         self.last = t
         return t
