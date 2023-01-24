@@ -30,7 +30,7 @@ def A(n, t):
     Log-partition function of a Bernoulli family with d-arms
     where arm i has n Bernoullis with logit t_i.
     """
-    return n * jnp.sum(logistic(t))
+    return jnp.sum(n * logistic(t))
 
 
 def A_secant(n, t, v, q, b):
@@ -38,7 +38,7 @@ def A_secant(n, t, v, q, b):
     Numerically stable implementation of the secant of A:
         (A(t + q * v) - A(b)) / q
     """
-    return n * jnp.sum(logistic_secant(t, v, q, b))
+    return jnp.sum(n * logistic_secant(t, v, q, b))
 
 
 def dA(n, t):
@@ -340,7 +340,7 @@ class BinomialBound:
 
     @staticmethod
     def get_forward_bound(family_params):
-        n = family_params["n"]
+        n = jnp.asarray(family_params["n"])
         fwd_solver = TileForwardQCPSolver(n)
 
         def forward_bound(f0, theta0, vertices):
