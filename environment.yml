@@ -5,4 +5,4 @@ dependencies:
   - python=3.10
   - pip
   - pip:
-    - poetry==1.2.2
+    - -r requirements.txt

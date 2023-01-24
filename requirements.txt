@@ -1,0 +1,3 @@
+# Most dependencies are specified in pyproject.toml. This exists only to
+# install poetry itself so that we can use pyproject.toml for everything else.
+poetry==1.3.2

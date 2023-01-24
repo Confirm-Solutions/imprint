@@ -29,21 +29,18 @@ Imprint is a library to validate clinical trial designs.
    mamba update -y conda
    # create a development virtual environment with useful tools
    mamba env create
-   conda activate confirm
-   # install the confirm package plus development tools
-   poetry install --with=dev,test,cloud,cloud_dev
+   conda activate imprint
+   # install the imprint package plus development tools
+   poetry install --with=dev,test
    ```
    
-## Committing code
-
-In order to commit code and pass the pre-commit checks, you will need to install `go` and `gitleaks` with `brew install go gitleaks`.
-
 ## Getting started understanding imprint
 
-- [Tutorial: z-test](./tutorials/basket.ipynb)
+- [Tutorial: Z test](./tutorials/basket.ipynb)
 - [Tutorial: Fisher exact](./tutorials/basket.ipynb)
 - [Tutorial: Three arm Bayesian Basket trial](./tutorials/basket.ipynb)
 
 ## References
 
-- [Adaptive Experiments and a Rigorous Framework for Type I Error Verification and Computational Experiment Design](https://arxiv.org/abs/2205.09369)
+- The main paper describing what imprint does: [A Rigorous Framework for Automated Design Assessment and Type I Error Control: Methods and Demonstrative Examples](https://arxiv.org/abs/2212.10042)
+- Some older discussion of similar but obsolete methods can be found in Chapter 5 here: [Adaptive Experiments and a Rigorous Framework for Type I Error Verification and Computational Experiment Design](https://arxiv.org/abs/2205.09369)
