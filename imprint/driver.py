@@ -17,6 +17,10 @@ from . import grid
 def get_bound(family, family_params):
     if family == "normal":
         from imprint.bound.normal import NormalBound as bound_type
+    elif family == "normal2":
+        from imprint.bound.normal2 import Normal2Bound as bound_type
+    elif family == "scaled_chisq":
+        from imprint.bound.scaled_chisq import ScaledChiSqBound as bound_type
     elif family == "binomial":
         from imprint.bound.binomial import BinomialBound as bound_type
     else:

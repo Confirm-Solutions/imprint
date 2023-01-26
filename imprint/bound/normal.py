@@ -1,3 +1,6 @@
+"""
+Normal Tilt-Bound with unknown mean and known variance (1 parameter).
+"""
 import jax
 import jax.numpy as jnp
 

@@ -1,6 +1,8 @@
 import jax
 import jax.numpy as jnp
 
+from . import optimizer as opt
+
 
 def logistic(t):
     """
@@ -25,61 +27,12 @@ def logistic_secant(t, v, q, b):
     return ls_1 + ls_2
 
 
-def A(n, t):
-    """
-    Log-partition function of a Bernoulli family with d-arms
-    where arm i has n Bernoullis with logit t_i.
-    """
-    return jnp.sum(n * logistic(t))
-
-
 def A_secant(n, t, v, q, b):
     """
     Numerically stable implementation of the secant of A:
         (A(t + q * v) - A(b)) / q
     """
     return jnp.sum(n * logistic_secant(t, v, q, b))
-
-
-def dA(n, t):
-    """
-    Gradient of the log-partition function A.
-    """
-    return n * jax.nn.sigmoid(t)
-
-
-def _simple_bisection(f, m, M, tol):
-    def _cond_fun(args):
-        m, M = args
-        return (M - m) / M > tol
-
-    def _body_fun(args):
-        m, M = args
-        x = jnp.linspace(m, M, 4)
-        y = f(x)
-        i_star = jnp.argmin(y)
-        new_min = jnp.where(
-            i_star <= 1,
-            m,
-            x[i_star - 1],
-        )
-        new_max = jnp.where(
-            i_star <= 1,
-            x[i_star + 1],
-            M,
-        )
-        return (
-            new_min,
-            new_max,
-        )
-
-    _init_val = (m, M)
-    m, M = jax.lax.while_loop(
-        _cond_fun,
-        _body_fun,
-        _init_val,
-    )
-    return (M + m) / 2.0
 
 
 class BaseTileQCPSolver:
@@ -131,7 +84,7 @@ class TileForwardQCPSolver(BaseTileQCPSolver):
         return jax.lax.cond(
             loga < -1e10,
             lambda: jnp.inf,
-            lambda: _simple_bisection(
+            lambda: opt._simple_bisection(
                 lambda x: self.obj_vmap(theta_0, vs, x, loga),
                 self.min,
                 self.max,
@@ -182,7 +135,7 @@ class TileBackwardQCPSolver(BaseTileQCPSolver):
         return jax.lax.cond(
             loga < -1e10,
             lambda: jnp.inf,
-            lambda: _simple_bisection(
+            lambda: opt._simple_bisection(
                 lambda x: self.obj_vmap(theta_0, vs, x, loga),
                 self.min,
                 self.max,
