@@ -6,8 +6,18 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 
+import imprint.bound as bound
 from . import batching
 from . import grid
+
+
+bound_dict = {
+    "normal": bound.normal.NormalBound,
+    "normal2": bound.normal2.Normal2Bound,
+    "scaled_chisq": bound.scaled_chisq.ScaledChiSqBound,
+    "binomial": bound.binomial.BinomialBound,
+    "exponential": bound.exponential.ExponentialBound,
+}
 
 
 # TODO: Need to clean up the interface from driver to the bounds.
@@ -15,17 +25,7 @@ from . import grid
 #   __init__?
 # - can we pass a single vertex array as a substitute for the many vertex case?
 def get_bound(family, family_params):
-    if family == "normal":
-        from imprint.bound.normal import NormalBound as bound_type
-    elif family == "normal2":
-        from imprint.bound.normal2 import Normal2Bound as bound_type
-    elif family == "scaled_chisq":
-        from imprint.bound.scaled_chisq import ScaledChiSqBound as bound_type
-    elif family == "binomial":
-        from imprint.bound.binomial import BinomialBound as bound_type
-    else:
-        raise Exception("unknown family")
-
+    bound_type = bound_dict[family]
     return (
         bound_type.get_forward_bound(family_params),
         bound_type.get_backward_bound(family_params),

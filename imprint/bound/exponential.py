@@ -211,7 +211,7 @@ def tilt_bound_bwd_tile(
     )
 
 
-class ScaledChiSqBound:
+class ExponentialBound:
     @staticmethod
     def get_backward_bound(family_params):
         n = family_params["n"]
