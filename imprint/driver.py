@@ -46,6 +46,20 @@ def calc_tuning_threshold(sorted_stats, sorted_order, alpha):
     return sorted_stats[sorted_order[cv_idx]]
 
 
+def _groupby_apply_K(df, f):
+    """
+    Pandas groupby.apply catches TypeError and tries again. This is unpleasant
+    because it often causes double exceptions. See:
+    https://github.com/pandas-dev/pandas/issues/50980
+
+    So, we work around this by just implementing our own groupby.apply.
+    """
+    out = []
+    for K, K_df in df.groupby("K", group_keys=False):
+        out.append(f(K, K_df))
+    return pd.concat(out).loc[df.index]
+
+
 class Driver:
     def __init__(self, model, *, tile_batch_size):
         self.model = model
@@ -62,7 +76,7 @@ class Driver:
         )
 
     def stats(self, df):
-        def f(K_df):
+        def f(K, K_df):
             K = K_df["K"].iloc[0]
             K_g = grid.Grid(K_df)
             theta = K_g.get_theta()
@@ -70,15 +84,14 @@ class Driver:
             stats = self.model.sim_batch(0, K, theta, K_g.get_null_truth())
             return stats
 
-        return df.groupby("K", group_keys=False).apply(f)
+        return _groupby_apply_K(df, f)
 
     def validate(self, df, lam, *, delta=0.01):
         def _batched(K, theta, null_truth):
             stats = self.model.sim_batch(0, K, theta, null_truth)
             return jnp.sum(stats < lam, axis=-1)
 
-        def f(K_df):
-            K = K_df["K"].iloc[0]
+        def f(K, K_df):
             K_g = grid.Grid(K_df, None)
             theta = K_g.get_theta()
 
@@ -101,12 +114,7 @@ class Driver:
                 )
             )
 
-        # The execution trace of a driver:
-        # entry point: (validate)
-        #     for each K: (f)
-        #         for each batch of tiles: (_batched_validate)
-        #             simulate
-        return df.groupby("K", group_keys=False).apply(f).reset_index(drop=True)
+        return _groupby_apply_K(df, f)
 
     def calibrate(self, df, alpha):
         def _batched(K, theta, vertices, null_truth):
@@ -116,8 +124,7 @@ class Driver:
             bootstrap_lams = self.calibratev(sorted_stats, np.arange(K), alpha0)
             return bootstrap_lams
 
-        def f(K_df):
-            K = K_df["K"].iloc[0]
+        def f(K, K_df):
             K_g = grid.Grid(K_df, None)
 
             theta, vertices = K_g.get_theta_and_vertices()
@@ -128,7 +135,7 @@ class Driver:
             )(K, theta, vertices, K_g.get_null_truth())
             return pd.DataFrame(bootstrap_lams, columns=["lams"])
 
-        return df.groupby("K", group_keys=False).apply(f).reset_index(drop=True)
+        return _groupby_apply_K(df, f)
 
 
 def _setup(modeltype, g, model_seed, K, model_kwargs, tile_batch_size):

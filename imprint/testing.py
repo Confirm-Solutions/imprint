@@ -14,7 +14,7 @@ def test_foo(snapshot):
     np.testing.assert_allclose(result, snapshot(result))
 ```
 
-If you run `pytest --snapshot-update test_file.py::test_foo`, the snapshot will
+If you run `pytest --update-snapshots test_file.py::test_foo`, the snapshot will
 be saved to disk. Then later when you run `pytest test_file.py::test_foo`, the
 `snapshot(...)` call will automatically load that object so that you can
 compare against the loaded object.
@@ -42,10 +42,10 @@ def pytest_configure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption("--runslow"):
-        # --runslow given in cli: do not skip slow tests
+    if config.getoption("--run-slow"):
+        # --run-slow given in cli: do not skip slow tests
         return
-    skip_slow = pytest.mark.skip(reason="need --runslow option to run")
+    skip_slow = pytest.mark.skip(reason="need --run-slow option to run")
     for item in items:
         if "slow" in item.keywords:
             item.add_marker(skip_slow)
@@ -57,10 +57,10 @@ def pytest_addoption(parser):
     https://docs.pytest.org/en/latest/reference.html#_pytest.hookspec.pytest_addoption
     """
     parser.addoption(
-        "--runslow", action="store_true", default=False, help="run slow tests"
+        "--run-slow", action="store_true", default=False, help="run slow tests"
     )
     parser.addoption(
-        "--snapshot-update",
+        "--update-snapshots",
         action="store_true",
         default=False,
         dest="update_snapshots",
@@ -73,7 +73,7 @@ def path_and_check(filebase, ext):
     if not os.path.exists(snapshot_path):
         raise FileNotFoundError(
             f"Snapshot file not found: {snapshot_path}."
-            " Did you forget to run with --snapshot-update?"
+            " Did you forget to run with --update-snapshots?"
         )
     return snapshot_path
 
@@ -153,7 +153,7 @@ class SnapshotAssertion:
 
     def __call__(self, obj, serializer=None):
         """
-        Return the saved copy of the object. If --snapshot-update is passed,
+        Return the saved copy of the object. If --update-snapshots is passed,
         save the object to disk in the __snapshot__ folder.
 
         Args:
