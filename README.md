@@ -36,9 +36,12 @@ Imprint is a library to validate clinical trial designs.
    
 ## Getting started understanding imprint
 
-- [Tutorial: Z test](./tutorials/basket.ipynb)
-- [Tutorial: Fisher exact](./tutorials/basket.ipynb)
-- [Tutorial: Three arm Bayesian Basket trial](./tutorials/basket.ipynb)
+- [Tutorial: Z Test](./tutorials/ztest.ipynb)
+- [Tutorial: Chi-Squared Test](./tutorials/chisq_test.ipynb)
+- [Tutorial: T Test](./tutorials/t_test.ipynb)
+- [Tutorial: T Test Adaptive](./tutorials/t_test_adaptive.ipynb)
+- [Tutorial: Fisher's Exact Test](./tutorials/fisher_exact.ipynb)
+- [Tutorial: Three-arm Bayesian Basket Trial](./tutorials/basket.ipynb)
 
 ## References
 

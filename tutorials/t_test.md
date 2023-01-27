@@ -1,4 +1,4 @@
-# T-Test
+# $t$ Test
 
 ```python
 from imprint.nb_util import setup_nb
