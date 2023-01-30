@@ -199,19 +199,29 @@ rej_df["true_tie_no_int"] = true_tie_vmap(grid.get_theta(), mu_0, df + 1, -lam)
 
 ```python
 s = 3
-plt.figure(figsize=(10, 10), constrained_layout=True)
 names = ["true_tie_no_int", "tie_est", "tie_cp_bound", "tie_bound"]
 titles = ["True TIE (0 interims)", "TIE Estimate", "TIE CP Bound", "TIE Bound"]
 vmax = rej_df[names].max().max()
-for i, (name, title) in enumerate(zip(names, titles)):
-    plt.subplot(2, 2, i + 1)
-    plt.title(title)
-    plt.scatter(
-        grid.df["theta0"], grid.df["theta1"], c=rej_df[name], s=s, vmin=0, vmax=vmax
-    )
-    plt.colorbar()
-    plt.xlabel(r"$\theta_0$")
-    plt.ylabel(r"$\theta_1$")
-
+fig, axes = plt.subplots(2, 2, figsize=(10, 10), constrained_layout=True)
+theta0s, theta1s = np.sort(np.unique(grid.df["theta0"])), np.sort(
+    np.unique(grid.df["theta1"])
+)
+for i in range(2):
+    for j in range(2):
+        ax = axes[i][j]
+        title = titles[2 * i + j]
+        name = names[2 * i + j]
+        ax.set_title(title)
+        sct = ax.pcolormesh(
+            theta0s,
+            theta1s,
+            rej_df[name].to_numpy().reshape((theta0s.shape[0], theta1s.shape[0])),
+            vmin=0,
+            vmax=vmax,
+        )
+        ax.set_xlabel(r"$\theta_0$")
+        ax.set_ylabel(r"$\theta_1$")
+        fig.colorbar(sct, ax=ax)
+plt.savefig("figures/t_test_adaptive.png")
 plt.show()
 ```
