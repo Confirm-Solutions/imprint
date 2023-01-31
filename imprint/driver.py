@@ -138,7 +138,7 @@ class Driver:
         return _groupby_apply_K(df, f)
 
 
-def _setup(modeltype, g, model_seed, K, model_kwargs, tile_batch_size):
+def _setup(modeltype, g, model_seed, K, model_kwargs):
     g = copy.deepcopy(g)
     if K is not None:
         g.df["K"] = K
@@ -148,12 +148,14 @@ def _setup(modeltype, g, model_seed, K, model_kwargs, tile_batch_size):
         default_K = 2**14
         if "K" not in g.df.columns:
             g.df["K"] = default_K
+        # If the K column is present but has some 0s, we replace those with the
+        # default value.
         g.df.loc[g.df["K"] == 0, "K"] = default_K
 
     if model_kwargs is None:
         model_kwargs = {}
     model = modeltype(model_seed, g.df["K"].max(), **model_kwargs)
-    return Driver(model, tile_batch_size=tile_batch_size), g
+    return model, g
 
 
 def validate(
@@ -193,7 +195,8 @@ def validate(
                         simulation point.
         - tie_bound: The bound on the Type I error over the whole tile.
     """
-    driver, g = _setup(modeltype, g, model_seed, K, model_kwargs, tile_batch_size)
+    model, g = _setup(modeltype, g, model_seed, K, model_kwargs)
+    driver = Driver(model, tile_batch_size=tile_batch_size)
     rej_df = driver.validate(g.df, lam, delta=delta)
     return rej_df
 
@@ -226,6 +229,7 @@ def calibrate(
     Returns:
         _description_
     """
-    driver, g = _setup(modeltype, g, model_seed, K, model_kwargs, tile_batch_size)
+    model, g = _setup(modeltype, g, model_seed, K, model_kwargs)
+    driver = Driver(model, tile_batch_size=tile_batch_size)
     calibrate_df = driver.calibrate(g.df, alpha)
     return calibrate_df
