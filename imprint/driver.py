@@ -111,7 +111,8 @@ class Driver:
                     tie_est=tie_sum / K,
                     tie_cp_bound=tie_cp_bound,
                     tie_bound=tie_bound,
-                )
+                ),
+                index=K_df.index,
             )
 
         return _groupby_apply_K(df, f)
@@ -133,7 +134,7 @@ class Driver:
                 self.tile_batch_size,
                 in_axes=(None, 0, 0, 0),
             )(K, theta, vertices, K_g.get_null_truth())
-            return pd.DataFrame(bootstrap_lams, columns=["lams"])
+            return pd.DataFrame(bootstrap_lams, columns=["lams"], index=K_df.index)
 
         return _groupby_apply_K(df, f)
 
