@@ -85,7 +85,7 @@ g = ip.cartesian_grid(
 # comparison.
 lam = -1.96
 K = 8192
-rej_df = ip.validate(ZTest1D, g, lam, K=K)
+rej_df = ip.validate(ZTest1D, g=g, lam=lam, K=K)
 ```
 
 ```python

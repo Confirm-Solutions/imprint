@@ -44,9 +44,9 @@ g = ip.cartesian_grid(
 )
 validation_df = ip.validate(
     BayesianBasket,
-    g,
+    g=g,
     # The threshold for our rejection criterion.
-    0.05,
+    lam=0.05,
     # The number of simulations to perform for each tile.
     K=2000,
     # This is the binomial n parameter, the number of patients recruited to each arm of the trial.
@@ -350,7 +350,7 @@ Next, the bound calculation will be done by `ip.validate`. This function will:
 
 ```python
 %%time
-validation_df = ip.validate(BayesianBasket, g, lam=0.05, K=2000)
+validation_df = ip.validate(BayesianBasket, g=g, lam=0.05, K=2000)
 ```
 
 Looking at the results, we see four columns:

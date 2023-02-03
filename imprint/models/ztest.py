@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 
 @jax.jit
@@ -17,10 +18,11 @@ class ZTest1D:
         self.family = "normal"
         self.dtype = jnp.float32
 
-        # sample normals and then compute the CDF to transform into the
-        # interval [0, 1]
-        key = jax.random.PRNGKey(seed)
-        self.samples = jax.random.normal(key, shape=(max_K,), dtype=self.dtype)
+        # key = jax.random.PRNGKey(seed)
+        # self.samples = jax.random.normal(key, shape=(max_K,), dtype=self.dtype)
+
+        np.random.seed(seed)
+        self.samples = np.random.normal(size=(max_K,)).astype(self.dtype)
 
     def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
         return _sim(self.samples[begin_sim:end_sim], theta, null_truth)

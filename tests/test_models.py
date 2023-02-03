@@ -14,7 +14,7 @@ def test_ztest(snapshot):
     # comparison.
     lam = -1.96
     K = 2**13
-    rej_df = ip.validate(ZTest1D, g, lam, K=K)
+    rej_df = ip.validate(ZTest1D, g=g, lam=lam, K=K)
     pd.testing.assert_frame_equal(rej_df, snapshot(rej_df))
 
     true_err = 1 - scipy.stats.norm.cdf(-g.get_theta()[:, 0] - lam)
@@ -24,7 +24,7 @@ def test_ztest(snapshot):
     n_stds = (tie_est - true_err) / tie_std
     assert np.all(np.abs(n_stds) < 1.2)
 
-    calibrate_df = ip.calibrate(ZTest1D, g)
+    calibrate_df = ip.calibrate(ZTest1D, g=g)
     pd.testing.assert_frame_equal(calibrate_df, snapshot(calibrate_df))
 
 

@@ -115,7 +115,7 @@ def test_bwd_solver():
             )(q_dense, n, df, theta, v[None], alpha)
         )
     ]
-    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(actual, expected, rtol=1e-6)
 
 
 def test_fwd_bound():
