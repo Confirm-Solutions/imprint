@@ -2,6 +2,9 @@
 Exponential Tilt-Bound with unknown scale parameter.
 Assumes multi-arm with possibly different
 (scale,) parameters in each arm as well as sample size.
+
+natural parameter for exponential distribution is:
+theta_i = -lambda_i
 """
 import jax
 import jax.numpy as jnp
@@ -38,14 +41,17 @@ class BaseTileQCPSolver:
 
         # return shrunken maximum so that the
         # maximum q results in well-defined objective.
-        return jnp.minimum(
-            self.max,
-            jnp.min(
-                jnp.where(
-                    max_vs > 0,
-                    -theta_0 / max_vs * self.shrink_factor,
-                    jnp.inf,
-                )
+        return jnp.maximum(
+            self.min,
+            jnp.minimum(
+                self.max,
+                jnp.min(
+                    jnp.where(
+                        max_vs > 0,
+                        -theta_0 / max_vs * self.shrink_factor,
+                        jnp.inf,
+                    )
+                ),
             ),
         )
 
@@ -76,7 +82,8 @@ class TileForwardQCPSolver(BaseTileQCPSolver):
 
     def obj(self, theta_0, vs, q, loga):
         _obj_each_vmap = jax.vmap(self.obj_v, in_axes=(None, 0, None, None))
-        return jnp.max(_obj_each_vmap(theta_0, vs, q, loga))
+        out = _obj_each_vmap(theta_0, vs, q, loga)
+        return jnp.max(out)
 
     def obj_vmap(self, theta_0, vs, qs, loga):
         return jax.vmap(
@@ -87,7 +94,7 @@ class TileForwardQCPSolver(BaseTileQCPSolver):
     def solve(self, theta_0, vs, a):
         loga = jnp.log(a)
         max_trunc = self._compute_max_bound(theta_0, vs)
-        return jax.lax.cond(
+        q_opt = jax.lax.cond(
             loga < -1e10,
             lambda: jnp.inf,
             lambda: opt._simple_bisection(
@@ -97,6 +104,7 @@ class TileForwardQCPSolver(BaseTileQCPSolver):
                 self.tol,
             ),
         )
+        return q_opt
 
 
 class TileBackwardQCPSolver(BaseTileQCPSolver):
@@ -222,7 +230,17 @@ class ExponentialBound:
             q_opt = bwd_solver.solve(theta0, vs, alpha_target)
             return tilt_bound_bwd_tile(q_opt, n, theta0, vs, alpha_target)
 
-        return jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        jit_bwd = jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+
+        def f(alpha_target, theta0, vertices):
+            if jnp.any(vertices >= 0):
+                raise ValueError(
+                    "theta must be negative for exponential."
+                    " The natural parameter is -lambda."
+                )
+            return jit_bwd(alpha_target, theta0, vertices)
+
+        return f
 
     @staticmethod
     def get_forward_bound(family_params):
@@ -234,4 +252,14 @@ class ExponentialBound:
             q_opt = fwd_solver.solve(theta0, vs, f0)
             return tilt_bound_fwd_tile(q_opt, n, theta0, vs, f0)
 
-        return jax.jit(jax.vmap(forward_bound))
+        jit_fwd = jax.jit(jax.vmap(forward_bound))
+
+        def f(f0, theta0, vertices):
+            if jnp.any(vertices >= 0):
+                raise ValueError(
+                    "theta must be negative for exponential."
+                    " The natural parameter is -lambda."
+                )
+            return jit_fwd(f0, theta0, vertices)
+
+        return f

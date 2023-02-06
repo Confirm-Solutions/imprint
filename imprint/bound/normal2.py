@@ -2,6 +2,10 @@
 Normal Tilt-Bound with unknown mean and variance (2 parameters).
 Assumes multi-arm Normal with possibly different
 (mean, variance) parameters and sample size in each arm.
+
+The natural parameters for the Normal distribution are:
+theta_0 = mu / sigma^2
+theta_1 = -1 / (2 * sigma^2)
 """
 import jax
 import jax.numpy as jnp
@@ -51,12 +55,15 @@ class BaseTileQCPSolver:
 
         # return shrunken maximum so that the
         # maximum q results in well-defined objective.
-        return jnp.min(
-            jnp.where(
-                max_v2s > 0,
-                -theta_02 / max_v2s * self.shrink_factor,
-                jnp.inf,
-            )
+        return jnp.maximum(
+            self.min,
+            jnp.min(
+                jnp.where(
+                    max_v2s > 0,
+                    -theta_02 / max_v2s * self.shrink_factor,
+                    jnp.inf,
+                )
+            ),
         )
 
 
@@ -250,7 +257,17 @@ class Normal2Bound:
                 q_opt, n, theta01, theta02, v1s, v2s, alpha_target
             )
 
-        return jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        jit_bwd = jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+
+        def f(alpha_target, theta0, vertices):
+            if jnp.any(vertices[..., 1] >= 0):
+                raise ValueError(
+                    "theta[1] must be negative for normal2."
+                    " The natural parameters are (mu/sigma^2, -1/(2*sigma^2))."
+                )
+            return jit_bwd(alpha_target, theta0, vertices)
+
+        return f
 
     @staticmethod
     def get_forward_bound(family_params):
@@ -265,4 +282,14 @@ class Normal2Bound:
             q_opt = fwd_solver.solve(theta01, theta02, v1s, v2s, f0)
             return tilt_bound_fwd_tile(q_opt, n, theta01, theta02, v1s, v2s, f0)
 
-        return jax.jit(jax.vmap(forward_bound))
+        jit_fwd = jax.jit(jax.vmap(forward_bound))
+
+        def f(f0, theta0, vertices):
+            if jnp.any(vertices[..., 1] >= 0):
+                raise ValueError(
+                    "theta[1] must be negative for normal2."
+                    " The natural parameters are (mu/sigma^2, -1/(2*sigma^2))."
+                )
+            return jit_fwd(f0, theta0, vertices)
+
+        return f
