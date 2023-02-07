@@ -64,6 +64,19 @@ def _groupby_apply_K(df, f):
     return pd.concat(out).loc[df.index]
 
 
+def _check_stats(stats, K, theta):
+    if stats.shape[0] != theta.shape[0]:
+        raise ValueError(
+            f"sim_batch returned test statistics for {stats.shape[0]}"
+            f"tiles but {theta.shape[0]} tiles were expected."
+        )
+    if stats.shape[1] != K:
+        raise ValueError(
+            f"sim_batch returned test statistics for {stats.shape[1]} "
+            f"simulations but {K} simulations were expected."
+        )
+
+
 class Driver:
     def __init__(self, model, *, tile_batch_size):
         self.model = model
@@ -86,13 +99,15 @@ class Driver:
             theta = K_g.get_theta()
             # TODO: batching
             stats = self.model.sim_batch(0, K, theta, K_g.get_null_truth())
+            _check_stats(stats, K, theta)
             return stats
 
         return _groupby_apply_K(df, f)
 
     def validate(self, df, lam, *, delta=0.01):
         def _batched(K, theta, null_truth):
-            stats = self.model.sim_batch(0, K, theta, null_truth)
+            stats = self.model.sim_batch(0, K, theta.copy(), null_truth.copy())
+            _check_stats(stats, K, theta)
             return jnp.sum(stats < lam, axis=-1)
 
         def f(K, K_df):
@@ -126,6 +141,7 @@ class Driver:
     def calibrate(self, df, alpha):
         def _batched(K, theta, vertices, null_truth):
             stats = self.model.sim_batch(0, K, theta, null_truth)
+            _check_stats(stats, K, theta)
             sorted_stats = jnp.sort(stats, axis=-1)
             alpha0 = self.backward_boundv(
                 np.full(theta.shape[0], alpha), theta, vertices
@@ -194,7 +210,7 @@ def validate(
     model_seed=0,
     K=None,
     tile_batch_size=64,
-    model_kwargs=None
+    model_kwargs=None,
 ):
     """
     Calculate the Type I Error bound.
@@ -236,7 +252,7 @@ def calibrate(
     model_seed=0,
     K=None,
     tile_batch_size=64,
-    model_kwargs=None
+    model_kwargs=None,
 ):
     """
     Calibrate the critical threshold for a given level of Type I Error control.
