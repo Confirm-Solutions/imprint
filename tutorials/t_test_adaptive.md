@@ -141,6 +141,7 @@ n_interims = 3  # number of interims
 n_gridpts = [200, 200]  # number of grid-points along each direction
 alpha = 0.025  # target nominal level
 n_sims = 8192  # number of simulations
+eff_size_thresh = -jnp.inf
 
 # try true critical threshold when 0 interims in the lambda space
 df = n_init + n_interims * n_samples_per_interim - 1
@@ -167,6 +168,7 @@ rej_df = ip.validate(
         "n_samples_per_interim": n_samples_per_interim,
         "n_interims": n_interims,
         "mu0": mu_0,
+        "eff_size_thresh": eff_size_thresh,
     },
 )
 rej_df.tail()

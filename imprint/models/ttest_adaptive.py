@@ -3,19 +3,30 @@ import jax.numpy as jnp
 import numpy as np
 
 
-def _sim(C_avg, D_avg_sqrt, mu0, theta, null_truth):
+def _sim(C_avg, D_avg_sqrt, mu0, theta, null_truth, eff_size_thresh):
     sigma_sq = -0.5 / theta[:, 1]
     sigma = jnp.sqrt(sigma_sq)
     mu_div_sig = theta[:, 0] * sigma
     mu0_div_sig = mu0 / sigma
     shift = mu_div_sig - mu0_div_sig
-    Ts = (C_avg[None] + shift[:, None, None]) / D_avg_sqrt[None]
-    out = jnp.where(null_truth[:, None, 0], -jnp.max(Ts, axis=-1), jnp.inf)
+    eff_size = C_avg[None] + shift[:, None, None]
+    Ts = eff_size / D_avg_sqrt[None]
+    Ts_subset = jnp.where(eff_size > eff_size_thresh, Ts, -jnp.inf)
+    out = jnp.where(null_truth[:, None, 0], -jnp.max(Ts_subset, axis=-1), jnp.inf)
     return out
 
 
 class TTest1DAda:
-    def __init__(self, seed, max_K, n_init, n_samples_per_interim, n_interims, mu0):
+    def __init__(
+        self,
+        seed,
+        max_K,
+        n_init,
+        n_samples_per_interim,
+        n_interims,
+        mu0,
+        eff_size_thresh,
+    ):
         n_samples_per_interim = np.array(n_samples_per_interim)
         if len(n_samples_per_interim.shape) == 0:
             n_samples_per_interim = np.full((n_interims,), n_samples_per_interim)
@@ -35,6 +46,7 @@ class TTest1DAda:
         self.dtype = jnp.float32
         self.mu0 = mu0
         self.n_interims = n_interims
+        self.eff_size_thresh = eff_size_thresh
 
         key = jax.random.PRNGKey(seed)
         normals = jax.random.normal(key, shape=(max_K, self.n_stages))
@@ -60,4 +72,5 @@ class TTest1DAda:
             self.mu0,
             theta,
             null_truth,
+            self.eff_size_thresh,
         )
