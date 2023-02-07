@@ -2,6 +2,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+import imprint as ip
+
 
 @jax.jit
 def _sim(samples, theta, null_truth):
@@ -13,7 +15,7 @@ def _sim(samples, theta, null_truth):
     )
 
 
-class ZTest1D:
+class ZTest1D(ip.Model):
     def __init__(self, seed, max_K, store=None):
         self.family = "normal"
         self.dtype = jnp.float32
@@ -24,5 +26,12 @@ class ZTest1D:
         np.random.seed(seed)
         self.samples = np.random.normal(size=(max_K,)).astype(self.dtype)
 
-    def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
+    def sim_batch(
+        self,
+        begin_sim: int,
+        end_sim: int,
+        theta: jnp.ndarray,
+        null_truth: jnp.ndarray,
+        detailed: bool = False,
+    ):
         return _sim(self.samples[begin_sim:end_sim], theta, null_truth)

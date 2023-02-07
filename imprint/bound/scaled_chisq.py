@@ -230,7 +230,7 @@ class ScaledChiSqBound:
             q_opt = bwd_solver.solve(theta0, vs, alpha_target)
             return tilt_bound_bwd_tile(q_opt, n, df, theta0, vs, alpha_target)
 
-        return jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        return jax.jit(jax.vmap(backward_bound))
 
     @staticmethod
     def get_forward_bound(family_params):

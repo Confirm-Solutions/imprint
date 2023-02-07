@@ -39,11 +39,14 @@ def clopper_pearson(tie_sum, K, delta):
     return np.where(np.isnan(tie_cp_bound), 0, tie_cp_bound)
 
 
-def calc_tuning_threshold(sorted_stats, sorted_order, alpha):
-    K = sorted_stats.shape[0]
-    cv_idx = jnp.maximum(jnp.floor((K + 1) * jnp.maximum(alpha, 0)).astype(int) - 1, 0)
+def calc_calibration_threshold(sorted_stats, sorted_order, alpha):
+    idx = _calibration_index(sorted_stats.shape[0], alpha)
     # indexing a sorted array with sorted indices results in a sorted array!!
-    return sorted_stats[sorted_order[cv_idx]]
+    return sorted_stats[sorted_order[idx]]
+
+
+def _calibration_index(K, alpha):
+    return jnp.maximum(jnp.floor((K + 1) * jnp.maximum(alpha, 0)).astype(int) - 1, 0)
 
 
 def _groupby_apply_K(df, f):
@@ -70,7 +73,7 @@ class Driver:
 
         self.calibratev = jax.jit(
             jax.vmap(
-                calc_tuning_threshold,
+                calc_calibration_threshold,
                 in_axes=(0, None, 0),
             )
         )
@@ -115,38 +118,51 @@ class Driver:
                 index=K_df.index,
             )
 
-        return _groupby_apply_K(df, f)
+        out = _groupby_apply_K(df, f)
+        out["K"] = df["K"]
+        return out
 
     def calibrate(self, df, alpha):
         def _batched(K, theta, vertices, null_truth):
             stats = self.model.sim_batch(0, K, theta, null_truth)
             sorted_stats = jnp.sort(stats, axis=-1)
-            alpha0 = self.backward_boundv(alpha, theta, vertices)
-            bootstrap_lams = self.calibratev(sorted_stats, np.arange(K), alpha0)
-            return bootstrap_lams
+            alpha0 = self.backward_boundv(
+                np.full(theta.shape[0], alpha), theta, vertices
+            )
+            return self.calibratev(sorted_stats, np.arange(K), alpha0), alpha0
 
         def f(K, K_df):
             K_g = grid.Grid(K_df, None)
 
             theta, vertices = K_g.get_theta_and_vertices()
-            bootstrap_lams = batching.batch(
+            lams, alpha0 = batching.batch(
                 _batched,
                 self.tile_batch_size,
                 in_axes=(None, 0, 0, 0),
             )(K, theta, vertices, K_g.get_null_truth())
-            return pd.DataFrame(bootstrap_lams, columns=["lams"], index=K_df.index)
+            out = pd.DataFrame(index=K_df.index)
+            out["lams"] = lams
+            out["alpha0"] = alpha0
+            return out
 
-        return _groupby_apply_K(df, f)
+        out = _groupby_apply_K(df, f)
+        out["idx"] = _calibration_index(df["K"].to_numpy(), out["alpha0"].to_numpy())
+        out["K"] = df["K"]
+        return out
+
+
+# If K is not specified we just use a default value that's a decent
+# guess.
+default_K = 2**14
 
 
 def _setup(modeltype, g, model_seed, K, model_kwargs):
+    # NOTE: a no_copy parameter would be sensible in cases where the grid is
+    # very large.
     g = copy.deepcopy(g)
     if K is not None:
         g.df["K"] = K
     else:
-        # If K is not specified we just use a default value that's a decent
-        # guess.
-        default_K = 2**14
         if "K" not in g.df.columns:
             g.df["K"] = default_K
         # If the K column is present but has some 0s, we replace those with the

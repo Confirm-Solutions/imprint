@@ -193,3 +193,84 @@ def snapshot(request):
         update_snapshots=request.config.option.update_snapshots,
         request=request,
     )
+
+
+def check_imprint_results(g, snapshot, ignore_story=True):
+    """
+    This is a helper method for snapshot testing of calibration and validation
+    outputs. The goal is:
+    1. to ensure that the outputs are identical to stored results.
+    2. when the results have changed, isolate whether the change should be
+        concerning or not:
+        - it's very worrying if the calibration outputs change
+        - on the other hand, it's not particularly worrying if there's a new
+          column in the output!
+
+    The checks proceed from portions of the data where it is absolutely
+    necessary to have an exact match on to portions of the data where the data
+    schema is more volatile.
+
+    Args:
+        g: The grid to compare.
+        snapshot: The imprint.testing.snapshot object.
+        ignore_story: Should we only test the grid + outputs and ignore
+            storyline outputs like id, step_iter, event time, etc. Defaults to
+            True.
+    """
+    if "lams" in g.df.columns:
+        lamss = g.active().df["lams"].min()
+        np.testing.assert_allclose(lamss, snapshot(lamss))
+    if "tie_bound" in g.df.columns:
+        max_tie = g.active().df["tie_bound"].max()
+        np.testing.assert_allclose(max_tie, snapshot(max_tie))
+
+    # For a correctly set up problem, the grid should have a unique ordering
+    order_cols = (
+        ["active"]
+        + [f"theta{i}" for i in range(g.d)]
+        + [f"radii{i}" for i in range(g.d)]
+        + [f"null_truth{i}" for i in range(g.d)]
+        + ["K"]
+    )
+    df = g.df.sort_values(by=order_cols).reset_index(drop=True)
+
+    important_cols = (
+        order_cols
+        + [c for c in df.columns if "lams" in c]
+        + [c for c in df.columns if "tie" in c]
+    )
+    check_subset = df[important_cols]
+    compare = (
+        snapshot(check_subset)
+        .sort_values(by=order_cols)
+        .reset_index(drop=True)[important_cols]
+    )
+
+    # First check the cal/val outputs. These are the most important values
+    # to get correct.
+    pd.testing.assert_frame_equal(check_subset, compare, check_dtype=False)
+    if ignore_story:
+        return
+
+    df_idx = df.set_index("id")
+    compare_all_cols = snapshot(df_idx)
+    # Compare the shared columns. This is helpful for ensuring that existing
+    # columns are identical in a situation where we add a new column.
+    pd.testing.assert_frame_equal(
+        df_idx[compare_all_cols.columns.tolist()],
+        compare_all_cols,
+        check_like=True,
+        check_index_type=False,
+        check_dtype=False,
+    )
+
+    # Second, we check the remaining values. These are less important to be
+    # precisely reproduced, but we still want to make sure they are
+    # deterministic.
+    pd.testing.assert_frame_equal(
+        df_idx,
+        compare_all_cols,
+        check_like=True,
+        check_index_type=False,
+        check_dtype=False,
+    )

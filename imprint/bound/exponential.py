@@ -230,7 +230,7 @@ class ExponentialBound:
             q_opt = bwd_solver.solve(theta0, vs, alpha_target)
             return tilt_bound_bwd_tile(q_opt, n, theta0, vs, alpha_target)
 
-        jit_bwd = jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        jit_bwd = jax.jit(jax.vmap(backward_bound))
 
         def f(alpha_target, theta0, vertices):
             if jnp.any(vertices >= 0):

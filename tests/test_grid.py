@@ -5,8 +5,9 @@ import numpy as np
 import pytest
 
 import imprint.grid as grid
-from imprint.grid import HyperPlane
-from imprint.grid import hypo
+import imprint.planar_null as planar_null
+from imprint.planar_null import HyperPlane
+from imprint.planar_null import hypo
 
 # NOTE: For developing tests, plotting a 2D grid is very useful:
 # import matplotlib.pyplot as plt
@@ -41,35 +42,23 @@ def test_hypo():
     assert hypo("2.1*x < 0.2") == HyperPlane([-1], -0.2 / 2.1)
 
 
-def test_split1d():
-    new_theta, new_radii = grid.split(
-        np.array([[1.0]]),
-        np.array([[1.1]]),
-        np.array([[[-0.1], [2.1]]]),
-        np.array([[0.1, -2.1]]),
-        grid.HyperPlane(np.array([-1]), 0),
-    )
-    np.testing.assert_allclose(new_theta, [[-0.05], [1.05]])
-    np.testing.assert_allclose(new_radii, [[0.05], [1.05]])
-
-
 def test_split2d():
-    new_theta, new_radii = grid.split(
+    g = grid.init_grid(
         np.array([[1.0, 1.0]]),
         np.array([[1.1, 1.1]]),
-        np.array([[[-0.1, -0.1], [-0.1, 2.1], [2.1, -0.1], [2.1, 2.1]]]),
-        np.array([[0.2, 0.2, -1.9, -1.9]]),
-        grid.HyperPlane(np.array([-1, 0]), -0.1),
+        0,
     )
-    np.testing.assert_allclose(new_theta, [[-0.0, 1.0], [1.1, 1.0]])
-    np.testing.assert_allclose(new_radii, [[0.1, 1.1], [1.0, 1.1]])
+    vertex_dist = np.array([[0.2, 0.2, -1.9, -1.9]])
+    g = HyperPlane(np.array([-1, 0]), -0.1).split(g, vertex_dist)
+    np.testing.assert_allclose(g.get_theta(), [[-0.0, 1.0], [1.1, 1.0]], atol=1e-6)
+    np.testing.assert_allclose(g.get_radii(), [[0.1, 1.1], [1.0, 1.1]], atol=1e-6)
 
 
 @pytest.fixture
 def simple_grid():
     thetas = np.array([[-0.5, -0.5], [-0.5, 0.5], [0.5, -0.5], [0.5, 0.5]])
     radii = np.full_like(thetas, 0.5)
-    hypos = [grid.HyperPlane(-np.identity(2)[i], -0.1) for i in range(2)]
+    hypos = [HyperPlane(-np.identity(2)[i], -0.1) for i in range(2)]
     return grid.init_grid(thetas, radii, 1).add_null_hypos(hypos)
 
 
@@ -145,7 +134,7 @@ def test_one_point_grid():
 
 
 def test_split_angled():
-    Hs = [grid.HyperPlane([2, -1], 0)]
+    Hs = [HyperPlane([2, -1], 0)]
     in_theta, in_radii = grid._cartesian_gridpts(
         np.full(2, -1), np.full(2, 1), np.full(4, 4)
     )
@@ -155,7 +144,7 @@ def test_split_angled():
 
 
 def test_immutability():
-    Hs = [grid.HyperPlane([2, -1], 0)]
+    Hs = [HyperPlane([2, -1], 0)]
     in_theta, in_radii = grid._cartesian_gridpts(
         np.full(2, -1), np.full(2, 1), np.full(4, 4)
     )
@@ -196,7 +185,7 @@ def test_column_inheritance():
     g = grid.cartesian_grid([-1, -1], [1, 1], n=[2, 2])
     g.df["birthday"] = 1
 
-    gs = g.add_null_hypos([grid.hypo("x < 0.1")], ["birthday"])
+    gs = g.add_null_hypos([planar_null.hypo("x < 0.1")], ["birthday"])
     assert (gs.df["birthday"] == 1).all()
     gp = gs.prune()
     assert (gp.df["birthday"] == 1).all()
@@ -226,7 +215,7 @@ def test_refine():
         np.full(n_arms, -3.0), np.full(n_arms, 1.0), np.full(n_arms, 4)
     )
 
-    null_hypos = [grid.HyperPlane(-np.identity(n_arms)[i], 1.1) for i in range(n_arms)]
+    null_hypos = [HyperPlane(-np.identity(n_arms)[i], 1.1) for i in range(n_arms)]
     g = grid.init_grid(theta, radii, 1).add_null_hypos(null_hypos).prune()
     refine_g = g.active().subset(np.array([0, 3, 4, 5]))
     new_g = refine_g.refine()
@@ -251,7 +240,7 @@ n_theta_1d = 10
 
 
 def bench_f():
-    null_hypos = [grid.HyperPlane(-np.identity(n_arms)[i], 2) for i in range(n_arms)]
+    null_hypos = [HyperPlane(-np.identity(n_arms)[i], 2) for i in range(n_arms)]
     t, r = grid._cartesian_gridpts(
         np.full(n_arms, -3.5), np.full(n_arms, 1.0), np.full(n_arms, n_theta_1d)
     )

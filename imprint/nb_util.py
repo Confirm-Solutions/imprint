@@ -93,8 +93,8 @@ def safe_execfile_ipy(
     the cell_indices argument. This lets us run only a subset of the cells in
     a notebook.
 
-    Permalink for the copied source. If this breaks, check if the upstream
-    source has changed substantially.
+    Permalink for the copied source. If this function breaks, check if the
+    upstream source has changed substantially.
         https://github.com/ipython/ipython/blob/57eaa12cb50c9a95213b9e155032e400b9424871/IPython/core/interactiveshell.py#L2766 # noqa
 
     Original docstring below:
@@ -164,6 +164,13 @@ def run_notebook(filepath, cell_indices=None):
     """
     Programmatically run a notebook return the notebook's namespace and the
     execution time. This is useful for testing notebooks.
+
+    Note: testbook is an alternative to this function. testbook has a critical
+    flaw because it currently runs the notebook in a separate process and uses
+    JSON to serialize objects. In addition, testbook seems undermaintained and
+    I would rather have our own thin 50 LOC implementation.
+    https://github.com/nteract/testbook
+    see: https://github.com/Confirm-Solutions/confirmasaurus/issues/266
 
     Args:
         filepath: Path to the notebook to run.

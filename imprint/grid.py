@@ -1,13 +1,14 @@
 import copy
-import warnings
+from abc import ABC
+from abc import abstractmethod
 from dataclasses import dataclass
 from dataclasses import field
 from itertools import product
+from typing import Any
 from typing import List
 
 import numpy as np
 import pandas as pd
-import sympy as sp
 
 import imprint.log
 from .timer import unique_timer
@@ -15,96 +16,79 @@ from .timer import unique_timer
 logger = imprint.log.getLogger(__name__)
 
 
-@dataclass(eq=False)
-class HyperPlane:
-    """
-    A plane defined by:
-    x.dot(n) - c = 0
+@dataclass
+class NullHypothesis(ABC):
+    def split(self, g: "Grid", curve_data: Any):
+        """
+        split returns a grid of new tiles that result from splitting the tiles
+        in the input grid.
 
-    Sign convention: When used as the boundary between null hypothesis and
-    alternative, the normal should point towards the null hypothesis space.
-    """
+        This defaults to simply repeating each tile twice, but can be overridden
+        to implement more sophisticated splitting strategies.
 
-    n: np.ndarray
-    c: float
+        Args:
+            g: The input grid.
+            curve_data: Arbitrary information describing the curve.
+        """
+        return g.repeat(2)
 
-    def __eq__(self, other):
-        if not isinstance(other, HyperPlane):
-            return NotImplemented
-        return np.allclose(self.n, other.n) and np.isclose(self.c, other.c)
+    @abstractmethod
+    def dist(self, theta: np.ndarray):
+        """
+        Curve describes the signed distance of a point from the null hypothesis
+        curve.
 
+        For example, if the null hypothesis is a plane, curve should return
+        `x.dot(n) - c`, where n is the normal vector and c is the offset.
 
-def hypo(str_expr):
-    """
-    Define a hyperplane from a sympy expression.
+        Args:
+            theta: The points to evaluate the curve at. This array will be:
+                (n_points, n_dims) shaped.
 
-    For example:
-    >>> hypo("2*theta1 < 1")
-    HyperPlane(n=array([ 0., -1.]), c=-0.5)
+        Returns:
+            distance: The signed distance of each point from the curve.
+        """
+        pass
 
-    >>> hypo("x - y >= 0")
-    HyperPlane(n=array([ 0.70710678, -0.70710678]), c=0.0)
+    def use_fast_path(self):
+        """
+        Should we use the fast path or slow path?
 
-    Valid comparison operators are <, >, <=, >=.
+        Fast path: The `dist` method is used as a first pass to determine which
+        tile centers are within a single `radii` distance to the curve before
+        using `side` to determine precisely which tiles intersect. This is much
+        faster because it avoids expensive intersection tests in `side`. On the
+        other hand, it can lead to incorrect results if the `dist` method does
+        not accurately lower bound the true distance to the nearest point on
+        the curve.
 
-    The left hand and right hand sides must be linear in theta.
+        Slow path: All tiles are passed to `side` to determine which tiles intersect.
 
-    Aliases:
-        - theta{i}: x{i}
-        - x: x0
-        - y: x1
-        - z: x2
+        Returns:
+            _description_
+        """
+        return False
 
-    Args:
-        str_expr: The expression defining the hypothesis plane.
+    @abstractmethod
+    def side(self, g: "Grid"):
+        """
+        Determine which side of the null hypothesis curve each tile is on.
+        If the tile is entirely above the curve, return 1. If the tile is
+        entirely below the curve, return -1. If the tile intersects the curve,
+        return 0.
 
-    Returns:
-        The HyperPlane object corresponding to the sympy expression.
-    """
-    alias = dict(
-        x="x0",
-        y="x1",
-        z="x2",
-    )
-    expr = sp.parsing.parse_expr(str_expr)
-    if isinstance(expr, sp.StrictLessThan) or isinstance(expr, sp.LessThan):
-        plane = expr.rhs - expr.lhs
-    elif isinstance(expr, sp.StrictGreaterThan) or isinstance(expr, sp.GreaterThan):
-        plane = expr.lhs - expr.rhs
-    else:
-        raise ValueError("Hypothesis expression must be an inequality.")
+        Args:
+            g: The grid of tiles.
 
-    symbols = plane.free_symbols
-    coeffs = sp.Poly(plane, *symbols).coeffs()
-    if len(coeffs) > len(symbols):
-        c = -float(coeffs[-1])
-        coeffs = coeffs[:-1]
-    else:
-        c = 0
-
-    symbol_names = [alias.get(s.name, s.name).replace("theta", "x") for s in symbols]
-
-    if any([s[0] != "x" for s in symbol_names]):
-        raise ValueError(
-            f"Hypothesis contains invalid symbols: {symbols}."
-            " Valid symbols are x0..., theta0..., x, y, z."
-        )
-    try:
-        symbol_idxs = [int(s[1:]) for s in symbol_names]
-    except ValueError:
-        raise ValueError(
-            f"Hypothesis contains invalid symbols: {symbols}."
-            " Valid symbols are x0..., theta0..., x, y, z."
-        )
-    coeff_dict = dict(zip(symbol_idxs, coeffs))
-    max_idx = max(symbol_idxs)
-
-    n = [float(coeff_dict.get(i, 0)) for i in range(max_idx + 1)]
-    n_norm = np.linalg.norm(n)
-    n /= n_norm
-    c /= n_norm
-
-    return HyperPlane(np.array(n), c)
+        Returns:
+            intersects: an integer array for each tile, indicating whether:
+                -1: the tile is entirely below the curve
+                +1: the tile is entirely above the curve
+                0: the tile intersects the curve
+            curve_data: arbitrary information describing the curve that will be
+                passed onwards to `split`.
+        """
+        pass
 
 
 @dataclass
@@ -128,7 +112,7 @@ class Grid:
 
     df: pd.DataFrame
     worker_id: int
-    null_hypos: List[HyperPlane] = field(default_factory=lambda: [])
+    null_hypos: List[NullHypothesis] = field(default_factory=lambda: [])
 
     @property
     def d(self):
@@ -146,74 +130,65 @@ class Grid:
     def n_active_tiles(self):
         return self.df["active"].sum()
 
-    def _add_null_hypo(self, H, inherit_cols):
-        eps = 1e-15
-
+    def _add_null_hypo(self, H: NullHypothesis, inherit_cols: List[str]):
         hypo_idx = len(self.null_hypos)
-        self.null_hypos.append(H)
+        g_inactive = self.inactive()
+        g_inactive.df[f"null_truth{hypo_idx}"] = H.dist(g_inactive.get_theta()) >= 0
 
-        ########################################
-        # Step 1: Assign tile centers
-        ########################################
-        # Assign tiles to the null/alt hypothesis space depending on which side
-        # of the plane the tile lies. At the moment, we only check the tile
-        # centers. Any tiles that intersect the plane will be handled next.
-        theta, vertices = self.get_theta_and_vertices()
-        radii = self.get_radii()
-        gridpt_dist = theta.dot(H.n) - H.c
-        self.df[f"null_truth{hypo_idx}"] = gridpt_dist >= 0
+        g_active = self.active()
+        theta, vertices = g_active.get_theta_and_vertices()
+        radii = g_active.get_radii()
+        gridpt_dist = H.dist(theta)
+        g_active.df[f"null_truth{hypo_idx}"] = gridpt_dist >= 0
 
-        ########################################
-        # Step 2: Check for intersection
-        ########################################
-        # If a tile is close to the plane, we need to check for intersection.
+        # If a tile is close to the curve, we need to check for intersection.
         # "close" is defined by whether the bounding ball of the tile
         # intersects the plane.
-        close = np.abs(gridpt_dist) <= np.sqrt(np.sum(self.get_radii() ** 2, axis=-1))
-        # We ignore intersections of inactive tiles.
-        close &= self.df["active"].values
 
-        # For each tile that is close to the plane, we check each vertex to
+        # For each tile that is close to the plane, we ask the curve to
         # find which side of the plane the vertex lies on.
-        vertex_dist = vertices[close].dot(H.n) - H.c
-        all_above = (vertex_dist >= -eps).all(axis=-1)
-        all_below = (vertex_dist <= eps).all(axis=-1)
-        # If all vertices are above or all the vertices are below the plane, we
-        # can ignore the tile.
-        close_intersects = ~(all_above | all_below)
-        if close_intersects.sum() == 0:
-            return self
-        intersects = np.zeros(self.n_tiles, dtype=bool)
-        intersects[close] = close_intersects
+        if H.use_fast_path():
+            close = np.ones(g_active.n_tiles, dtype=bool)
+        else:
+            close = np.abs(gridpt_dist) <= np.sqrt(np.sum(radii**2, axis=-1))
+        side_close, curve_data = H.side(g_active.subset(close))
+        side = np.zeros(g_active.n_tiles, dtype=np.int8)
+        side[close] = side_close
+        side[~close] = np.sign(gridpt_dist[~close])
+        needs_split = side == 0
 
-        ########################################
-        # Step 3: Split intersecting tiles
-        ########################################
-        new_theta, new_radii = split(
-            theta[intersects],
-            radii[intersects],
-            vertices[intersects],
-            vertex_dist[close_intersects],
-            H,
-        )
+        # If H.dist just always returns 0, then we should update the null_truth
+        # for all tiles here.
+        g_active.df.loc[close, f"null_truth{hypo_idx}"] = side_close > 0
 
-        parent_id = np.repeat(self.df["id"].values[intersects], 2)
-        new_g = init_grid(new_theta, new_radii, self.worker_id, parents=parent_id)
-        _inherit(new_g.df, self.df[intersects], 2, inherit_cols)
+        if not needs_split.any():
+            return g_inactive.concat(g_active)
+
+        g_needs_split = g_active.subset(needs_split)
+        g_split = H.split(g_needs_split, curve_data)
+
+        # NOTE: currently assumes exactly two tiles are created for each split
+        # tile.
+        hypo_idx = len(g_needs_split.null_hypos)
         for i in range(hypo_idx):
-            new_g.df[f"null_truth{i}"] = np.repeat(
-                self.df[f"null_truth{i}"].values[intersects], 2
+            g_split.df[f"null_truth{i}"] = np.repeat(
+                g_needs_split.df[f"null_truth{i}"].values, 2
             )
-        new_g.df[f"null_truth{hypo_idx}"] = True
-        new_g.df[f"null_truth{hypo_idx}"].values[1::2] = False
+        null_truth = np.ones(g_split.n_tiles, dtype=bool)
+        null_truth[1::2] = False
+        g_split.df[f"null_truth{hypo_idx}"] = null_truth
+
+        inherit(g_split.df, g_needs_split.df, 2, inherit_cols)
 
         # Any tile that has been split should be ignored going forward.
         # We're done with these tiles!
-        self.df["active"].values[intersects] = False
+        g_active.df["active"].values[needs_split] = False
 
-        return self.concat(new_g)
+        return g_inactive.concat(g_active, g_split)
 
-    def add_null_hypos(self, null_hypos, inherit_cols=[]):
+    def add_null_hypos(
+        self, null_hypos: List[NullHypothesis], inherit_cols: List[str] = []
+    ):
         """
         Add null hypotheses to the grid. This will split any tiles that
         intersect the null hypotheses and assign the tiles to the null/alt
@@ -222,19 +197,18 @@ class Grid:
         columns in the tile dataframe.
 
         Args:
-            null_hypos: The null hypotheses to add. List of HyperPlane objects.
+            null_hypos: The null hypotheses to add. List of NullHypothesis objects.
             inherit_cols: Columns that should be inherited by split
                 tiles (e.g. K). Defaults to [].
 
         Returns:
             The grid with the null hypotheses added.
         """
-        g = Grid(self.df.copy(), self.worker_id, copy.deepcopy(self.null_hypos))
+        out = Grid(self.df.copy(), self.worker_id, copy.deepcopy(self.null_hypos))
         for H in null_hypos:
-            Hn = np.asarray(H.n)
-            Hpad = HyperPlane(np.pad(Hn, (0, g.d - Hn.shape[0])), H.c)
-            g = g._add_null_hypo(Hpad, inherit_cols)
-        return g
+            out = out._add_null_hypo(H, inherit_cols)
+            out.null_hypos.append(H)
+        return out
 
     def prune(self):
         """
@@ -277,6 +251,15 @@ class Grid:
         """
         return self.subset(self.df["active"])
 
+    def inactive(self):
+        """
+        Get the inactive subset of the grid.
+
+        Returns:
+            A grid composed of only the inactive tiles.
+        """
+        return self.subset(~self.df["active"])
+
     def get_null_truth(self):
         return self.df[
             [
@@ -306,6 +289,7 @@ class Grid:
             refine_theta + hypercube_vertices(self.d)[None, :, :] * refine_radii
         ).reshape((-1, self.d))
         new_radii = np.tile(refine_radii, (1, 2**self.d, 1)).reshape((-1, self.d))
+
         parent_id = np.repeat(self.df["id"].values, 2**self.d)
         out = init_grid(
             new_thetas,
@@ -313,8 +297,14 @@ class Grid:
             self.worker_id,
             parents=parent_id,
         )
-        _inherit(out.df, self.df, 2**self.d, inherit_cols)
+        inherit(out.df, self.df, 2**self.d, inherit_cols)
         return out
+
+    def repeat(self, n_reps):
+        theta = np.repeat(self.get_theta(), n_reps, axis=0)
+        radii = np.repeat(self.get_radii(), n_reps, axis=0)
+        parents = np.repeat(self.df["id"].values, n_reps)
+        return init_grid(theta, radii, self.worker_id, parents=parents)
 
     def concat(self, *others):
         return Grid(
@@ -324,7 +314,7 @@ class Grid:
         )
 
 
-def _inherit(child_df, parent_df, repeat, inherit_cols):
+def inherit(child_df, parent_df, repeat, inherit_cols):
     assert (child_df["parent_id"] == np.repeat(parent_df["id"].values, repeat)).all()
     for col in inherit_cols:
         if col in child_df.columns:
@@ -334,7 +324,7 @@ def _inherit(child_df, parent_df, repeat, inherit_cols):
     # use pandas merge.
     # pd.merge(
     #     child_df,
-    #     parent_df,
+    #     parent_df[['id'] + inherit_cols],
     #     left_on="parent_id",
     #     right_on="id",
     #     how='left',
@@ -371,7 +361,7 @@ def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True)
         theta_min: The minimum value of theta for each dimension.
         theta_max: The maximum value of theta for each dimension.
         n: The number of theta values to use in each dimension.
-        null_hypos: The null hypotheses to add. List of HyperPlane objects.
+        null_hypos: The null hypotheses to add. List of NullHypothesis objects.
         prune: Whether to prune the grid to only include tiles that are in the
             null hypothesis space.
 
@@ -453,6 +443,7 @@ def plot_grid(g: Grid, only_active=True, dims=(0, 1)):
     plt.ylim(ylims)
 
     for h in g.null_hypos:
+        # TODO: skip not planar null hypothesis and warn.
         if h.n[0] == 0:
             xs = np.linspace(*xlims, 100)
             ys = (h.c - xs * h.n[0]) / h.n[1]
@@ -495,117 +486,6 @@ def hypercube_vertices(d):
         hypercube.
     """
     return np.array(list(product((-1, 1), repeat=d)))
-
-
-def split(theta, radii, vertices, vertex_dist, H):
-    eps = 1e-15
-    d = theta.shape[1]
-
-    ########################################
-    # Step 1. Intersect tile edges with the hyperplane.
-    # This will identify the new vertices that we need to add.
-    ########################################
-    split_edges = get_edges(theta, radii)
-    # The first n_params columns of split_edges are the vertices from which
-    # the edge originates and the second n_params are the edge vector.
-    split_vs = split_edges[..., :d]
-    split_dir = split_edges[..., d:]
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        # Intersect each edge with the plane.
-        alpha = (H.c - split_vs.dot(H.n)) / (split_dir.dot(H.n))
-        # Now we need to identify the new tile vertices. We have three
-        # possible cases here:
-        # 1. Intersection: indicated by 0 < alpha < 1. We give a little
-        #    eps slack to ignore intersections for null planes that just barely
-        #    touch a corner of a tile. In this case, we
-        # 2. Non-intersection indicated by alpha not in [0, 1]. In this
-        #    case, the new vertex will just be marked nan to be filtered out
-        #    later.
-        # 3. Non-finite alpha which also indicates no intersection. Again,
-        #    we produced a nan vertex to filter out later.
-        new_vs = split_vs + alpha[:, :, None] * split_dir
-        new_vs = np.where(
-            (np.isfinite(new_vs)) & ((alpha > eps) & (alpha < 1 - eps))[..., None],
-            new_vs,
-            np.nan,
-        )
-
-    ########################################
-    # Step 2. Construct the vertex array for the new tiles..
-    ########################################
-    # Create the array for the new vertices. We need to expand the
-    # original vertex array in both dimensions:
-    # 1. We create a new row for each tile that is being split using np.repeat.
-    # 2. We create a new column for each potential additional vertex from
-    #    the intersection operation above using np.concatenate. This is
-    #    more new vertices than necessary, but facilitates a nice
-    #    vectorized implementation.. We will just filter out the
-    #    unnecessary slots later.
-    split_vertices = np.repeat(vertices, 2, axis=0)
-    split_vertices = np.concatenate(
-        (
-            split_vertices,
-            np.full(
-                (split_vertices.shape[0], split_edges.shape[1], d),
-                np.nan,
-            ),
-        ),
-        axis=1,
-    )
-
-    # Now we need to fill in the new vertices:
-    # For each original tile vertex, we need to determine whether the tile
-    # lies in the new null tile or the new alt tile.
-    include_in_null_tile = vertex_dist >= -eps
-    include_in_alt_tile = vertex_dist <= eps
-
-    # Since we copied the entire tiles, we can "delete" vertices by
-    # multiply by nan
-    # note: ::2 traverses the range of new null hypo tiles
-    #       1::2 traverses the range of new alt hypo tiles
-    split_vertices[::2, : vertices.shape[1]] *= np.where(
-        include_in_null_tile, 1, np.nan
-    )[..., None]
-    split_vertices[1::2, : vertices.shape[1]] *= np.where(
-        include_in_alt_tile, 1, np.nan
-    )[..., None]
-
-    # The intersection vertices get added to both new tiles because
-    # they lie on the boundary between the two tiles.
-    split_vertices[::2, vertices.shape[1] :] = new_vs
-    split_vertices[1::2, vertices.shape[1] :] = new_vs
-
-    # Trim the new tile array:
-    # We now are left with an array of tile vertices that has many more
-    # vertex slots per tile than necessary with the unused slots filled
-    # with nan.
-    # To deal with this:
-    # 1. We sort along the vertices axis. This has the effect of
-    #    moving all the nan vertices to the end of the list.
-    split_vertices = split_vertices[
-        np.arange(split_vertices.shape[0])[:, None],
-        np.argsort(np.sum(split_vertices, axis=-1), axis=-1),
-    ]
-
-    # 2. Identify the maximum number of vertices of any tile and trim the
-    #    array so that is the new vertex dimension size
-    nonfinite_corners = (~np.isfinite(split_vertices)).all(axis=(0, 2))
-    # 3. If any corner is unused for all tiles, we should remove it.
-    #    But, we can't trim smaller than the original vertices array.
-    if nonfinite_corners[-1]:
-        first_all_nan_corner = nonfinite_corners.argmax()
-        split_vertices = split_vertices[:, :first_all_nan_corner]
-
-    ########################################
-    # Step 3. Identify bounding boxes.
-    ########################################
-    min_val = np.nanmin(split_vertices, axis=1)
-    max_val = np.nanmax(split_vertices, axis=1)
-    new_theta = (min_val + max_val) / 2
-    new_radii = (max_val - min_val) / 2
-    return new_theta, new_radii
 
 
 def get_edges(theta, radii):

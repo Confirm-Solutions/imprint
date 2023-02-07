@@ -146,7 +146,7 @@ class NormalBound:
             q_opt = bwd_solver.solve(v, alpha_target)
             return tilt_bound_bwd_tile(q_opt, scale, v, alpha_target)
 
-        return jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        return jax.jit(jax.vmap(backward_bound))
 
     @staticmethod
     def get_forward_bound(family_params):

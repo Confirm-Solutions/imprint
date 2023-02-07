@@ -257,7 +257,7 @@ class Normal2Bound:
                 q_opt, n, theta01, theta02, v1s, v2s, alpha_target
             )
 
-        jit_bwd = jax.jit(jax.vmap(backward_bound, in_axes=(None, 0, 0)))
+        jit_bwd = jax.jit(jax.vmap(backward_bound))
 
         def f(alpha_target, theta0, vertices):
             if jnp.any(vertices[..., 1] >= 0):

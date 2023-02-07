@@ -52,12 +52,13 @@ validation_df = ip.validate(
     # This is the binomial n parameter, the number of patients recruited to each arm of the trial.
     model_kwargs={"n_arm_samples": 35},
 )
+g_val = g.add_cols(validation_df)
 ```
 
 ```python
 ip.setup_nb()
 plt.figure(figsize=(10, 4), constrained_layout=True)
-theta_tiles = g.get_theta()
+theta_tiles = g_val.get_theta()
 t2 = np.unique(theta_tiles[:, 2])[4]
 selection = theta_tiles[:, 2] == t2
 
@@ -66,12 +67,12 @@ plt.title(f"slice: $\\theta_2 \\approx$ {t2:.1f}")
 cntf = plt.tricontourf(
     theta_tiles[selection, 0],
     theta_tiles[selection, 1],
-    validation_df["tie_est"][selection],
+    g_val.df["tie_est"][selection],
 )
 plt.tricontour(
     theta_tiles[selection, 0],
     theta_tiles[selection, 1],
-    validation_df["tie_est"][selection],
+    g_val.df["tie_est"][selection],
     colors="k",
     linestyles="-",
     linewidths=0.5,
@@ -86,12 +87,12 @@ plt.subplot(1, 2, 2)
 cntf = plt.tricontourf(
     theta_tiles[selection, 0],
     theta_tiles[selection, 1],
-    validation_df["tie_bound"][selection],
+    g_val.df["tie_bound"][selection],
 )
 plt.tricontour(
     theta_tiles[selection, 0],
     theta_tiles[selection, 1],
-    validation_df["tie_bound"][selection],
+    g_val.df["tie_bound"][selection],
     colors="k",
     linestyles="-",
     linewidths=0.5,
