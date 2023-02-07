@@ -132,10 +132,10 @@ class Grid:
 
     def _add_null_hypo(self, H: NullHypothesis, inherit_cols: List[str]):
         hypo_idx = len(self.null_hypos)
-        g_inactive = self.inactive()
+        g_inactive = self.subset(~self.df["active"])
         g_inactive.df[f"null_truth{hypo_idx}"] = H.dist(g_inactive.get_theta()) >= 0
 
-        g_active = self.active()
+        g_active = self.prune_inactive()
         theta, vertices = g_active.get_theta_and_vertices()
         radii = g_active.get_radii()
         gridpt_dist = H.dist(theta)
@@ -178,7 +178,7 @@ class Grid:
         null_truth[1::2] = False
         g_split.df[f"null_truth{hypo_idx}"] = null_truth
 
-        inherit(g_split.df, g_needs_split.df, 2, inherit_cols)
+        _inherit(g_split.df, g_needs_split.df, 2, inherit_cols)
 
         # Any tile that has been split should be ignored going forward.
         # We're done with these tiles!
@@ -210,10 +210,11 @@ class Grid:
             out.null_hypos.append(H)
         return out
 
-    def prune(self):
+    def prune_alternative(self):
         """
         Remove tiles that are not in the null hypothesis space for any
         hypothesis.
+        Note that this method will not copy the grid if no tiles are pruned.
 
         Returns:
             The pruned grid.
@@ -226,8 +227,18 @@ class Grid:
             return self
         return self.subset(which)
 
-    def add_cols(self, df):
-        return Grid(pd.concat((self.df, df), axis=1), self.worker_id, self.null_hypos)
+    def prune_inactive(self):
+        """
+        Get the active subset of the grid.
+
+        Note that this method will not copy the grid if no tiles are pruned.
+
+        Returns:
+            A grid composed of only the active tiles.
+        """
+        if np.all(self.df["active"]):
+            return self
+        return self.subset(self.df["active"])
 
     def subset(self, which):
         """
@@ -242,23 +253,8 @@ class Grid:
         df = self.df.loc[which].reset_index(drop=True)
         return Grid(df, self.worker_id, self.null_hypos)
 
-    def active(self):
-        """
-        Get the active subset of the grid.
-
-        Returns:
-            A grid composed of only the active tiles.
-        """
-        return self.subset(self.df["active"])
-
-    def inactive(self):
-        """
-        Get the inactive subset of the grid.
-
-        Returns:
-            A grid composed of only the inactive tiles.
-        """
-        return self.subset(~self.df["active"])
+    def add_cols(self, df):
+        return Grid(pd.concat((self.df, df), axis=1), self.worker_id, self.null_hypos)
 
     def get_null_truth(self):
         return self.df[
@@ -291,20 +287,20 @@ class Grid:
         new_radii = np.tile(refine_radii, (1, 2**self.d, 1)).reshape((-1, self.d))
 
         parent_id = np.repeat(self.df["id"].values, 2**self.d)
-        out = init_grid(
+        out = _raw_init_grid(
             new_thetas,
             new_radii,
             self.worker_id,
             parents=parent_id,
         )
-        inherit(out.df, self.df, 2**self.d, inherit_cols)
+        _inherit(out.df, self.df, 2**self.d, inherit_cols)
         return out
 
     def repeat(self, n_reps):
         theta = np.repeat(self.get_theta(), n_reps, axis=0)
         radii = np.repeat(self.get_radii(), n_reps, axis=0)
         parents = np.repeat(self.df["id"].values, n_reps)
-        return init_grid(theta, radii, self.worker_id, parents=parents)
+        return _raw_init_grid(theta, radii, self.worker_id, parents=parents)
 
     def concat(self, *others):
         return Grid(
@@ -314,7 +310,7 @@ class Grid:
         )
 
 
-def inherit(child_df, parent_df, repeat, inherit_cols):
+def _inherit(child_df, parent_df, repeat, inherit_cols):
     assert (child_df["parent_id"] == np.repeat(parent_df["id"].values, repeat)).all()
     for col in inherit_cols:
         if col in child_df.columns:
@@ -332,10 +328,10 @@ def inherit(child_df, parent_df, repeat, inherit_cols):
     # )
 
 
-def init_grid(theta, radii, worker_id, parents=None):
+def _raw_init_grid(theta, radii, worker_id, parents=None):
     d = theta.shape[1]
     indict = dict()
-    indict["id"] = gen_short_uuids(theta.shape[0], worker_id=worker_id)
+    indict["id"] = _gen_short_uuids(theta.shape[0], worker_id=worker_id)
 
     # Is this a terminal tile in the tree?
     indict["active"] = True
@@ -352,7 +348,49 @@ def init_grid(theta, radii, worker_id, parents=None):
     return Grid(pd.DataFrame(indict), worker_id, [])
 
 
-def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True):
+def create_grid(
+    theta, *, radii=None, null_hypos=None, prune_alternative=True, prune_inactive=True
+):
+    """
+    Create a grid from a set of points and radii.
+
+    Args:
+        theta: The parameter values for each tile.
+        radii: The half-width for each tile. If None, we construct a Voronoi
+            diagram of theta and use that to construct bounding boxes for each
+            tile. Defaults to None.
+        null_hypos: The null hypotheses to add. List of NullHypothesis objects.
+        prune_alternative: Whether to prune the grid to only include tiles that
+            are in the null hypothesis space.
+        prune_inactive: Whether to prune the grid to only include active tiles.
+
+    Returns:
+        The grid.
+    """
+    if radii is None:
+        # TODO: implement voronoi diagrim gridding.
+        raise NotImplementedError("Voronoi gridding not implemented yet.")
+
+    g = _raw_init_grid(theta, radii, 1)
+
+    if null_hypos is not None:
+        g = g.add_null_hypos(null_hypos)
+    if prune_alternative:
+        g = g.prune_alternative()
+    if prune_inactive:
+        g = g.prune_inactive()
+    return g
+
+
+def cartesian_grid(
+    theta_min,
+    theta_max,
+    *,
+    n=None,
+    null_hypos=None,
+    prune_alternative=True,
+    prune_inactive=True,
+):
     """
     Produce a grid of points in the hyperrectangle defined by theta_min and
     theta_max.
@@ -362,8 +400,9 @@ def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True)
         theta_max: The maximum value of theta for each dimension.
         n: The number of theta values to use in each dimension.
         null_hypos: The null hypotheses to add. List of NullHypothesis objects.
-        prune: Whether to prune the grid to only include tiles that are in the
-            null hypothesis space.
+        prune_alternative: Whether to prune the grid to only include tiles that
+            are in the null hypothesis space.
+        prune_inactive: Whether to prune the grid to only include active tiles.
 
     Returns:
         The grid.
@@ -373,12 +412,14 @@ def cartesian_grid(theta_min, theta_max, *, n=None, null_hypos=None, prune=True)
 
     if n is None:
         n = np.full(theta_min.shape[0], 2)
-    g = init_grid(*_cartesian_gridpts(theta_min, theta_max, n), 1)
-    if null_hypos is not None:
-        g = g.add_null_hypos(null_hypos)
-        if prune:
-            g = g.prune()
-    return g
+    theta, radii = _cartesian_gridpts(theta_min, theta_max, n)
+    return create_grid(
+        theta,
+        radii=radii,
+        null_hypos=null_hypos,
+        prune_alternative=prune_alternative,
+        prune_inactive=prune_inactive,
+    )
 
 
 def _cartesian_gridpts(theta_min, theta_max, n_theta_1d):
@@ -417,7 +458,7 @@ def plot_grid(g: Grid, only_active=True, dims=(0, 1)):
     vertices = g.get_theta_and_vertices()[1][..., dims]
 
     if only_active:
-        g = g.active()
+        g = g.prune_inactive()
 
     polys = []
     for i in range(vertices.shape[0]):
@@ -488,7 +529,7 @@ def hypercube_vertices(d):
     return np.array(list(product((-1, 1), repeat=d)))
 
 
-def get_edges(theta, radii):
+def _get_edges(theta, radii):
     """
     Construct an array indicating the edges of each hyperrectangle.
     - edges[:, :, :n_params] are the vertices at the origin of the edges
@@ -521,7 +562,7 @@ def get_edges(theta, radii):
     return edges
 
 
-def gen_short_uuids(n, worker_id, t=None):
+def _gen_short_uuids(n, worker_id, t=None):
     """
     Short UUIDs are a custom identifier created for imprint that should allow
     for concurrent creation of tiles without having overlapping indices.
@@ -554,19 +595,19 @@ def gen_short_uuids(n, worker_id, t=None):
     Returns:
         An array with dtype uint64 of length n containing short uuids.
     """
-    n_max = 2 ** _gen_short_uuids.config[0] - 1
+    n_max = 2 ** _gen_short_uuids_one_batch.config[0] - 1
     if n <= n_max:
-        return _gen_short_uuids(n, worker_id, t)
+        return _gen_short_uuids_one_batch(n, worker_id, t)
 
     out = np.empty(n, dtype=np.uint64)
     for i in range(0, n, n_max):
         chunk_size = min(n_max, n - i)
-        out[i : i + chunk_size] = _gen_short_uuids(chunk_size, worker_id, t)
+        out[i : i + chunk_size] = _gen_short_uuids_one_batch(chunk_size, worker_id, t)
     return out
 
 
-def _gen_short_uuids(n, worker_id, t):
-    n_bits, worker_bits = _gen_short_uuids.config
+def _gen_short_uuids_one_batch(n, worker_id, t):
+    n_bits, worker_bits = _gen_short_uuids_one_batch.config
     assert n < 2**n_bits
 
     assert worker_id >= 0
@@ -590,4 +631,4 @@ def _gen_short_uuids(n, worker_id, t):
     return out
 
 
-_gen_short_uuids.config = (18, 18)
+_gen_short_uuids_one_batch.config = (18, 18)

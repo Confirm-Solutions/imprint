@@ -1,4 +1,5 @@
 import copy
+import warnings
 
 import jax
 import jax.numpy as jnp
@@ -157,9 +158,18 @@ default_K = 2**14
 
 
 def _setup(modeltype, g, model_seed, K, model_kwargs):
-    # NOTE: a no_copy parameter would be sensible in cases where the grid is
-    # very large.
-    g = copy.deepcopy(g)
+    g_pruned = g.prune_inactive()
+    if g_pruned.n_tiles < g.n_tiles:
+        warnings.warn(
+            "Pruning inactive tiles before simulation. "
+            "Mark these tiles as active if you want to simulate for them."
+        )
+    else:
+        # NOTE: a no_copy parameter would be sensible in cases where the grid is
+        # very large.
+        # If pruning occured, a copy is not necessary.
+        g = copy.deepcopy(g)
+
     if K is not None:
         g.df["K"] = K
     else:

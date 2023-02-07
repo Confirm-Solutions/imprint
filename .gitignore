@@ -33,7 +33,7 @@ poetry.toml
 *.zip
 
 # anything else
-*.gitignore*
+*gitignore*
 !**/.gitignore
 
 # Codespaces

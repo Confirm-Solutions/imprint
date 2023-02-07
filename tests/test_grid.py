@@ -43,7 +43,7 @@ def test_hypo():
 
 
 def test_split2d():
-    g = grid.init_grid(
+    g = grid._raw_init_grid(
         np.array([[1.0, 1.0]]),
         np.array([[1.1, 1.1]]),
         0,
@@ -59,18 +59,18 @@ def simple_grid():
     thetas = np.array([[-0.5, -0.5], [-0.5, 0.5], [0.5, -0.5], [0.5, 0.5]])
     radii = np.full_like(thetas, 0.5)
     hypos = [HyperPlane(-np.identity(2)[i], -0.1) for i in range(2)]
-    return grid.init_grid(thetas, radii, 1).add_null_hypos(hypos)
+    return grid._raw_init_grid(thetas, radii, 1).add_null_hypos(hypos)
 
 
-n_bits, host_bits = grid._gen_short_uuids.config
+n_bits, host_bits = grid._gen_short_uuids_one_batch.config
 t_bits = 64 - n_bits - host_bits
 
 
 def test_short_uuids():
-    U = grid.gen_short_uuids(10, 1)
+    U = grid._gen_short_uuids(10, 1)
     assert np.unique(U).shape[0] == 10
 
-    U2 = grid.gen_short_uuids(10, 1)
+    U2 = grid._gen_short_uuids(10, 1)
     assert U.dtype == np.uint64
     assert np.unique(U).shape[0] == 10
     assert U2[0] - U[0] == 2 ** (n_bits + host_bits)
@@ -78,24 +78,24 @@ def test_short_uuids():
 
 def test_no_duplicate_uuids():
     n = int(2 ** (n_bits + 0.5))
-    U = grid.gen_short_uuids(n, 1)
+    U = grid._gen_short_uuids(n, 1)
     assert np.unique(U).shape[0] == n
 
     n = 1000
-    U = grid.gen_short_uuids(n, 1)
-    U2 = grid.gen_short_uuids(n, 1)
+    U = grid._gen_short_uuids(n, 1)
+    U2 = grid._gen_short_uuids(n, 1)
     assert np.unique(np.concatenate((U, U2))).shape[0] == 2 * n
 
 
 def test_lots_of_short_uuids():
     n = 2**n_bits
-    uuids = grid.gen_short_uuids(n, 1)
+    uuids = grid._gen_short_uuids(n, 1)
     assert uuids[-1] - uuids[0] == 2 ** (n_bits + host_bits)
     assert np.unique(uuids).shape[0] == n
 
 
 def test_add_null_hypos(simple_grid):
-    g_active = simple_grid.active()
+    g_active = simple_grid.prune_inactive()
     assert len(g_active.null_hypos) == 2
     np.testing.assert_allclose(
         np.concatenate((g_active.get_theta(), g_active.get_radii()), axis=1),
@@ -125,7 +125,7 @@ def test_add_null_hypos(simple_grid):
 
 
 def test_one_point_grid():
-    g = grid.init_grid(
+    g = grid._raw_init_grid(
         *grid._cartesian_gridpts(np.array([0]), np.array([1]), np.array([1])),
         worker_id=1
     )
@@ -138,8 +138,12 @@ def test_split_angled():
     in_theta, in_radii = grid._cartesian_gridpts(
         np.full(2, -1), np.full(2, 1), np.full(4, 4)
     )
-    g = grid.init_grid(in_theta, in_radii, worker_id=1).add_null_hypos(Hs).prune()
-    assert g.active().n_tiles == 10
+    g = (
+        grid._raw_init_grid(in_theta, in_radii, worker_id=1)
+        .add_null_hypos(Hs)
+        .prune_alternative()
+    )
+    assert g.prune_inactive().n_tiles == 10
     np.testing.assert_allclose(g.get_radii()[-1], [0.125, 0.25])
 
 
@@ -148,16 +152,16 @@ def test_immutability():
     in_theta, in_radii = grid._cartesian_gridpts(
         np.full(2, -1), np.full(2, 1), np.full(4, 4)
     )
-    g = grid.init_grid(in_theta, in_radii, worker_id=1)
+    g = grid._raw_init_grid(in_theta, in_radii, worker_id=1)
     g_copy = copy.deepcopy(g)
-    _ = g.add_null_hypos(Hs).prune()
+    _ = g.add_null_hypos(Hs).prune_alternative()
     assert (g.df == g_copy.df).all().all()
 
 
 def test_prune(simple_grid):
-    gp = simple_grid.prune()
+    gp = simple_grid.prune_alternative().prune_inactive()
     assert np.all(
-        gp.active().get_null_truth()
+        gp.get_null_truth()
         == np.array([[[1, 1], [1, 1], [0, 1], [1, 1], [1, 0], [1, 1], [1, 0], [0, 1]]])
     )
 
@@ -173,7 +177,7 @@ def test_simple_indices(simple_grid):
     check_index(g)
 
     check_index(simple_grid)
-    gp = simple_grid.prune()
+    gp = simple_grid.prune_alternative()
     check_index(gp)
     gc = gp.concat(g)
     check_index(gc)
@@ -187,7 +191,7 @@ def test_column_inheritance():
 
     gs = g.add_null_hypos([planar_null.hypo("x < 0.1")], ["birthday"])
     assert (gs.df["birthday"] == 1).all()
-    gp = gs.prune()
+    gp = gs.prune_alternative()
     assert (gp.df["birthday"] == 1).all()
     gc = gp.concat(g)
     assert (gc.df["birthday"] == 1).all()
@@ -196,14 +200,14 @@ def test_column_inheritance():
 def test_prune_no_surfaces():
     thetas = np.array([[-0.5, -0.5], [-0.5, 0.5], [0.5, -0.5], [0.5, 0.5]])
     radii = np.full_like(thetas, 0.5)
-    g = grid.init_grid(thetas, radii, 1)
-    gp = g.prune()
+    g = grid._raw_init_grid(thetas, radii, 1)
+    gp = g.prune_alternative()
     assert g == gp
 
 
 def test_prune_twice_invariance(simple_grid):
-    gp = simple_grid.prune()
-    gpp = gp.prune()
+    gp = simple_grid.prune_alternative()
+    gpp = gp.prune_alternative()
     np.testing.assert_allclose(gp.get_theta(), gpp.get_theta())
     np.testing.assert_allclose(gp.get_radii(), gpp.get_radii())
     np.testing.assert_allclose(gp.get_null_truth(), gpp.get_null_truth())
@@ -216,8 +220,12 @@ def test_refine():
     )
 
     null_hypos = [HyperPlane(-np.identity(n_arms)[i], 1.1) for i in range(n_arms)]
-    g = grid.init_grid(theta, radii, 1).add_null_hypos(null_hypos).prune()
-    refine_g = g.active().subset(np.array([0, 3, 4, 5]))
+    g = (
+        grid._raw_init_grid(theta, radii, 1)
+        .add_null_hypos(null_hypos)
+        .prune_alternative()
+    )
+    refine_g = g.prune_inactive().subset(np.array([0, 3, 4, 5]))
     new_g = refine_g.refine()
     np.testing.assert_allclose(new_g.get_radii()[:12], 0.25)
     np.testing.assert_allclose(new_g.get_radii()[-4:, 0], 0.225)
@@ -240,12 +248,12 @@ n_theta_1d = 10
 
 
 def bench_f():
-    null_hypos = [HyperPlane(-np.identity(n_arms)[i], 2) for i in range(n_arms)]
-    t, r = grid._cartesian_gridpts(
-        np.full(n_arms, -3.5), np.full(n_arms, 1.0), np.full(n_arms, n_theta_1d)
+    return grid.cartesian_grid(
+        np.full(n_arms, -3.5),
+        np.full(n_arms, 1.0),
+        np.full(n_arms, n_theta_1d),
+        null_hypos=[HyperPlane(-np.identity(n_arms)[i], 2) for i in range(n_arms)],
     )
-    g = grid.init_grid(t, r).add_null_hypos(null_hypos).prune()
-    return g
 
 
 def benchmark(f, iter=3):

@@ -76,7 +76,7 @@ class HyperPlane(grid.NullHypothesis):
         # Step 1. Intersect tile edges with the hyperplane.
         # This will identify the new vertices that we need to add.
         ########################################
-        split_edges = grid.get_edges(theta, radii)
+        split_edges = grid._get_edges(theta, radii)
         # The first n_params columns of split_edges are the vertices from which
         # the edge originates and the second n_params are the edge vector.
         split_vs = split_edges[..., : g.d]
@@ -178,7 +178,9 @@ class HyperPlane(grid.NullHypothesis):
         new_radii = (max_val - min_val) / 2
 
         parent_id = np.repeat(g.df["id"], 2)
-        g_split = grid.init_grid(new_theta, new_radii, g.worker_id, parents=parent_id)
+        g_split = grid._raw_init_grid(
+            new_theta, new_radii, g.worker_id, parents=parent_id
+        )
 
         return g_split
 

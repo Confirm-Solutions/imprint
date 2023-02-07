@@ -14,58 +14,58 @@ secondary = false
 
 [tool.poetry.dependencies]
 python = "~3.10"
-numpy = "^1.23.4"
-scipy = "^1.9.3"
+numpy = "^1.24.1"
+scipy = "^1.10.0"
 sympy = "^1.11.1"
-matplotlib = "^3.6.2"
-pandas = "^1.5.1"
+matplotlib = "^3.6.3"
+pandas = "^1.5.3"
 jax = "0.3.24"
 numpyro = "^0.10.1"
 jaxlib = [
     { version = "0.3.22", platform = "darwin", source = "pypi" },
     { version = "0.3.24+cuda11.cudnn82", platform = "linux" },
 ]
-duckdb = "^0.6.0"
+duckdb = "^0.6.1"
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pre-commit = "^2.20.0"
-ipython = "^8.7.0"
-nbformat = "^5.7.1"
+pytest = "^7.2.1"
+pre-commit = "^3.0.0"
+ipython = "^8.8.0"
+nbformat = "^5.7.3"
 
 [tool.poetry.group.test.dependencies.pytest-xdist]
 extras = [
     "psutil",
 ]
-version = "^3.0.2"
+version = "^3.1.0"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-line-profiler = "^3.5.1"
-jupytext = "^1.14.1"
+line-profiler = "^4.0.2"
+jupytext = "^1.14.4"
 reorder-python-imports = "^3.9.0"
-flake8 = "^5.0.4"
-typer = "^0.6.1"
+flake8 = "^6.0.0"
+typer = "^0.7.0"
 jupyter = "^1.0.0"
-rich = "^12.6.0"
+rich = "^13.2.0"
 ipdb = "^0.13.11"
 
 [tool.poetry.group.dev.dependencies.black]
 extras = [
     "jupyter",
 ]
-version = "^22.10.0"
+version = "^22.12.0"
 
 [tool.isort]
 profile = "black"
 
 [tool.pytest.ini_options]
-addopts = "-p imprint.testing -s --tb=short --strict-markers --doctest-modules"
+addopts = "-p imprint.testing --capture=no --show-capture=no --tb=short --strict-markers --doctest-modules -Werror"
 testpaths = [
     "tests",
     "imprint",

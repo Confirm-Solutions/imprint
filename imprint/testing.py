@@ -218,10 +218,10 @@ def check_imprint_results(g, snapshot, ignore_story=True):
             True.
     """
     if "lams" in g.df.columns:
-        lamss = g.active().df["lams"].min()
+        lamss = g.prune_inactive().df["lams"].min()
         np.testing.assert_allclose(lamss, snapshot(lamss))
     if "tie_bound" in g.df.columns:
-        max_tie = g.active().df["tie_bound"].max()
+        max_tie = g.prune_inactive().df["tie_bound"].max()
         np.testing.assert_allclose(max_tie, snapshot(max_tie))
 
     # For a correctly set up problem, the grid should have a unique ordering
