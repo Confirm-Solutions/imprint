@@ -69,13 +69,16 @@ class NullHypothesis(ABC):
         """
         return False
 
-    @abstractmethod
     def side(self, g: "Grid"):
         """
         Determine which side of the null hypothesis curve each tile is on.
         If the tile is entirely above the curve, return 1. If the tile is
         entirely below the curve, return -1. If the tile intersects the curve,
         return 0.
+
+        The default implementation checks whether the tile vertices are all
+        above or below the curve. This is suitable for a variety of useful
+        curves but will be incorrect for some more complicated curves.
 
         Args:
             g: The grid of tiles.
@@ -88,7 +91,16 @@ class NullHypothesis(ABC):
             curve_data: arbitrary information describing the curve that will be
                 passed onwards to `split`.
         """
-        pass
+        _, vertices = g.get_theta_and_vertices()
+        eps = 1e-15
+        d = vertices.shape[-1]
+        vertex_dist = self.dist(vertices.reshape((-1, d))).reshape(
+            (-1, vertices.shape[1])
+        )
+        side = np.zeros(vertices.shape[0], dtype=np.int8)
+        side[(vertex_dist >= -eps).all(axis=-1)] = 1
+        side[(vertex_dist <= eps).all(axis=-1)] = -1
+        return side, vertex_dist[side == 0]
 
 
 @dataclass
@@ -210,10 +222,23 @@ class Grid:
             out.null_hypos.append(H)
         return out
 
+    def _which_alternative(self):
+        """
+        Which tiles are in the alternative hypothesis space for all
+        hypotheses.
+
+        Returns:
+            Boolean array of length n_tiles.
+        """
+        if len(self.null_hypos) == 0:
+            return np.zeros(self.n_tiles, dtype=bool)
+        null_truth = self.get_null_truth()
+        return ~((null_truth.any(axis=1)) | (null_truth.shape[1] == 0))
+
     def prune_alternative(self):
         """
-        Remove tiles that are not in the null hypothesis space for any
-        hypothesis.
+        Remove tiles that are not in the null hypothesis space for all
+        hypotheses.
         Note that this method will not copy the grid if no tiles are pruned.
 
         Returns:
@@ -221,11 +246,10 @@ class Grid:
         """
         if len(self.null_hypos) == 0:
             return self
-        null_truth = self.get_null_truth()
-        which = (null_truth.any(axis=1)) | (null_truth.shape[1] == 0)
-        if np.all(which):
+        which = self._which_alternative()
+        if not np.any(which):
             return self
-        return self.subset(which)
+        return self.subset(~which)
 
     def prune_inactive(self):
         """
@@ -454,6 +478,7 @@ def plot_grid(g: Grid, only_active=True, dims=(0, 1)):
     """
     import matplotlib as mpl
     import matplotlib.pyplot as plt
+    from .planar_null import HyperPlane
 
     vertices = g.get_theta_and_vertices()[1][..., dims]
 
@@ -484,7 +509,9 @@ def plot_grid(g: Grid, only_active=True, dims=(0, 1)):
     plt.ylim(ylims)
 
     for h in g.null_hypos:
-        # TODO: skip not planar null hypothesis and warn.
+        if not isinstance(h, HyperPlane):
+            logger.warning("Skipping non-HyperPlane null hypothesis in plot_grid.")
+            continue
         if h.n[0] == 0:
             xs = np.linspace(*xlims, 100)
             ys = (h.c - xs * h.n[0]) / h.n[1]

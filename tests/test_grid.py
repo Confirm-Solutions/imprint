@@ -241,6 +241,26 @@ def test_refine():
             np.testing.assert_allclose(subset, correct)
 
 
+def test_custom_null():
+
+    from scipy.special import expit
+
+    def null_curve(theta):
+        return (
+            -0.4 * expit(theta[..., 0])
+            - 0.6 * expit(theta[..., 1])
+            + (0.5 * 0.4 + 0.7 * 0.6)
+        )
+
+    class CurveNull(grid.NullHypothesis):
+        def dist(self, theta):
+            return null_curve(theta)
+
+    g = grid.cartesian_grid([0, 0], [2, 1], n=[10, 10], null_hypos=[CurveNull()])
+    assert g.df["active"].all()
+    assert g.n_tiles == 33
+
+
 # BENCHMARK
 
 n_arms = 4

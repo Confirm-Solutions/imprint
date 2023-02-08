@@ -57,15 +57,6 @@ class HyperPlane(grid.NullHypothesis):
         n = self._pad_n(theta.shape[-1])
         return theta.dot(n) - self.c
 
-    def side(self, g):
-        _, vertices = g.get_theta_and_vertices()
-        eps = 1e-15
-        vertex_dist = self.dist(vertices)
-        side = np.zeros(vertices.shape[0], dtype=np.int8)
-        side[(vertex_dist >= -eps).all(axis=-1)] = 1
-        side[(vertex_dist <= eps).all(axis=-1)] = -1
-        return side, vertex_dist[side == 0]
-
     def split(self, g, vertex_dist):
         eps = 1e-15
         n = self._pad_n(g.d)
