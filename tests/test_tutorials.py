@@ -31,6 +31,21 @@ def test_basket_tutorial(snapshot):
     ip.testing.check_imprint_results(ns["g_val"], snapshot)
 
 
+@pytest.mark.slow
+def test_chisq_tutorial(snapshot):
+    run_notebook(get_tutorial_path("chisq_test.ipynb"))
+
+
+@pytest.mark.slow
+def test_t_test_adaptive_tutorial(snapshot):
+    run_notebook(get_tutorial_path("t_test_adaptive.ipynb"))
+
+
+@pytest.mark.slow
+def test_t_test_tutorial(snapshot):
+    run_notebook(get_tutorial_path("t_test.ipynb"))
+
+
 def main():
     for i in range(3):
         # ns, runtime = run_notebook(

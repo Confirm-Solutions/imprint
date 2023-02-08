@@ -79,7 +79,11 @@ We now run the validation procedure for the t-test model.
 
 ```python
 rej_df = ip.validate(
-    TTest1D, grid, lam, K=n_sims, model_kwargs={"n_samples": n_samples, "mu0": mu_0}
+    TTest1D,
+    g=grid,
+    lam=lam,
+    K=n_sims,
+    model_kwargs={"n_samples": n_samples, "mu0": mu_0},
 )
 rej_df.tail()
 ```

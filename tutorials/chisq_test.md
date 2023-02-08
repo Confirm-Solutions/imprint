@@ -81,8 +81,8 @@ grid = ip.cartesian_grid(
 ```python
 rej_df = ip.validate(
     ChiSqTest,
-    grid,
-    lam,
+    g=grid,
+    lam=lam,
     K=n_sims,
     model_kwargs={"n_samples": n_samples, "family": "normal2"},
 )
@@ -153,8 +153,8 @@ grid = ip.cartesian_grid(
 ```python
 rej_df = ip.validate(
     ChiSqTest,
-    grid,
-    lam,
+    g=grid,
+    lam=lam,
     K=n_sims,
     model_kwargs={"n_samples": n_samples, "family": "scaled_chisq"},
 )
