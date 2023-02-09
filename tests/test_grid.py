@@ -46,7 +46,7 @@ def test_split2d():
     g = grid._raw_init_grid(
         np.array([[1.0, 1.0]]),
         np.array([[1.1, 1.1]]),
-        0,
+        1,
     )
     vertex_dist = np.array([[0.2, 0.2, -1.9, -1.9]])
     g = HyperPlane(np.array([-1, 0]), -0.1).split(g, vertex_dist)

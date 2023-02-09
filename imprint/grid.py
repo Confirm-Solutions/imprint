@@ -637,7 +637,7 @@ def _gen_short_uuids_one_batch(n, worker_id, t):
     n_bits, worker_bits = _gen_short_uuids_one_batch.config
     assert n < 2**n_bits
 
-    assert worker_id >= 0
+    assert worker_id > 0
     assert worker_id < 2**worker_bits
 
     if t is None:

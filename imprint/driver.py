@@ -173,7 +173,7 @@ class Driver:
 default_K = 2**14
 
 
-def _setup(modeltype, g, model_seed, K, model_kwargs):
+def _setup(model_type, g, model_seed, K, model_kwargs):
     g_pruned = g.prune_inactive()
     if g_pruned.n_tiles < g.n_tiles:
         warnings.warn(
@@ -197,12 +197,12 @@ def _setup(modeltype, g, model_seed, K, model_kwargs):
 
     if model_kwargs is None:
         model_kwargs = {}
-    model = modeltype(model_seed, g.df["K"].max(), **model_kwargs)
+    model = model_type(model_seed, g.df["K"].max(), **model_kwargs)
     return model, g
 
 
 def validate(
-    modeltype,
+    model_type,
     *,
     g,
     lam,
@@ -216,7 +216,7 @@ def validate(
     Calculate the Type I Error bound.
 
     Args:
-        modeltype: The model class.
+        model_type: The model class.
         g: The grid.
         lam: The critical threshold in the rejection rule. Test statistics
              below this value will be rejected.
@@ -238,14 +238,14 @@ def validate(
                         simulation point.
         - tie_bound: The bound on the Type I error over the whole tile.
     """
-    model, g = _setup(modeltype, g, model_seed, K, model_kwargs)
+    model, g = _setup(model_type, g, model_seed, K, model_kwargs)
     driver = Driver(model, tile_batch_size=tile_batch_size)
     rej_df = driver.validate(g.df, lam, delta=delta)
     return rej_df
 
 
 def calibrate(
-    modeltype,
+    model_type,
     *,
     g,
     alpha=0.025,
@@ -258,7 +258,7 @@ def calibrate(
     Calibrate the critical threshold for a given level of Type I Error control.
 
     Args:
-        modeltype: The model class.
+        model_type: The model class.
         g: The grid.
         model_seed: The random seed. Defaults to 0.
         alpha: The Type I Error control level. Defaults to 0.025.
@@ -273,7 +273,7 @@ def calibrate(
         A dataframe with one row for each tile containing just the "lams"
         column, which contains lambda* for each tile.
     """
-    model, g = _setup(modeltype, g, model_seed, K, model_kwargs)
+    model, g = _setup(model_type, g, model_seed, K, model_kwargs)
     driver = Driver(model, tile_batch_size=tile_batch_size)
     calibrate_df = driver.calibrate(g.df, alpha)
     return calibrate_df
