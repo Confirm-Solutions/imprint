@@ -175,6 +175,9 @@ class HyperPlane(grid.NullHypothesis):
 
         return g_split
 
+    def description(self):
+        return f"HyperPlane(n={self.n}, c={self.c})"
+
 
 def hypo(str_expr):
     """

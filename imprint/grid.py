@@ -102,6 +102,17 @@ class NullHypothesis(ABC):
         side[(vertex_dist <= eps).all(axis=-1)] = -1
         return side, vertex_dist[side == 0]
 
+    @abstractmethod
+    def description(self):
+        """
+        A description of the null hypothesis so that it can be identified
+        easily just by looking in the database.
+
+        Returns:
+            String description of the null hypothesis.
+        """
+        pass
+
 
 @dataclass
 class Grid:

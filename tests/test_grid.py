@@ -256,6 +256,9 @@ def test_custom_null():
         def dist(self, theta):
             return null_curve(theta)
 
+        def description(self):
+            return "CurveNull"
+
     g = grid.cartesian_grid([0, 0], [2, 1], n=[10, 10], null_hypos=[CurveNull()])
     assert g.df["active"].all()
     assert g.n_tiles == 33
