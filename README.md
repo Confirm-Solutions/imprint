@@ -30,6 +30,8 @@ Imprint is a library to validate clinical trial designs.
    # create a development virtual environment with useful tools
    mamba env create
    conda activate imprint
+   # the following line makes poetry install into activated environment.
+   poetry config virtualenvs.create false --local
    # install the imprint package plus development tools
    poetry install --with=dev,test
    ```
