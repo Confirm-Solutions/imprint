@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: reorder-python-imports
   - repo: https://github.com/mwouts/jupytext
-    rev: v1.14.4
+    rev: v1.14.5
     hooks:
       - id: jupytext
         args: [--from, ipynb, --to, "md"]
@@ -32,7 +32,7 @@ repos:
   # To reset gitleaks-report.json: 
   # gitleaks detect -v --redact --report-path tools/gitleaks-report.json 
   - repo: https://github.com/zricethezav/gitleaks
-    rev: v8.15.3
+    rev: v8.16.0
     hooks:
       - id: gitleaks
         args: [--baseline-path, tools/gitleaks-report.json]
