@@ -26,11 +26,12 @@ Imprint is a library to validate clinical trial designs.
    in [`pyproject.toml`](pyproject.toml).
 
    ```bash
-   mamba update -y conda
+   mamba update -y conda mamba
    # create a development virtual environment with useful tools
    mamba env create
    conda activate imprint
-   # the following line makes poetry install into activated environment.
+   # the following line makes poetry install into already activated
+   # environment.
    poetry config virtualenvs.create false --local
    # install the imprint package plus development tools
    poetry install --with=dev,test

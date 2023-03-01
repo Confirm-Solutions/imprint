@@ -1,3 +1,4 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -13,7 +14,7 @@ def _pad_arg(a, axis, n_pad: int, module):
     Padding with the values at index 0 avoids problems with using a placeholder
     value like 0 in situations where the placeholder value would be invalid.
     """
-    pad_element = module.take(a, indices=0, axis=axis)
+    pad_element = module.take(a, indices=0, mode="clip", axis=axis)
     pad_element = module.expand_dims(pad_element, axis=axis)
     new_shape = tuple(a.shape[i] if i != axis else n_pad for i in range(a.ndim))
     return module.concatenate((a, module.full(new_shape, pad_element)), axis=axis)
@@ -27,7 +28,7 @@ def _create_batched_args(args, in_axes, start, end, n_pad=None):
     def arg_take_transform(arg, start, end, axis):
         # It's very important to check if arg is a jax array or numpy because
         # we don't want to copy arrays back and forth from GPU to CPU!
-        is_jax = isinstance(arg, jnp.DeviceArray)
+        is_jax = isinstance(arg, jax.Array)
         module = jnp if is_jax else np
         slc = [slice(None)] * len(arg.shape)
         slc[axis] = slice(start, end)
@@ -165,7 +166,7 @@ def batch(f, batch_size: int, in_axes, out_axes=None):
         outs, n_pad = f_batch_all(*args)
 
         return_first = False
-        if isinstance(outs[0], np.ndarray) or isinstance(outs[0], jnp.DeviceArray):
+        if isinstance(outs[0], np.ndarray) or isinstance(outs[0], jax.Array):
             return_first = True
             outs = [[o] for o in outs]
             internal_out_axes = (0,) if out_axes is None else out_axes
@@ -178,7 +179,7 @@ def batch(f, batch_size: int, in_axes, out_axes=None):
 
         # We should concatenate using the same library as the function output
         # to avoid accidental GPU to CPU copies.
-        is_jax = isinstance(outs[0][0], jnp.DeviceArray)
+        is_jax = isinstance(outs[0][0], jax.Array)
         module = jnp if is_jax else np
 
         def entry(i, j):
