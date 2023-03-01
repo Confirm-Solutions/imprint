@@ -1,13 +1,13 @@
-import logging
 import warnings
 from dataclasses import dataclass
 
 import numpy as np
 import sympy as sp
 
+import imprint.log
 from . import grid
 
-logger = logging.getLogger(__name__)
+logger = imprint.log.getLogger(__name__)
 
 
 @dataclass(eq=False)

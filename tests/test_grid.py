@@ -242,7 +242,6 @@ def test_refine():
 
 
 def test_custom_null():
-
     from scipy.special import expit
 
     def null_curve(theta):
