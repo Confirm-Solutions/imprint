@@ -19,12 +19,8 @@ scipy = "^1.10.1"
 sympy = "^1.11.1"
 matplotlib = "^3.7.0"
 pandas = "^1.5.3"
-jax = "0.3.24"
-numpyro = "^0.10.1"
-jaxlib = [
-    { version = "0.3.22", platform = "darwin", source = "pypi" },
-    { version = "0.3.24+cuda11.cudnn82", platform = "linux" },
-]
+jax = "^0.4.4"
+numpyro = "^0.11.0"
 duckdb = "^0.7.1"
 
 [tool.poetry.group.test]
@@ -54,6 +50,7 @@ typer = "^0.7.0"
 jupyter = "^1.0.0"
 rich = "^13.3.1"
 ipdb = "^0.13.11"
+tomli-w = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies.black]
 extras = [
