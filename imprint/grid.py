@@ -10,10 +10,10 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-import imprint.log
+import imprint as ip
 from .timer import unique_timer
 
-logger = imprint.log.getLogger(__name__)
+logger = ip.getLogger(__name__)
 
 
 @dataclass

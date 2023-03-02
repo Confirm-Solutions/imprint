@@ -46,14 +46,27 @@ import os
 import pickle
 from pathlib import Path
 
+import jax.config
 import jax.numpy
 import numpy as np
 import pandas as pd
 import pytest
 
+from imprint import configure_logging
+from imprint import package_settings
+
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+    configure_logging()
+    try:
+        import dotenv
+
+        dotenv.load_dotenv()
+    except ImportError:
+        pass
+    package_settings()
 
 
 def pytest_collection_modifyitems(config, items):
@@ -81,6 +94,12 @@ def pytest_addoption(parser):
         dest="update_snapshots",
         help="Update snapshots",
     )
+
+
+@pytest.fixture()
+def cur_loc(request):
+    """The location of the file containing the current test."""
+    return Path(request.fspath).parent
 
 
 def path_and_check(filebase, ext):

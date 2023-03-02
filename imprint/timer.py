@@ -24,9 +24,9 @@ import time
 
 import numpy as np
 
-import imprint.log
+import imprint as ip
 
-logger = imprint.log.getLogger(__name__)
+logger = ip.getLogger(__name__)
 
 
 class Timer:

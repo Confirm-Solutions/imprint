@@ -10,8 +10,8 @@ import warnings
 from pathlib import Path
 from unittest import mock
 
-import numpy as np
-import pandas as pd
+from imprint import configure_logging
+from imprint import package_settings
 
 
 def magic(*text):
@@ -70,8 +70,8 @@ def setup_nb(text_size_ratio=1.0, pretty=True, autoreload=True):
     plt.rcParams["font.family"] = "STIXGeneral"
     scale_text(factor=text_size_ratio)
 
-    np.set_printoptions(edgeitems=10, linewidth=100)
-    pd.options.display.max_columns = None
+    package_settings()
+    configure_logging()
 
 
 def scale_text(factor=1.0):

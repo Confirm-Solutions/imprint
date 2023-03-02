@@ -3,10 +3,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import imprint.log
+import imprint as ip
 from . import grid
 
-logger = imprint.log.getLogger(__name__)
+logger = ip.getLogger(__name__)
 
 
 @dataclass(eq=False)
