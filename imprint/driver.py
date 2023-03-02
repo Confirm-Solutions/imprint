@@ -5,7 +5,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import scipy.stats
 
 import imprint.bound as bound
 from . import batching
@@ -34,6 +33,8 @@ def get_bound(family, family_params):
 
 
 def clopper_pearson(tie_sum, K, delta):
+    import scipy.stats
+
     tie_cp_bound = scipy.stats.beta.ppf(1 - delta, tie_sum + 1, K - tie_sum)
     # If typeI_sum == sim_sizes, scipy.stats outputs nan. Output 0 instead
     # because there is no way to go higher than 1.0

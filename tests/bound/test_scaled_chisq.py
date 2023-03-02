@@ -1,6 +1,5 @@
 import jax
 import numpy as np
-import scipy as scipy
 
 import imprint.bound.scaled_chisq as scaled_chisq
 
@@ -14,6 +13,8 @@ def A_secant(n, df, theta, v, q):
 
 
 def A_numerical(df, theta):
+    import scipy.integrate
+
     return np.sum(
         np.log(
             np.array(

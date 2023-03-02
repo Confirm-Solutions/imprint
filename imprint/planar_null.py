@@ -2,7 +2,6 @@ import warnings
 from dataclasses import dataclass
 
 import numpy as np
-import sympy as sp
 
 import imprint.log
 from . import grid
@@ -206,6 +205,8 @@ def hypo(str_expr):
     Returns:
         The HyperPlane object corresponding to the sympy expression.
     """
+    import sympy as sp
+
     alias = dict(
         x="x0",
         y="x1",

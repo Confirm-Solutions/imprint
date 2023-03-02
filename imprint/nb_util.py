@@ -10,13 +10,8 @@ import warnings
 from pathlib import Path
 from unittest import mock
 
-import IPython
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from IPython.core.interactiveshell import prepended_to_syspath
-from IPython.core.interactiveshell import warn
 
 
 def magic(*text):
@@ -37,6 +32,8 @@ def configure_mpl_fast():
 
 def configure_mpl_pretty():
     """Retina and Latex matplotlib figures"""
+    import matplotlib.pyplot as plt
+
     magic("config", "InlineBackend.figure_format='retina'")
     plt.rcParams["text.usetex"] = True
     plt.rcParams["text.latex.preamble"] = r"\usepackage{amsmath, amssymb}"
@@ -57,6 +54,8 @@ def setup_nb(text_size_ratio=1.0, pretty=True, autoreload=True):
         magic("load_ext", "autoreload")
         magic("autoreload", "2")
 
+    import matplotlib.pyplot as plt
+
     if pretty:
         configure_mpl_pretty()
     else:
@@ -76,6 +75,8 @@ def setup_nb(text_size_ratio=1.0, pretty=True, autoreload=True):
 
 
 def scale_text(factor=1.0):
+    import matplotlib.pyplot as plt
+
     plt.rcParams["font.size"] = 15 * factor
     plt.rcParams["axes.labelsize"] = 13 * factor
     plt.rcParams["axes.titlesize"] = 15 * factor
@@ -114,6 +115,9 @@ def safe_execfile_ipy(
     raise_exceptions : bool (False)
         If True raise exceptions everywhere.  Meant for testing.
     """
+    from IPython.core.interactiveshell import prepended_to_syspath
+    from IPython.core.interactiveshell import warn
+
     fname = Path(fname).expanduser().resolve()
 
     # Make sure we can open the file
@@ -181,6 +185,9 @@ def run_notebook(filepath, cell_indices=None):
     Returns:
         tuple of (namespace, execution time)
     """
+    import IPython
+    import matplotlib
+
     # Using Agg backend to prevent figures from popping up
     matplotlib.use("Agg")
 

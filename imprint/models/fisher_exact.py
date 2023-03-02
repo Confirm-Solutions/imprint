@@ -1,7 +1,6 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
-import scipy
 
 
 # We reimplement the hypergeometric PDF and CDF in JAX for performance.
@@ -37,10 +36,14 @@ def hypergeom_cdf(k, M, n, N):
 
 
 def scipy_fisher_exact(tbl):
+    import scipy.stats
+
     return scipy.stats.fisher_exact(tbl, alternative="less")[1]
 
 
 def _sim_scipy(samples, theta, null_truth, f=None):
+    import scipy.special
+
     if f is None:
         f = scipy_fisher_exact
 
@@ -87,6 +90,8 @@ class FisherExact:
 class BoschlooExact(FisherExact):
     # NOTE: This is super slow!
     def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
+        import scipy.stats
+
         def f(tbl):
             return scipy.stats.boschloo_exact(tbl, alternative="less").pvalue
 
@@ -96,6 +101,8 @@ class BoschlooExact(FisherExact):
 class BarnardExact(FisherExact):
     # NOTE: This is super slow!
     def sim_batch(self, begin_sim, end_sim, theta, null_truth, detailed=False):
+        import scipy.stats
+
         def f(tbl):
             return scipy.stats.barnard_exact(tbl, alternative="less").pvalue
 

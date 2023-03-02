@@ -3,10 +3,7 @@ from dataclasses import dataclass
 import jax
 import jax.numpy as jnp
 import numpy as np
-import scipy.linalg
-import scipy.stats
 from jax.config import config
-from scipy.special import logit
 
 # This line is critical for enabling 64-bit floats.
 
@@ -86,10 +83,12 @@ class FastINLA:
         critical_value=0.85,
         opt_tol=1e-3,
     ):
+        import scipy.stats
+
         self.n_arms = n_arms
         self.mu_0 = mu_0
         self.mu_sig2 = mu_sig2
-        self.logit_p1 = logit(p1)
+        self.logit_p1 = jax.scipy.special.logit(p1)
 
         # For numpy impl:
         self.sigma2_n = sigma2_n
@@ -103,7 +102,9 @@ class FastINLA:
             self.sigma2_rule.pts, sigma2_alpha, scale=sigma2_beta
         )
         self.opt_tol = opt_tol
-        self.thresh_theta = np.full(self.n_arms, logit(0.1) - self.logit_p1)
+        self.thresh_theta = np.full(
+            self.n_arms, jax.scipy.special.logit(0.1) - self.logit_p1
+        )
         self.critical_value = critical_value
 
         # For JAX impl:

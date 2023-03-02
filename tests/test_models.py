@@ -1,7 +1,6 @@
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import scipy.stats
 
 import imprint as ip
 import imprint.models.fisher_exact as fisher
@@ -9,6 +8,8 @@ from imprint.models.ztest import ZTest1D
 
 
 def test_ztest_validate(snapshot):
+    import scipy.stats
+
     g = ip.cartesian_grid([-1], [1], n=[10], null_hypos=[ip.hypo("x < 0")])
     # lam = -1.96 because we negated the statistics so we can do a less than
     # comparison.
@@ -55,6 +56,8 @@ def test_ztest_calibrate(snapshot):
 
 
 def test_jax_hypergeom():
+    import scipy.stats
+
     np.testing.assert_allclose(
         fisher.hypergeom_logpmf(3, 20, 10, 10),
         scipy.stats.hypergeom.logpmf(3, 20, 10, 10),

@@ -1,6 +1,5 @@
 import jax
 import numpy as np
-import scipy as scipy
 
 import imprint.bound.normal2 as normal2
 
@@ -15,6 +14,8 @@ def A_secant(n, theta1, theta2, v1, v2, q):
 
 # only works for 1-sample, d-arms
 def A_numerical(theta1, theta2):
+    import scipy.integrate
+
     return np.sum(
         np.log(
             np.array(

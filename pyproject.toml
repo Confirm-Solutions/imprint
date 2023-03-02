@@ -65,7 +65,7 @@ version = "^23.1.0"
 profile = "black"
 
 [tool.pytest.ini_options]
-addopts = "-p imprint.testing --capture=no --show-capture=no --tb=short --strict-markers --doctest-modules -Werror"
+addopts = "-p imprint.testing --capture=no --show-capture=no --tb=short --strict-markers -Werror"
 testpaths = [
     "tests",
     "imprint",
