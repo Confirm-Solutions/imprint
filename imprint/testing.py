@@ -59,7 +59,7 @@ from imprint import package_settings
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: mark test as slow to run")
 
-    configure_logging()
+    configure_logging(is_testing=True)
     try:
         import dotenv
 

@@ -1,4 +1,5 @@
 import copy
+import logging
 from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -10,10 +11,9 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-import imprint as ip
 from .timer import unique_timer
 
-logger = ip.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -1,5 +1,4 @@
 from imprint.log import configure_logging
-from imprint.log import getLogger
 
 
 def package_settings():

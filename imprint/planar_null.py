@@ -1,12 +1,12 @@
+import logging
 import warnings
 from dataclasses import dataclass
 
 import numpy as np
 
-import imprint as ip
 from . import grid
 
-logger = ip.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(eq=False)
