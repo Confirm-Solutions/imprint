@@ -30,4 +30,5 @@ def configure_logging(is_testing=False):
         "%(message)s"
     )
     handler.setFormatter(formatter)
+    logging.getLogger().handlers.clear()
     logging.getLogger().addHandler(handler)
