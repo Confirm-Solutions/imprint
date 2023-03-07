@@ -1,77 +1,30 @@
-[tool.poetry]
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
 name = "imprint"
 version = "0.2.0"
 description = ""
+requires-python = ">=3.8"
+dependencies = [
+    "jax>=0.3.24",
+    "jaxlib>=0.3.24",
+    "matplotlib>=3.2.2",
+    "numpy>=1.21.6",
+    "pandas>=1.3.5",
+    "scipy>=1.7.3",
+    "sympy>=1.7.1",
+]
 authors = [
-    "Confirm Solutions <research@confirmsol.org>",
+    {name = "Confirm Solutions", email = "research@confirmsol.org"},
 ]
 
-[[tool.poetry.source]]
-name = "jax"
-url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
-default = false
-secondary = false
+[project.optional-dependencies]
+test = ["pytest>=1.2", "ipython>=8.8.0"]
 
-[tool.poetry.dependencies]
-python = ">=3.8.1,<3.11"
-numpy = "^1.24.2"
-scipy = "^1.10.1"
-sympy = "^1.11.1"
-matplotlib = "^3.7.0"
-pandas = "^1.5.3"
-jax = "^0.4.4"
-numpyro = "^0.11.0"
-tensorflow-probability = "^0.19.0"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.1"
-pre-commit = "^3.1.1"
-ipython = "^8.11.0"
-nbformat = "^5.7.3"
-
-[tool.poetry.group.test.dependencies.pytest-xdist]
-extras = [
-    "psutil",
-]
-version = "^3.2.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-line-profiler = "^3.5.1"
-jupytext = "^1.14.5"
-reorder-python-imports = "^3.9.0"
-flake8 = "^6.0.0"
-typer = "^0.7.0"
-jupyter = "^1.0.0"
-rich = "^13.3.1"
-ipdb = "^0.13.11"
-
-[tool.poetry.group.dev.dependencies.black]
-extras = [
-    "jupyter",
-]
-version = "^23.1.0"
-
-[tool.isort]
-profile = "black"
-
-[tool.pytest.ini_options]
-addopts = "-p imprint.testing --capture=no --show-capture=no --tb=short --strict-markers -Werror"
-testpaths = [
-    "tests",
-]
+[tool.setuptools.packages.find]
 
 [tool.jupytext]
 notebook_metadata_filter = "-all"
 cell_metadata_filter = "-all"
-
-[build-system]
-requires = [
-    "poetry-core>=1.0.0",
-]
-build-backend = "poetry.core.masonry.api"
