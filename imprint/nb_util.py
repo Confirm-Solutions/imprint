@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 from unittest import mock
 
-from imprint import configure_logging
 from imprint import package_settings
 
 
@@ -71,7 +70,6 @@ def setup_nb(text_size_ratio=1.0, pretty=True, autoreload=True):
     scale_text(factor=text_size_ratio)
 
     package_settings()
-    configure_logging()
 
 
 def scale_text(factor=1.0):

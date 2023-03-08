@@ -1,14 +1,23 @@
+import logging
+
 from imprint.log import configure_logging
 
+logger = logging.getLogger(__name__)
 
-def package_settings():
+
+def package_settings(should_configure_logging=True):
     import numpy as np
     import pandas as pd
     import jax.config
 
+    if should_configure_logging:
+        configure_logging()
+
     np.set_printoptions(edgeitems=10, linewidth=100)
     pd.set_option("display.max_columns", 100)
     pd.set_option("display.max_rows", 500)
+
+    logger.debug("Enabling 64-bit floats in JAX.")
     jax.config.update("jax_enable_x64", True)
 
 

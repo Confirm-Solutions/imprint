@@ -71,16 +71,19 @@ def _groupby_apply_K(df, f):
 
 
 def _check_stats(stats, K, theta):
-    if stats.shape[0] != theta.shape[0]:
-        raise ValueError(
-            f"sim_batch returned test statistics for {stats.shape[0]}"
-            f"tiles but {theta.shape[0]} tiles were expected."
-        )
-    if stats.shape[1] != K:
-        raise ValueError(
-            f"sim_batch returned test statistics for {stats.shape[1]} "
-            f"simulations but {K} simulations were expected."
-        )
+    try:
+        if stats.shape[0] != theta.shape[0]:
+            raise ValueError(
+                f"sim_batch returned test statistics for {stats.shape[0]}"
+                f"tiles but {theta.shape[0]} tiles were expected."
+            )
+        if stats.shape[1] != K:
+            raise ValueError(
+                f"sim_batch returned test statistics for {stats.shape[1]} "
+                f"simulations but {K} simulations were expected."
+            )
+    except IndexError:
+        raise ValueError("sim_batch returned malformed test statistics")
 
 
 class Driver:

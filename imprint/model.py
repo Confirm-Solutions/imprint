@@ -44,5 +44,9 @@ class Model(ABC):
             detailed: Whether to return extra information for each simulation.
                 This is currently unused but will be used in the future to provide
                 visibility inside a simulation. Defaults to False.
+
+        Returns:
+            stats: The test statistic for each simulation.
+                Shape is (n_tiles, end_sim - begin_sim).
         """
         pass

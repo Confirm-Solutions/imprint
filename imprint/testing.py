@@ -42,6 +42,7 @@ are using the `TextSerializer`. This is the default. Pandas DataFrame objects
 are saved as csv and numpy arrays are saved as txt files.
 """
 import glob
+import logging
 import os
 import pickle
 from pathlib import Path
@@ -55,18 +56,25 @@ import pytest
 from imprint import configure_logging
 from imprint import package_settings
 
+logger = logging.getLogger(__name__)
+
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: mark test as slow to run")
 
+    package_settings(should_configure_logging=False)
     configure_logging(is_testing=True)
     try:
         import dotenv
 
-        dotenv.load_dotenv()
+        env_file = None
+        env = dotenv.dotenv_values(env_file)
+        logger.debug(
+            "Environment variables loaded from %s: %s", env_file, list(env.keys())
+        )
+        dotenv.load_dotenv(env_file)
     except ImportError:
         pass
-    package_settings()
 
 
 def pytest_collection_modifyitems(config, items):
@@ -131,7 +139,7 @@ class TextSerializer:
             # in all our dataframes, the index is meaningless, so we do not
             # save it here.
             obj.to_csv(filebase + ".csv")
-        elif isinstance(obj, np.ndarray) or isinstance(obj, jax.numpy.DeviceArray):
+        elif isinstance(obj, np.ndarray) or isinstance(obj, jax.Array):
             np.savetxt(filebase + ".txt", obj)
         elif np.isscalar(obj):
             np.savetxt(filebase + ".txt", np.array([obj]))
@@ -145,7 +153,7 @@ class TextSerializer:
     def deserialize(filebase, obj):
         if isinstance(obj, pd.DataFrame):
             return pd.read_csv(path_and_check(filebase, "csv"), index_col=0)
-        elif isinstance(obj, np.ndarray) or isinstance(obj, jax.numpy.DeviceArray):
+        elif isinstance(obj, np.ndarray) or isinstance(obj, jax.Array):
             return np.loadtxt(path_and_check(filebase, "txt"))
         elif np.isscalar(obj):
             return np.loadtxt(path_and_check(filebase, "txt"))
