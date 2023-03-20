@@ -216,7 +216,6 @@ class SnapshotAssertion:
         # We provide the serializer with a filename without an extension. The
         # serializer can choose what extension to use.
         filebase = self._get_filebase()
-        self.calls += 1
         if self.update_snapshots:
             filebase.parent.mkdir(exist_ok=True)
             str_filebase = str(filebase)
@@ -226,7 +225,9 @@ class SnapshotAssertion:
             for f in delete_files:
                 os.remove(f)
             serializer.serialize(str_filebase, obj)
-        return serializer.deserialize(str(filebase), obj)
+        out = serializer.deserialize(str(filebase), obj)
+        self.calls += 1
+        return out
 
 
 @pytest.fixture

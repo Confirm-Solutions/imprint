@@ -662,10 +662,10 @@ def _gen_short_uuids_one_batch(n, worker_id, t):
         + (np.uint64(worker_id) << np.uint64(n_bits))
         + np.arange(n, dtype=np.uint64)
     )
-    logger.debug(
-        f"_gen_short_uuids(n={n}, worker_id={worker_id}, t={t}, n_bits={n_bits},"
-        f" worker_bits={worker_bits}) = [{str(out[:3])[1:-1]}, ...]:"
-    )
+    # logger.debug(
+    #     f"_gen_short_uuids(n={n}, worker_id={worker_id}, t={t}, n_bits={n_bits},"
+    #     f" worker_bits={worker_bits}) = [{str(out[:3])[1:-1]}, ...]:"
+    # )
     return out
 
 

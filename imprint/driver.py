@@ -47,12 +47,12 @@ def clopper_pearson(tie_sum, K, delta):
 
 
 def calc_calibration_threshold(sorted_stats, sorted_order, alpha):
-    idx = _calibration_index(sorted_stats.shape[0], alpha)
+    idx = calibration_index(sorted_stats.shape[0], alpha)
     # indexing a sorted array with sorted indices results in a sorted array!!
     return sorted_stats[sorted_order[idx]]
 
 
-def _calibration_index(K, alpha):
+def calibration_index(K, alpha):
     return jnp.maximum(jnp.floor((K + 1) * jnp.maximum(alpha, 0)).astype(int) - 1, 0)
 
 
@@ -87,9 +87,8 @@ def _check_stats(stats, K, theta):
 
 
 class Driver:
-    def __init__(self, model, *, tile_batch_size):
+    def __init__(self, model):
         self.model = model
-        self.tile_batch_size = tile_batch_size
         self.forward_boundv, self.backward_boundv = get_bound(
             model.family, model.family_params if hasattr(model, "family_params") else {}
         )
@@ -113,7 +112,7 @@ class Driver:
 
         return _groupby_apply_K(df, f)
 
-    def validate(self, df, lam, *, delta=0.01):
+    def validate(self, df, lam, delta, tile_batch_size):
         def _batched(K, theta, vertices, null_truth):
             stats = self.model.sim_batch(0, K, theta.copy(), null_truth.copy())
             _check_stats(stats, K, theta)
@@ -129,7 +128,7 @@ class Driver:
 
             tie_sum, tie_est, tie_cp_bound, tie_bound = batching.batch(
                 _batched,
-                self.tile_batch_size,
+                tile_batch_size,
                 in_axes=(None, 0, 0, 0),
             )(K, theta, vertices, K_g.get_null_truth())
 
@@ -147,7 +146,7 @@ class Driver:
         out["K"] = df["K"]
         return out
 
-    def calibrate(self, df, alpha):
+    def calibrate(self, df, alpha, tile_batch_size):
         def _batched(K, theta, vertices, null_truth):
             stats = self.model.sim_batch(0, K, theta, null_truth)
             _check_stats(stats, K, theta)
@@ -163,7 +162,7 @@ class Driver:
             theta, vertices = K_g.get_theta_and_vertices()
             lams, alpha0 = batching.batch(
                 _batched,
-                self.tile_batch_size,
+                tile_batch_size,
                 in_axes=(None, 0, 0, 0),
             )(K, theta, vertices, K_g.get_null_truth())
             out = pd.DataFrame(index=K_df.index)
@@ -172,7 +171,7 @@ class Driver:
             return out
 
         out = _groupby_apply_K(df, f)
-        out["idx"] = _calibration_index(df["K"].to_numpy(), out["alpha0"].to_numpy())
+        out["idx"] = calibration_index(df["K"].to_numpy(), out["alpha0"].to_numpy())
         out["K"] = df["K"]
         return out
 
@@ -248,8 +247,8 @@ def validate(
         - tie_bound: The bound on the Type I error over the whole tile.
     """
     model, g = _setup(model_type, g, model_seed, K, model_kwargs)
-    driver = Driver(model, tile_batch_size=tile_batch_size)
-    rej_df = driver.validate(g.df, lam, delta=delta)
+    driver = Driver(model)
+    rej_df = driver.validate(g.df, lam, delta=delta, tile_batch_size=tile_batch_size)
     return rej_df
 
 
@@ -283,6 +282,6 @@ def calibrate(
         column, which contains lambda* for each tile.
     """
     model, g = _setup(model_type, g, model_seed, K, model_kwargs)
-    driver = Driver(model, tile_batch_size=tile_batch_size)
-    calibrate_df = driver.calibrate(g.df, alpha)
+    driver = Driver(model)
+    calibrate_df = driver.calibrate(g.df, alpha, tile_batch_size=tile_batch_size)
     return calibrate_df

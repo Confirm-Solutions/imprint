@@ -30,7 +30,7 @@ def test_ztest_validate(snapshot):
     # since forward(tie_cp_bound) == tie_bound, then
     # backward(tie_bound) == tie_cp_bound
     # check this!
-    d = ip.driver.Driver(ZTest1D(0, K), tile_batch_size=1)
+    d = ip.driver.Driver(ZTest1D(0, K))
     theta, vertices = g.get_theta_and_vertices()
     f0 = d.backward_boundv(val_df["tie_bound"].to_numpy(), theta, vertices)
     np.testing.assert_allclose(f0, val_df["tie_cp_bound"])
@@ -48,7 +48,7 @@ def test_ztest_calibrate(snapshot):
     # since backward(alpha) == alpha0, then forward(alpha0) == alpha
     # check this!
     theta, vertices = g.get_theta_and_vertices()
-    d = ip.driver.Driver(ZTest1D(0, K), tile_batch_size=1)
+    d = ip.driver.Driver(ZTest1D(0, K))
     alpha = d.forward_boundv(cal_df["alpha0"].to_numpy(), theta, vertices)
     np.testing.assert_allclose(alpha, 0.025)
 
