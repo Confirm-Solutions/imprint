@@ -39,12 +39,6 @@ class HyperPlane(grid.NullHypothesis):
                 f"HyperPlane has higher dimension (d={hp_dim})" f" than grid (d={d})."
             )
         elif d > hp_dim:
-            logger.debug(
-                "HyperPlane has dimension %s but grid"
-                " has dimension %s. Padding with zeros.",
-                hp_dim,
-                d,
-            )
             return np.pad(self.n, (0, d - hp_dim))
         else:
             return self.n
